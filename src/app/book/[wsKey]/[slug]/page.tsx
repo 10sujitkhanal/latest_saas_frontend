@@ -48,13 +48,17 @@ interface EventType {
 
 type View = 'loading' | 'pick' | 'confirm' | 'success' | 'error';
 
-// Plain fetch — no auth header needed, and we don't want the shared
+// Plain fetch -- no auth header needed, and we don't want the shared
 // axios client's 401-redirect interceptor running on this public page.
+//
+// API base resolution goes through the shared per-tenant resolver so
+// the public booking URL ``sujit.morefungi.com/book/<ws>/<slug>``
+// calls ``sujit.api.morefungi.com`` (per-tenant API host) instead of
+// the old hard-coded ``<hostname>:8000`` which only worked in dev.
+import { resolveApiV1Base } from '@/lib/apiBase';
+
 async function publicFetch(path: string, init?: RequestInit) {
-  const port = process.env.NEXT_PUBLIC_BACKEND_PORT || '8000';
-  const base = typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:${port}/api/v1`
-    : `http://localhost:${port}/api/v1`;
+  const base = resolveApiV1Base();
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },

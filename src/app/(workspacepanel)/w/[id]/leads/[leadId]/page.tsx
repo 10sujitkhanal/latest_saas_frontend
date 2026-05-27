@@ -16,6 +16,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { useIsAdmin } from '@/hooks/usePermission';
 import { OrganizationService } from '@/services/organization.service';
+import { resolveApiV1Base } from '@/lib/apiBase';
 
 /**
  * Lead detail page — redesigned with side rail of tabs + main panel.
@@ -1835,10 +1836,9 @@ function InviteMeetingModal({
     if (!event || !date) { setSlots([]); return; }
     setSlotsLoading(true);
     setSlot(null);
-    const port = process.env.NEXT_PUBLIC_BACKEND_PORT || '8000';
-    const base = typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:${port}/api/v1`
-      : `http://localhost:${port}/api/v1`;
+    // Per-tenant API base -- prod uses ``<sub>.api.morefungi.com``,
+    // dev falls back to ``localhost:8000``. See lib/apiBase.ts.
+    const base = resolveApiV1Base();
     const path = event.booking_path || '';
     const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     fetch(`${base}/organization/public${path}/slots/?date=${iso}`)

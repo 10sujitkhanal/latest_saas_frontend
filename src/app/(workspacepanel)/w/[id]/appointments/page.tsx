@@ -14,6 +14,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import QuotaBadge from '@/components/QuotaBadge';
 import { OrganizationService } from '@/services/organization.service';
+import { resolveApiV1Base } from '@/lib/apiBase';
 
 /**
  * Appointments service — list / calendar / create flow with Google Meet
@@ -480,10 +481,10 @@ function CreateAppointmentModal({
     if (!event || !date) { setSlots([]); return; }
     setSlotsLoading(true);
     setSlot(null);
-    const port = process.env.NEXT_PUBLIC_BACKEND_PORT || '8000';
-    const base = typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:${port}/api/v1`
-      : `http://localhost:${port}/api/v1`;
+    // Use the per-tenant API resolver so prod (``<sub>.api.morefungi.com``)
+    // and dev (``localhost:8000``) both work without per-deploy code
+    // changes. See ``lib/apiBase.ts`` for the routing rules.
+    const base = resolveApiV1Base();
     const path = event.booking_path || '';
     const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     fetch(`${base}/organization/public${path}/slots/?date=${iso}`)
