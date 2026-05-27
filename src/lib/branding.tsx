@@ -34,15 +34,18 @@ const DEFAULT_BRANDING: BrandingData = {
 
 const BrandingContext = createContext<BrandingData>(DEFAULT_BRANDING);
 
-// Shared per-tenant API-base resolver — see ``lib/apiBase.ts`` for
-// the routing rules (``<sub>.morefungi.com`` -> ``<sub>.api.morefungi.com``).
-// Keeping the indirection so branding.tsx stays in lockstep with
-// axios.ts: any future change to the host pattern lands in one
-// place and propagates here automatically.
-import { resolveApiBase } from './apiBase';
+// Branding lookup is the one endpoint that MUST hit the apex API
+// (``api.morefungi.com``), not the per-tenant API
+// (``<tenant>.api.morefungi.com``). Reason: branding is what tells us
+// "this hostname belongs to tenant X" -- calling the per-tenant API
+// before we know which tenant we are is a chicken-and-egg. The apex
+// API runs in the public schema where the Domain → Tenant lookup
+// lives. Every OTHER service call uses ``resolveApiBase()`` which
+// IS per-tenant.
+import { resolveApexApiBase } from './apiBase';
 
 function getApiBase(): string {
-  return resolveApiBase();
+  return resolveApexApiBase();
 }
 
 function absoluteUrl(maybeRelative: string | null, apiBase: string): string | null {

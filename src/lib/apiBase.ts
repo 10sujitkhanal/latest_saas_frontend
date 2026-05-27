@@ -82,3 +82,32 @@ export function resolveApiBase(): string {
 export function resolveApiV1Base(): string {
   return `${resolveApiBase()}/api/v1`;
 }
+
+
+/**
+ * Always returns the APEX API host -- never the per-tenant one.
+ * Used for bootstrap endpoints like
+ * ``/api/v1/public/tenant/branding/`` which run BEFORE we know which
+ * tenant we are. Calling those on ``<tenant>.api.morefungi.com``
+ * creates a chicken-and-egg: django-tenants would route to the
+ * tenant schema for a lookup whose job is to figure out the tenant.
+ *
+ * Resolution order:
+ *   1. ``NEXT_PUBLIC_API_APEX``         (prod -- ``api.morefungi.com``)
+ *   2. ``NEXT_PUBLIC_API_BASE_URL``      (explicit override)
+ *   3. ``window.location.origin``        (last-resort, dev / preview)
+ *   4. ``http://localhost:8000``         (SSR fallback)
+ */
+export function resolveApexApiBase(): string {
+  if (API_APEX) {
+    const proto = typeof window !== 'undefined' && window.location.protocol === 'http:' ? 'http:' : 'https:';
+    return `${proto}//${API_APEX}`;
+  }
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:${DEV_BACKEND_PORT}`;
+  }
+  return `http://localhost:${DEV_BACKEND_PORT}`;
+}
