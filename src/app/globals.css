@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --background: #030712;
+  --foreground: #f8fafc;
+  /* Tells the browser to render native form controls (select dropdowns,
+     date pickers, scrollbars on Firefox, etc.) with their dark variant
+     so they match the rest of the UI instead of bursting into white. */
+  color-scheme: dark;
+}
+
+html, body {
+  color-scheme: dark;
+}
+
+/* Native <select> options can't be styled cross-browser via Tailwind
+   classes — set the option dropdown's background + text colour here so
+   they don't render as bright white on Chrome/Edge/Safari. */
+select option {
+  background-color: #0a1020;
+  color: #e2e8f0;
+}
+select option:checked {
+  background-color: #10b981;
+  color: #ffffff;
+}
+select option:hover {
+  background-color: #1f2937;
+}
+/* Dark theme for date/time pickers when they pop up from input fields. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'],
+input[type='month'],
+input[type='week'] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+@keyframes fade-in-up {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  background-size: 2000px 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+
+/* Slim scrollbars in panels */
+.panel-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+.panel-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
