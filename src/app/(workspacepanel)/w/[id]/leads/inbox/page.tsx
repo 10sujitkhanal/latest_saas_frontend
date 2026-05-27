@@ -121,10 +121,13 @@ const FILTER_CHIPS: { value: Filter; label: string; Icon: React.ComponentType<{ 
 // ``_expand_kind_family``; the per-kind values filter to one provider.
 const CHANNEL_CHIPS: { value: string; label: string; Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string }[] = [
   { value: '',            label: 'All channels',    Icon: InboxIcon,      color: '#94a3b8' },
-  { value: 'facebook',    label: 'Facebook',        Icon: ThumbsUp,       color: '#1877f2' },
+  // ``facebook`` is the single Page + Messenger connection now.
+  // The standalone ``messenger`` filter was removed -- the family
+  // expansion (``_expand_kind_family``) still maps ``messenger`` ->
+  // facebook family, so any legacy Channel rows still surface here.
+  { value: 'facebook',    label: 'Facebook + Messenger', Icon: ThumbsUp,  color: '#1877f2' },
   { value: 'instagram',   label: 'Instagram',       Icon: Camera,         color: '#e1306c' },
   { value: 'whatsapp',    label: 'WhatsApp',        Icon: MessageCircle,  color: '#25d366' },
-  { value: 'messenger',   label: 'Messenger',       Icon: MessageSquare,  color: '#0084ff' },
   { value: 'linkedin',    label: 'LinkedIn',        Icon: Briefcase,      color: '#0a66c2' },
   // Email family -- platform supports SMTP/IMAP + SendGrid only.
   // Mailgun / Postmark / AWS SES were removed from the catalog; if
