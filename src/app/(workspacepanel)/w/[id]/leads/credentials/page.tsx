@@ -671,10 +671,12 @@ function ConnectWizard({
     OrganizationService.googleOAuthStatus().then((res) => {
       if (res?.success) {
         setOauthStatus(res.data);
-        // If the server isn't configured, default the guide to the
-        // Admin tab so the right person sees the right instructions.
+        // Auto-open the setup guide when the server isn't configured
+        // so the tenant sees the "If the button is greyed out" hint
+        // without having to click the toggle. The System admin tab
+        // was removed -- a misconfigured server now surfaces in the
+        // Connect Now button's disabled state + the inline warning.
         if (!res.data.configured) {
-          setGuideTab('admin');
           setGuideOpen(true);
         }
       }
@@ -1177,20 +1179,18 @@ function SetupGuide({
 
       {open && (
         <div className="border-t border-white/5">
-          {/* Tab bar */}
-          <div className="flex items-stretch border-b border-white/5">
-            <GuideTab active={tab === 'tenant'} onClick={() => setTab('tenant')}>
-              <Icons.User className="w-3.5 h-3.5" /> Tenant user
-            </GuideTab>
-            <GuideTab active={tab === 'admin'} onClick={() => setTab('admin')}>
-              <Icons.Shield className="w-3.5 h-3.5" /> System admin
-              {status && !status.configured && (
-                <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-[10px] font-bold text-amber-950">!</span>
-              )}
-            </GuideTab>
-          </div>
+          {/* System admin tab removed -- platform admins register a
+              single redirect URI in Google Console once at deploy
+              time (see backend/.env.production
+              ``GOOGLE_OAUTH_REDIRECT_URI``) and never touch it again.
+              Tenant users do nothing but click Connect Now. */}
 
-          {tab === 'tenant' ? (
+          {/* Single panel -- tenant-user content only. The conditional
+              was kept here as ``{true && (...)}`` so the surrounding
+              JSX shape (the outer ``{open && (...)}`` block and the
+              closing ``)`` further down) stays identical to the
+              previous ternary version. */}
+          {true && (
             <div className="p-4 space-y-3 text-[12.5px] text-slate-300">
               <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3">
                 <div className="text-[11px] uppercase tracking-wider font-bold text-emerald-300 mb-1.5 inline-flex items-center gap-1.5">
@@ -1220,319 +1220,9 @@ function SetupGuide({
                 Every booked appointment from now on gets a Google Meet link attached.
               </GuideStep>
               <div className="rounded-lg border border-slate-500/20 bg-white/[0.02] p-3 text-[11px] text-slate-400">
-                <strong className="text-slate-200">If the button is greyed out</strong> with a "not configured" warning, your
-                platform admin still needs to finish the one-time setup. Switch to the <strong>System admin</strong> tab and
-                send them those instructions, or paste credentials manually using the fields below.
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 space-y-4 text-[12.5px] text-slate-300">
-              <p className="text-slate-200">
-                One-time setup on the platform side. After this, every tenant user can self-serve with the blue
-                Connect Now button — no developer involvement per workspace.
-              </p>
-
-              <div>
-                <div className="text-[10px] uppercase tracking-wider font-bold text-violet-300 mb-2">
-                  Step 1 — Google Cloud Console
-                </div>
-                <ol className="ml-4 list-decimal space-y-1.5 marker:text-slate-500">
-                  <li>
-                    Open <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer noopener"
-                            className="text-blue-300 hover:underline">console.cloud.google.com</a> and create (or pick) a project.
-                  </li>
-                  <li>
-                    <strong>APIs &amp; Services → Library</strong> — enable <em>Google Calendar API</em>.
-                  </li>
-                  <li>
-                    <strong>APIs &amp; Services → OAuth consent screen</strong> — choose <em>External</em>, fill in app
-                    name + support email, and add the scopes:
-                    <ul className="mt-1 ml-3 list-disc text-[11px] text-slate-400 space-y-0.5 marker:text-slate-600">
-                      {(status?.auth_scopes || [
-                        'https://www.googleapis.com/auth/calendar',
-                        'https://www.googleapis.com/auth/calendar.events',
-                        'https://www.googleapis.com/auth/userinfo.email',
-                      ]).map((s) => <li key={s}><code className="text-slate-300">{s}</code></li>)}
-                    </ul>
-                  </li>
-                  <li>
-                    <strong>APIs &amp; Services → Credentials</strong> — create an <em>OAuth client ID</em> of type
-                    <em> Web application</em>.
-                  </li>
-                  <li>
-                    <strong>Two fields, two values</strong> — Google's form has
-                    <em> Authorized JavaScript origins</em> AND <em>Authorized redirect URIs</em>.
-                    Both are required and they take <strong>different</strong> values. Paste each into the
-                    matching box (and add an entry per tenant subdomain / production hostname):
-
-                    {/* JavaScript origins */}
-                    <div className="mt-2">
-                      <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">
-                        Authorized JavaScript origins <span className="text-slate-500">(origin only — no path, no trailing slash)</span>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-lg bg-black/40 border border-white/10 p-2">
-                        <code className="flex-1 text-[11px] text-cyan-300 break-all">
-                          {status?.js_origin || 'http://<host>'}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => copyValue(status?.js_origin, 'JS origin')}
-                          className="px-2 py-1 rounded-md text-[10px] font-semibold bg-white/[0.06] text-slate-200 hover:bg-white/[0.1] inline-flex items-center gap-1"
-                        >
-                          <Icons.Copy className="w-3 h-3" /> Copy
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Redirect URIs */}
-                    <div className="mt-3">
-                      <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">
-                        Authorized redirect URIs <span className="text-slate-500">(full callback URL with path and trailing slash)</span>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-lg bg-black/40 border border-white/10 p-2">
-                        <code className="flex-1 text-[11px] text-emerald-300 break-all">
-                          {status?.redirect_uri || 'http://<host>/api/v1/organization/leads/oauth/google/callback/'}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => copyValue(status?.redirect_uri, 'Redirect URI')}
-                          className="px-2 py-1 rounded-md text-[10px] font-semibold bg-white/[0.06] text-slate-200 hover:bg-white/[0.1] inline-flex items-center gap-1"
-                        >
-                          <Icons.Copy className="w-3 h-3" /> Copy
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 text-[10.5px] text-amber-300/90 inline-flex items-start gap-1.5">
-                      <Icons.AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-                      <span>
-                        Don&apos;t paste the long callback URL into <em>JavaScript origins</em> — Google rejects any
-                        value with a path there. The two boxes look similar but accept different formats.
-                      </span>
-                    </div>
-                  </li>
-                </ol>
-              </div>
-
-              <div>
-                <div className="text-[10px] uppercase tracking-wider font-bold text-violet-300 mb-2">
-                  Step 2 — Save your OAuth client id &amp; secret
-                </div>
-                <p className="mb-2 text-slate-300">
-                  Either paste them into the form below (saved instantly, no restart) <strong>or</strong> set them
-                  as env vars. Pick whichever suits your deployment — env vars are fine for 12-factor / docker-compose
-                  setups; the in-browser form is fine if you don&apos;t have shell access.
-                </p>
-
-                {/* Always-on in-browser form (visible to platform admins).
-                    DB row takes precedence over env so editing here
-                    immediately overrides any stale env value. */}
-                <PlatformOAuthForm status={status} onSaved={onConfigChanged} />
-
-                {/* Env-var alternative — kept for the people who prefer .env */}
-                <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.02]">
-                  <summary className="cursor-pointer px-3 py-2 text-[11.5px] text-slate-300 hover:bg-white/[0.02]">
-                    Alternative: set as env vars in <code className="text-slate-100">.env</code>
-                  </summary>
-                  <div className="px-3 pb-3">
-                    <pre className="rounded-lg bg-black/40 border border-white/10 p-3 text-[11px] text-emerald-200 overflow-x-auto">
-{`GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=...`}
-                    </pre>
-                    <div className="mt-2 text-[10.5px] text-slate-500">
-                      Restart Django after editing. Note: the in-browser values above win over env vars if both are set,
-                      so you can use this form to override the env temporarily without touching the file.
-                    </div>
-                  </div>
-                </details>
-
-                {/* Status strip — single source of truth across both paths */}
-                {status && (
-                  status.configured ? (
-                    <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-emerald-300">
-                      <Icons.CheckCircle2 className="w-3.5 h-3.5" />
-                      Credentials are loaded ({status.source === 'db' ? 'from in-browser form' : 'from env vars'})
-                      {status.client_id_preview && (
-                        <span className="text-slate-500"> — <code>{status.client_id_preview}</code></span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-amber-300">
-                      <Icons.AlertTriangle className="w-3.5 h-3.5" />
-                      Missing: <code className="px-1 rounded bg-black/40">{status.missing_env_var}</code>
-                    </div>
-                  )
-                )}
-              </div>
-
-              <div>
-                <div className="text-[10px] uppercase tracking-wider font-bold text-violet-300 mb-2">
-                  Step 3 — Verify
-                </div>
-                <p>
-                  Refresh this page. The <strong>Connect Now</strong> button at the top should be enabled and the
-                  "Server is configured" green check should appear. Tenants can now self-serve.
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-slate-500/20 bg-white/[0.02] p-3 text-[11px] text-slate-400">
-                <strong className="text-slate-200">Multi-tenant note:</strong> each tenant subdomain (e.g.
-                <code className="mx-1 text-slate-300">acme.merkoll.com</code>,
-                <code className="mx-1 text-slate-300">messi.localhost:8000</code>) needs its own redirect URI in the
-                Google Cloud Console — the OAuth callback returns to whichever subdomain initiated the flow.
-                Add one entry per host you'll use.
-              </div>
-
-              {/* Troubleshooting — anchored to the specific Google errors we
-                  see in practice. Keep this concrete; vague "check your
-                  config" advice never helps the next debugger. */}
-              <div>
-                <div className="text-[10px] uppercase tracking-wider font-bold text-rose-300 mb-2 mt-2 inline-flex items-center gap-1.5">
-                  <Icons.AlertTriangle className="w-3 h-3" />
-                  Troubleshooting — common Google errors
-                </div>
-
-                <Trouble
-                  title='"Access blocked: Authorisation error" — Error 400: invalid_request'
-                  causes={[
-                    <>
-                      <strong>Redirect URI mismatch (most common).</strong> The URI the app sent doesn't <em>exactly</em> match
-                      anything in your OAuth client's <em>Authorized redirect URIs</em>. It must match
-                      character-for-character — including scheme (<code>http</code>/<code>https</code>), host, port, path,
-                      and the trailing slash. Use the <strong>Copy</strong> button above to avoid typos.
-                    </>,
-                    <>
-                      <strong>OAuth consent screen not finished.</strong> Open Google Cloud Console →
-                      <em> APIs &amp; Services → OAuth consent screen</em>, complete every section, then click
-                      <strong> Save and Continue</strong> through to the end.
-                    </>,
-                    <>
-                      <strong>Wrong client type.</strong> Must be <em>Web application</em>. Desktop / Android / iOS / TV
-                      client types will reject this flow.
-                    </>,
-                    <>
-                      <strong>Calendar API not enabled.</strong> <em>APIs &amp; Services → Library → Google Calendar API → Enable</em>.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title={`"This app isn't verified" / "App is blocked"`}
-                  causes={[
-                    <>
-                      Your OAuth consent screen is in <strong>Testing</strong> mode, and the Google account you&apos;re
-                      signing in with isn&apos;t on the test users list.
-                      <span className="block mt-1">
-                        Fix: <em>OAuth consent screen → Test users → Add users</em>, then add every email that will connect
-                        from your team. Up to 100 test users while unverified.
-                      </span>
-                    </>,
-                    <>
-                      Or — when you&apos;re ready for everyone, hit <strong>Publish app</strong>. Google requires verification
-                      only when you use sensitive/restricted scopes and have more than 100 users; until then a yellow
-                      &quot;unverified&quot; interstitial is normal and users can click &quot;Advanced → Go to &lt;app&gt; (unsafe)&quot;.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title={`Pasted the callback URL into "JavaScript origins" by mistake`}
-                  causes={[
-                    <>
-                      Google&apos;s OAuth client form has <em>two</em> URL fields that look similar but accept different
-                      formats:
-                      <ul className="ml-4 mt-1 list-disc text-[11px] text-slate-400 space-y-0.5 marker:text-slate-600">
-                        <li>
-                          <strong className="text-cyan-300">Authorized JavaScript origins</strong> — only an origin
-                          (scheme + host + port). No path, no trailing slash.
-                          Example: <code className="text-cyan-300">{status?.js_origin || 'http://<host>'}</code>
-                        </li>
-                        <li>
-                          <strong className="text-emerald-300">Authorized redirect URIs</strong> — the full callback
-                          URL including <code>/api/v1/organization/leads/oauth/google/callback/</code>.
-                        </li>
-                      </ul>
-                    </>,
-                    <>
-                      If you pasted the long callback into <em>JavaScript origins</em>, Google rejects it with
-                      &quot;Invalid origin: URIs must not contain a path&quot;. Delete it from that box and put it in
-                      <em> Authorized redirect URIs</em> instead. Then add just the origin
-                      (<code className="text-cyan-300">{status?.js_origin || 'http://<host>'}</code>) into
-                      <em> JavaScript origins</em>.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title='"redirect_uri_mismatch"'
-                  causes={[
-                    <>
-                      Same as the first invalid_request bullet — paste the redirect URI from the green box above
-                      into Google Cloud Console exactly. Pay attention to:
-                      <ul className="ml-4 mt-1 list-disc text-[11px] text-slate-400 space-y-0.5 marker:text-slate-600">
-                        <li><code>http</code> vs <code>https</code></li>
-                        <li>port number (<code>:8000</code>, <code>:80</code>, none)</li>
-                        <li>subdomain (<code>messi.localhost</code> ≠ <code>localhost</code>)</li>
-                        <li>trailing slash (we use one)</li>
-                      </ul>
-                    </>,
-                    <>
-                      For each tenant subdomain you'll use, add a separate Authorized redirect URI entry. There's no
-                      wildcard support in Google Cloud Console.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title='"invalid_scope" or scope warning loop'
-                  causes={[
-                    <>
-                      Every scope you request at runtime must be listed on the consent screen. Go to
-                      <em> OAuth consent screen → Scopes → Add or Remove Scopes</em> and add:
-                      <ul className="ml-4 mt-1 list-disc text-[11px] text-emerald-300 space-y-0.5 marker:text-slate-600">
-                        {(status?.auth_scopes || []).map((s) => <li key={s}><code>{s}</code></li>)}
-                      </ul>
-                    </>,
-                    <>
-                      The <code>calendar</code> scopes are <strong>sensitive</strong> — they appear with a yellow lock
-                      icon. That's fine for Testing-mode use, and only triggers verification when you publish.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title='"access_denied" — user closed the consent screen'
-                  causes={[
-                    <>
-                      User clicked Cancel or closed the popup. Nothing is saved server-side; they can click
-                      <strong> Connect Now</strong> again and approve.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title='Popup never closes / "Token exchange failed"'
-                  causes={[
-                    <>
-                      Network egress from your server to <code>oauth2.googleapis.com</code> is blocked. Check firewall /
-                      proxy rules — the backend needs outbound HTTPS to Google.
-                    </>,
-                    <>
-                      Or the OAuth client secret is wrong / the OAuth client was deleted. Regenerate
-                      <code className="mx-1">GOOGLE_CLIENT_SECRET</code> from Google Cloud Console and restart Django.
-                    </>,
-                  ]}
-                />
-
-                <Trouble
-                  title='"Your sign-in attempt expired"'
-                  causes={[
-                    <>
-                      The popup took longer than 10 minutes to complete. Just click <strong>Connect Now</strong>
-                      again — the state token has a fresh 10-minute window every time.
-                    </>,
-                  ]}
-                />
+                <strong className="text-slate-200">If the button is greyed out</strong>, contact your platform admin --
+                Google OAuth client credentials still need to be configured on the server side (one-time, for the whole
+                platform). Tenants don't have to do anything else themselves.
               </div>
             </div>
           )}

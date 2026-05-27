@@ -126,15 +126,12 @@ const CHANNEL_CHIPS: { value: string; label: string; Icon: React.ComponentType<{
   { value: 'whatsapp',    label: 'WhatsApp',        Icon: MessageCircle,  color: '#25d366' },
   { value: 'messenger',   label: 'Messenger',       Icon: MessageSquare,  color: '#0084ff' },
   { value: 'linkedin',    label: 'LinkedIn',        Icon: Briefcase,      color: '#0a66c2' },
-  // Email family — generic SMTP/IMAP plus the dispatcher-aware
-  // provider variants. Filtering by ``email`` expands via
-  // ``_expand_kind_family`` to catch every provider; the per-kind
-  // values scope to one ESP at a time.
-  { value: 'email',       label: 'Email',           Icon: Mail,           color: '#3b82f6' },
+  // Email family -- platform supports SMTP/IMAP + SendGrid only.
+  // Mailgun / Postmark / AWS SES were removed from the catalog; if
+  // any legacy Channel row exists on those kinds, filtering by
+  // ``email`` still catches them via the kind-family expansion.
+  { value: 'email',       label: 'Email (SMTP/IMAP)', Icon: Mail,         color: '#3b82f6' },
   { value: 'sendgrid',    label: 'SendGrid (email)', Icon: Mail,          color: '#1a82e2' },
-  { value: 'mailgun',     label: 'Mailgun (email)',  Icon: Mail,          color: '#f06b66' },
-  { value: 'postmark',    label: 'Postmark (email)', Icon: Mail,          color: '#ffde00' },
-  { value: 'aws_ses',     label: 'AWS SES (email)',  Icon: Mail,          color: '#ff9900' },
   { value: 'webchat',     label: 'Website chat',    Icon: MessageSquare,  color: '#10b981' },
   { value: 'webform',     label: 'Website form',    Icon: Globe,          color: '#10b981' },
   { value: 'tiktok',      label: 'TikTok',          Icon: Video,          color: '#ff0050' },

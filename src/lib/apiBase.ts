@@ -28,6 +28,33 @@ const API_APEX      = (process.env.NEXT_PUBLIC_API_APEX || '').toLowerCase();
 const DEV_BACKEND_PORT = process.env.NEXT_PUBLIC_BACKEND_PORT || '8000';
 
 /**
+ * Defensive fallback when the env vars aren't set on the deployed
+ * build (common after a fresh Vercel deploy where you forgot to add
+ * NEXT_PUBLIC_FRONTEND_APEX / NEXT_PUBLIC_API_APEX). Infers the
+ * apex domain from the browser's current hostname by assuming a
+ * standard 2-label TLD (``.com``, ``.io``, ``.app``, ``.ai``, etc.).
+ *
+ *   morefungi.com       -> apex: morefungi.com
+ *   acme.morefungi.com  -> apex: morefungi.com
+ *   foo.bar.example.io  -> apex: example.io
+ *
+ * Returns ``null`` for localhost / IP-address / single-label hosts
+ * so the dev branch can take over. Doesn't handle ccTLDs like
+ * ``.co.uk`` -- set the env var explicitly for those.
+ */
+function inferApexFromHostname(hostname: string): string | null {
+  if (!hostname) return null;
+  if (hostname === 'localhost' || hostname.endsWith('.localhost')) return null;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return null;  // raw IP
+  const labels = hostname.split('.');
+  if (labels.length < 2) return null;
+  // Heuristic: take the last two labels as the apex. Good for every
+  // single-segment TLD; misses ``.co.uk`` / ``.com.au`` -- those need
+  // the env override.
+  return labels.slice(-2).join('.');
+}
+
+/**
  * Compute the absolute base URL of the API the current page should
  * talk to. Does NOT include the ``/api/v1`` path — callers append
  * whatever they need (some hit ``/api/v1``, some hit ``/admin/``).
@@ -37,30 +64,32 @@ const DEV_BACKEND_PORT = process.env.NEXT_PUBLIC_BACKEND_PORT || '8000';
  * (matters in Next.js client transitions / route changes).
  */
 export function resolveApiBase(): string {
-  if (typeof window !== 'undefined' && FRONTEND_APEX && API_APEX) {
+  if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
     const proto = window.location.protocol === 'http:' ? 'http:' : 'https:';
 
-    // Exact apex match → call the API apex.
-    if (host === FRONTEND_APEX) {
-      return `${proto}//${API_APEX}`;
-    }
-    // ``<sub>.<apex>`` → call ``<sub>.<api_apex>``.
-    if (host.endsWith(`.${FRONTEND_APEX}`)) {
-      const sub = host.slice(0, -FRONTEND_APEX.length - 1);
-      const tenant = sub.split('.')[0];
-      // Reserved subdomains -- these aren't tenant slugs, they're
-      // platform-level hosts (the agency portal, www redirect, the
-      // API itself). Route them to the API apex, not ``<sub>.api…``
-      // which doesn't exist as a tenant API.
-      const RESERVED = new Set(['agency', 'www', 'api', 'admin', 'static']);
-      if (RESERVED.has(tenant)) {
-        return `${proto}//${API_APEX}`;
+    // Resolution order for the frontend apex:
+    //   1. ``NEXT_PUBLIC_FRONTEND_APEX`` env (preferred -- set on Vercel)
+    //   2. Last two labels of the hostname (fallback for missing env)
+    const frontendApex = FRONTEND_APEX || inferApexFromHostname(host);
+    const apiApex      = API_APEX      || (frontendApex ? `api.${frontendApex}` : '');
+
+    if (frontendApex && apiApex) {
+      // Exact apex match → call the API apex.
+      if (host === frontendApex) {
+        return `${proto}//${apiApex}`;
       }
-      return `${proto}//${tenant}.${API_APEX}`;
+      // ``<sub>.<apex>`` → call ``<sub>.<api_apex>``.
+      if (host.endsWith(`.${frontendApex}`)) {
+        const sub = host.slice(0, -frontendApex.length - 1);
+        const tenant = sub.split('.')[0];
+        const RESERVED = new Set(['agency', 'www', 'api', 'admin', 'static']);
+        if (RESERVED.has(tenant)) {
+          return `${proto}//${apiApex}`;
+        }
+        return `${proto}//${tenant}.${apiApex}`;
+      }
     }
-    // Falls through — e.g. preview deploy, localhost-tunnel, custom
-    // domain — handled by the env override below.
   }
 
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
@@ -99,9 +128,23 @@ export function resolveApiV1Base(): string {
  *   4. ``http://localhost:8000``         (SSR fallback)
  */
 export function resolveApexApiBase(): string {
-  if (API_APEX) {
-    const proto = typeof window !== 'undefined' && window.location.protocol === 'http:' ? 'http:' : 'https:';
-    return `${proto}//${API_APEX}`;
+  if (typeof window !== 'undefined') {
+    const proto = window.location.protocol === 'http:' ? 'http:' : 'https:';
+    const host = window.location.hostname.toLowerCase();
+    // Resolution order:
+    //   1. ``NEXT_PUBLIC_API_APEX`` env (preferred -- set on Vercel)
+    //   2. Derived from ``NEXT_PUBLIC_FRONTEND_APEX`` env
+    //   3. Inferred from current hostname's last two labels
+    //      (fallback when both env vars are missing on the deploy)
+    const apiApex =
+      API_APEX
+      || (FRONTEND_APEX ? `api.${FRONTEND_APEX}` : '')
+      || (() => {
+        const apex = inferApexFromHostname(host);
+        return apex ? `api.${apex}` : '';
+      })();
+
+    if (apiApex) return `${proto}//${apiApex}`;
   }
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
     return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '');
