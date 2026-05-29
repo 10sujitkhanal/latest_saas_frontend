@@ -552,10 +552,18 @@ export const OrganizationService = {
       const fd = new FormData();
       fd.append('body', body);
       for (const f of attachments) fd.append('attachments', f);
+      // DO NOT set Content-Type manually here. Axios (and the browser)
+      // auto-generate the correct ``multipart/form-data; boundary=...``
+      // header when the body is a FormData instance. Setting it to a
+      // bare ``multipart/form-data`` without the boundary parameter
+      // makes Django's MultiPartParser fail to find part separators --
+      // ``request.FILES`` ends up empty, the file never reaches the
+      // backend, and the outbound bubble appears empty with nothing
+      // delivered to Facebook. This is THE root cause of the "send
+      // image but user receives nothing" bug.
       const { data } = await apiClient.post(
         `/organization/leads/inbox/${id}/reply/`,
         fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
       );
       return data;
     }
