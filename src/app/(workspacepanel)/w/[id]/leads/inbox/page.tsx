@@ -1042,11 +1042,24 @@ function InboxInner() {
                         }`}
                         title={new Date(m.created_at).toLocaleString()}
                       >
-                        {m.body && (
-                          <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                        )}
+                        {(() => {
+                          // Suppress "[image]" / "[video]" / etc.
+                          // placeholder TEXT when the bubble also has
+                          // real attachments. Old messages were saved
+                          // with the placeholder in ``body`` and we
+                          // don't want the duplicate label above the
+                          // photo. Matches a single ``[type]`` tag or
+                          // the legacy ``[N attachments: ...]`` form.
+                          const body = (m.body || '').trim();
+                          const isPlaceholderOnly = atts.length > 0 &&
+                            /^\[(image|video|audio|file|attachment|location|\d+\s+attachments?[^\]]*)\]$/i.test(body);
+                          const showBody = body && !isPlaceholderOnly;
+                          return showBody ? (
+                            <p className="whitespace-pre-wrap break-words">{body}</p>
+                          ) : null;
+                        })()}
                         {atts.length > 0 && (
-                          <div className={`${m.body ? 'mt-2' : ''} flex flex-col gap-2`}>
+                          <div className={`${m.body && !/^\[(image|video|audio|file|attachment|location|\d+\s+attachments?[^\]]*)\]$/i.test((m.body || '').trim()) ? 'mt-2' : ''} flex flex-col gap-2`}>
                             {atts.map((a, i) => <AttachmentBubble key={i} att={a} outbound={out} />)}
                           </div>
                         )}
