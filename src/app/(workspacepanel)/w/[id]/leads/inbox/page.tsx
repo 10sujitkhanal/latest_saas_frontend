@@ -267,6 +267,71 @@ function InboxInner() {
     setChannel(channelFromUrl);
   }, [channelFromUrl]);
 
+  // ── Auto-scroll to bottom ────────────────────────────────────────
+  // Messenger / WhatsApp-style behaviour:
+  //   1. Opening a chat → jump straight to the newest message.
+  //   2. New inbound message → scroll only if the user was already
+  //      near the bottom (don't yank scroll if they're reading older
+  //      history). Same threshold the older-loader uses: 64 px.
+  //   3. User sends a message → always scroll to bottom (their own
+  //      reply must be visible).
+  // Tracking is done off ``messages.length`` so older-message prepends
+  // (which DON'T change the last id) are ignored -- the older-message
+  // sentinel handles its own scroll-position restore.
+  const lastMessageIdRef = useRef<number>(0);
+  const openedConvIdRef = useRef<number | null>(null);
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    // Use rAF so the scroll happens AFTER the new bubble has been
+    // committed to the DOM and the container's scrollHeight reflects
+    // it. A bare ``el.scrollTop = el.scrollHeight`` synchronously
+    // sometimes runs before the next paint and lands one bubble short.
+    requestAnimationFrame(() => {
+      try { el.scrollTo({ top: el.scrollHeight, behavior }); } catch {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!detail) {
+      openedConvIdRef.current = null;
+      lastMessageIdRef.current = 0;
+      return;
+    }
+    const msgs = detail.messages;
+    const newestId = msgs.length ? msgs[msgs.length - 1].id : 0;
+    const newestMsg = msgs.length ? msgs[msgs.length - 1] : null;
+
+    // Case 1: chat just opened (different conversation than before).
+    // Jump to bottom immediately, no animation.
+    if (openedConvIdRef.current !== detail.id) {
+      openedConvIdRef.current = detail.id;
+      lastMessageIdRef.current = newestId;
+      scrollToBottom('auto');
+      return;
+    }
+
+    // Same conversation, no new tail message → ignore (older prepends
+    // / metadata-only updates).
+    if (newestId === lastMessageIdRef.current) return;
+
+    // Decide whether to follow the new message. The user is at the
+    // bottom if scrollTop + clientHeight is within 64 px of scrollHeight.
+    const el = messagesScrollRef.current;
+    let nearBottom = true;
+    if (el) {
+      const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
+      nearBottom = gap < 64;
+    }
+    const sentByMe = newestMsg && newestMsg.direction === 'out';
+    if (nearBottom || sentByMe) {
+      scrollToBottom('smooth');
+    }
+    lastMessageIdRef.current = newestId;
+  }, [detail, scrollToBottom]);
+
   // Push the local channel choice back to the URL so refreshes / shares work.
   const pickChannel = (next: string) => {
     setChannel(next);
