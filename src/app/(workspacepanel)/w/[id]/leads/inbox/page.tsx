@@ -9,6 +9,7 @@ import {
   Mail, MessageCircle, Phone, Video, Camera, Briefcase, ThumbsUp,
   Globe, Plug, Search as SearchIcon, Rocket, Tag, QrCode, CalendarDays,
   ChevronDown, Paperclip, FileText, X as XIcon, RefreshCw,
+  Trash2,
 } from 'lucide-react';
 // (toast import intentionally removed — inbox page is now toast-free per user UX request)
 import { PageSkeleton } from '@/components/workspace/Skeleton';
@@ -524,6 +525,47 @@ function InboxInner() {
     if (res?.success) setDetail(res.data);
   };
 
+  // ── Conversation delete ─────────────────────────────────────────
+  // Removes the conversation + ALL its messages from our DB. Contact
+  // row is preserved. Confirmation via ``window.confirm`` since this
+  // is destructive and the user asked for "no toast clutter" in the
+  // inbox -- a native dialog is the lightest "are you sure?" we can
+  // ship without adding another modal component.
+  const deleteConversation = async (convId: number, label: string) => {
+    if (!window.confirm(
+      `Delete the entire conversation with ${label}?\n\nThis removes all messages from your inbox. The contact stays in your CRM and can message you again.`
+    )) return;
+    const res = await OrganizationService.inboxDeleteConversation(convId);
+    if (res?.success) {
+      // Drop the conversation from the list. If it was the open one,
+      // close the detail pane so the user isn't staring at a now-
+      // orphaned thread.
+      setConversations((cs) => cs.filter((c) => c.id !== convId));
+      if (openId === convId) {
+        setOpenId(null);
+        setDetail(null);
+      }
+    }
+  };
+
+  // ── Single-message delete ───────────────────────────────────────
+  // Local-only -- providers (Meta / Twilio / SMTP) have no recall API
+  // for already-delivered messages. This just makes the bubble
+  // disappear from our inbox so staff can clean up failed retries,
+  // test noise, accidental sends. Backend also bumps the conversation
+  // preview to the new last message.
+  const deleteMessage = async (messageId: number) => {
+    if (!window.confirm(
+      'Delete this message from the inbox?\n\nNote: this does NOT recall the message from the recipient. The other side has already received it (or will, if it was queued).'
+    )) return;
+    const res = await OrganizationService.deleteMessage(messageId);
+    if (res?.success) {
+      setDetail((d) => d
+        ? { ...d, messages: d.messages.filter((m) => m.id !== messageId) }
+        : d);
+    }
+  };
+
   // Per-message retry — fires when the user clicks the small ↻ button
   // under a failed bubble. The backend re-dispatches via the same
   // synchronous path the inbox reply uses; on success the bubble
@@ -849,7 +891,22 @@ function InboxInner() {
                 const active = openId === c.id;
                 const initial = (c.contact_name || '?')[0].toUpperCase();
                 return (
-                  <li key={c.id}>
+                  <li key={c.id} className="group relative">
+                    {/* Delete button -- only visible on row hover so it
+                        doesn't clutter the list. ``group-hover`` is
+                        scoped to the <li> above so a hover on any one
+                        row never reveals the other rows' buttons. */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteConversation(c.id, c.contact_name || 'this contact');
+                      }}
+                      className="absolute top-1/2 right-2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 hover:text-rose-100"
+                      title="Delete this conversation"
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => openConv(c.id)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
@@ -1033,7 +1090,21 @@ function InboxInner() {
                     : `rounded-2xl ${samePrev ? 'rounded-tl-md' : ''} ${sameNext ? 'rounded-bl-md' : ''}`;
                   const atts = (m.attachments || []) as MessageAttachment[];
                   return (
-                    <div key={m.id} className={`flex ${out ? 'justify-end' : 'justify-start'} ${samePrev ? 'mt-0.5' : 'mt-2'}`}>
+                    <div key={m.id} className={`group/msg flex items-center gap-2 ${out ? 'justify-end' : 'justify-start'} ${samePrev ? 'mt-0.5' : 'mt-2'}`}>
+                      {/* Per-bubble delete -- shows on hover. Left of
+                          outbound bubbles (which sit on the right edge)
+                          and right of inbound bubbles so the icon never
+                          covers the message text. */}
+                      {out && (
+                        <button
+                          onClick={() => deleteMessage(m.id)}
+                          className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
+                          title="Delete this message from the inbox"
+                          aria-label="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <div
                         className={`max-w-[70%] px-3.5 py-2 text-[14px] leading-snug ${corner} ${
                           out
@@ -1117,6 +1188,19 @@ function InboxInner() {
                           </div>
                         )}
                       </div>
+                      {/* Mirror of the outbound delete -- right of
+                          inbound bubbles (which sit on the left edge)
+                          so the icon never covers their text. */}
+                      {!out && (
+                        <button
+                          onClick={() => deleteMessage(m.id)}
+                          className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
+                          title="Delete this message from the inbox"
+                          aria-label="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                 })

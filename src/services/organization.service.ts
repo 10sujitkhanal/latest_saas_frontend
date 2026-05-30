@@ -589,6 +589,18 @@ export const OrganizationService = {
     const { data } = await apiClient.post(`/organization/leads/inbox/${id}/approve/`, { decision });
     return data;
   },
+  // Permanent delete of a conversation + all its messages. Does NOT
+  // delete the Contact; they may have other leads or message us again.
+  inboxDeleteConversation: async (id: number) => {
+    const { data } = await apiClient.delete(`/organization/leads/inbox/${id}/delete/`);
+    return data;
+  },
+  // Per-bubble delete. Local-only -- doesn't recall the message from
+  // Facebook / Twilio / etc. (no provider supports that anyway).
+  deleteMessage: async (id: number) => {
+    const { data } = await apiClient.delete(`/organization/leads/messages/${id}/delete/`);
+    return data;
+  },
   listContacts: async (opts?: { search?: string; vip?: boolean; limit?: number; offset?: number }) => {
     const { data } = await apiClient.get('/organization/leads/contacts/', {
       params: {
