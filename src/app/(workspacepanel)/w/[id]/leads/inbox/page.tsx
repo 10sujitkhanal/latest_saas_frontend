@@ -35,6 +35,7 @@ interface ConversationCard {
   channel_name: string;
   contact: number;
   contact_name: string;
+  contact_handle?: string;
   lead: number | null;
   lead_score: number;
   lead_temperature: string;
@@ -949,6 +950,17 @@ function InboxInner() {
                             </span>
                           )}
                         </div>
+                        {/* Handle subtitle -- shows the @username (or
+                            equivalent platform handle) under the
+                            display name when they differ. Skipped when
+                            the handle IS the name (e.g. only the
+                            username was available) so we don't repeat
+                            the same string twice. */}
+                        {c.contact_handle && c.contact_handle.replace(/^@/, '') !== (c.contact_name || '').replace(/^@/, '') && (
+                          <p className="text-[11px] text-slate-500 truncate -mt-0.5">
+                            {c.contact_handle}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 mt-0.5">
                           <p className={`text-[12px] truncate flex-1 ${c.is_unread ? 'text-white font-medium' : 'text-slate-400'}`}>
                             {c.last_message_preview || '—'}
@@ -1010,7 +1022,16 @@ function InboxInner() {
                 })()}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-[15px] font-bold text-white truncate">{detail.contact_name}</h2>
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <h2 className="text-[15px] font-bold text-white truncate">{detail.contact_name}</h2>
+                  {/* Inline platform handle next to the name -- "Sujit
+                      Khanal  @with_darknesss" -- so a rep can copy the
+                      handle without opening the contact page. Skipped
+                      when handle would duplicate the name. */}
+                  {detail.contact_handle && detail.contact_handle.replace(/^@/, '') !== (detail.contact_name || '').replace(/^@/, '') && (
+                    <span className="text-[12px] text-slate-400 truncate">{detail.contact_handle}</span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-500 truncate">
                   Active on {detail.channel_name}
                   {detail.lead_temperature && (
