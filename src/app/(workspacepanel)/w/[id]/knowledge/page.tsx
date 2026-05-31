@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { useCallback, useEffect, useRef, useState, use as reactUse } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   Plus, FileText, Globe, Type as TypeIcon, RefreshCw, Trash2, AlertTriangle,
   CheckCircle2, Brain, Sparkles, X, Database, ExternalLink, KeyRound,
+  FileUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
@@ -349,24 +350,87 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+type TrainMode = 'qa' | 'text' | 'file' | 'url';
+
+/**
+ * Redesigned training modal.
+ *
+ * Four modes laid out as big, equal-weight cards across the top so
+ * the user picks the SHAPE of their data first ("Q&A pair" /
+ * "Paste text" / "Upload file" / "Crawl URL") and the form below
+ * adapts. The previous design only exposed Paste text + Crawl URL,
+ * which forced users to encode FAQ pairs as freeform prose -- the
+ * RAG layer's worst-case input.
+ *
+ * The Q&A mode is FIRST because it's the single biggest accuracy
+ * lever: for greetings, fixed FAQs, and price questions, a hand-
+ * written Q&A pair beats embedding-fuzzy retrieval 100% of the time
+ * AND burns zero LLM tokens.
+ */
 function AddDocumentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [kind, setKind] = useState<'text' | 'url'>('text');
+  const [mode, setMode] = useState<TrainMode>('qa');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  // Q&A state -- list of {question patterns (newline-separated), answer}.
+  // Pre-seeded with one empty row so the form looks "lived in" and the
+  // user can start typing immediately without clicking Add.
+  type QAPair = { questions: string; answer: string };
+  const [qaPairs, setQaPairs] = useState<QAPair[]>([{ questions: '', answer: '' }]);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const addQA = () => setQaPairs((rows) => [...rows, { questions: '', answer: '' }]);
+  const updateQA = (i: number, patch: Partial<QAPair>) =>
+    setQaPairs((rows) => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  const removeQA = (i: number) =>
+    setQaPairs((rows) => rows.length === 1 ? [{ questions: '', answer: '' }] : rows.filter((_, idx) => idx !== i));
 
   const submit = async () => {
-    if (kind === 'text' && !content.trim()) { toast.error('Paste some content first.'); return; }
-    if (kind === 'url' && !url.trim()) { toast.error('Enter a URL.'); return; }
+    // ── Per-mode validation -- friendly messages instead of "missing field"
+    if (mode === 'qa') {
+      const valid = qaPairs.filter((r) => r.questions.trim() && r.answer.trim());
+      if (valid.length === 0) {
+        toast.error('Add at least one Q&A pair with a question AND an answer.');
+        return;
+      }
+    }
+    if (mode === 'text' && !content.trim()) { toast.error('Paste some content first.'); return; }
+    if (mode === 'url' && !url.trim())       { toast.error('Enter a URL.'); return; }
+    if (mode === 'file' && !file)            { toast.error('Pick a file to upload.'); return; }
+
     setSaving(true);
     try {
-      const res = await OrganizationService.kbCreateDocument({
-        kind,
-        title: title.trim() || undefined,
-        content: kind === 'text' ? content : undefined,
-        url: kind === 'url' ? url : undefined,
-      });
+      let res;
+      if (mode === 'qa') {
+        // Q&A pairs go to the bulk endpoint -- each row becomes one
+        // KnowledgeQA record. ``questions`` is split on newlines so
+        // the user can type alternative phrasings one per line:
+        //     hello
+        //     hi
+        //     good morning
+        // → all three trigger the same answer.
+        const pairs = qaPairs
+          .filter((r) => r.questions.trim() && r.answer.trim())
+          .map((r) => ({
+            questions: r.questions.split('\n').map((q) => q.trim()).filter(Boolean),
+            answer:    r.answer.trim(),
+            match_mode: 'contains' as const,
+          }));
+        res = await OrganizationService.kbCreateQAPairs(pairs);
+      } else if (mode === 'file' && file) {
+        res = await OrganizationService.kbUploadFile({
+          file, title: title.trim() || undefined,
+        });
+      } else {
+        res = await OrganizationService.kbCreateDocument({
+          kind: mode,
+          title: title.trim() || undefined,
+          content: mode === 'text' ? content : undefined,
+          url:     mode === 'url'  ? url     : undefined,
+        });
+      }
       if (res?.success) {
         toast.success(res.message || 'Trained.');
         onSaved();
@@ -379,15 +443,29 @@ function AddDocumentModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     } finally { setSaving(false); }
   };
 
+  // The four mode chips, in priority order. Q&A is intentionally first
+  // because it's the highest-accuracy path for FAQ-style questions.
+  const modes: { id: TrainMode; label: string; tagline: string; icon: typeof TypeIcon }[] = [
+    { id: 'qa',   label: 'Q&A pairs',  tagline: 'Greetings, FAQs, fixed replies',     icon: Sparkles },
+    { id: 'text', label: 'Paste text', tagline: 'Handbook, policies, brand voice',    icon: TypeIcon },
+    { id: 'file', label: 'Upload file', tagline: 'PDF, DOCX, TXT, Markdown',          icon: FileUp },
+    { id: 'url',  label: 'Crawl URL',  tagline: 'Public page or knowledge article',   icon: Globe },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0a1020]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-[#0a1020] my-8" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between px-6 py-5 border-b border-white/5">
-          <div>
-            <h2 className="text-xl font-bold text-white">Train AI on new data</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              The content is chunked, embedded, and stored in your workspace&apos;s vector index.
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-emerald-500/30 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-cyan-200" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Train your AI</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Pick the shape of your data — we&apos;ll handle the chunking, embedding, and retrieval.
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded hover:bg-white/[0.06] text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
@@ -395,89 +473,211 @@ function AddDocumentModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Kind selector */}
-          <div className="grid grid-cols-2 gap-3">
-            {(['text', 'url'] as const).map((k) => {
-              const active = kind === k;
-              const Icon = k === 'text' ? TypeIcon : Globe;
+          {/* ── Mode picker -- 4 equal-weight cards ─────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {modes.map((m) => {
+              const active = mode === m.id;
+              const Icon = m.icon;
               return (
                 <button
-                  key={k}
-                  onClick={() => setKind(k)}
-                  className={`rounded-xl border p-3 text-left transition-colors flex items-center gap-3 ${
-                    active ? 'border-cyan-500/60 bg-cyan-500/[0.08]' : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                  key={m.id}
+                  onClick={() => setMode(m.id)}
+                  className={`relative rounded-xl border p-3 text-left transition-all ${
+                    active
+                      ? 'border-cyan-500/70 bg-cyan-500/[0.10] shadow-[0_0_0_3px_rgba(34,211,238,0.10)]'
+                      : 'border-white/10 bg-white/[0.02] hover:border-white/25'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 ${active ? 'text-cyan-300' : 'text-slate-400'}`} />
-                  <div>
-                    <div className="text-sm font-semibold text-white">{k === 'text' ? 'Paste text' : 'Crawl URL'}</div>
-                    <div className="text-[11px] text-slate-400">
-                      {k === 'text' ? 'FAQs, brand voice, policies' : 'Public page or knowledge article'}
-                    </div>
-                  </div>
+                  <Icon className={`w-5 h-5 mb-2 ${active ? 'text-cyan-300' : 'text-slate-400'}`} />
+                  <div className="text-[13px] font-semibold text-white">{m.label}</div>
+                  <div className="text-[10.5px] text-slate-400 mt-0.5 leading-tight">{m.tagline}</div>
+                  {m.id === 'qa' && !active && (
+                    <span className="absolute top-2 right-2 text-[9px] font-bold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded-full">
+                      MOST ACCURATE
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Title */}
-          <div>
-            <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">
-              Title <span className="text-slate-500">(optional — auto-derived)</span>
+          {/* ── Mode-specific form body ─────────────────────────── */}
+          {mode === 'qa' && (
+            <div className="space-y-3">
+              <div className="rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 px-3 py-2.5 text-[12px] text-emerald-100/90 leading-relaxed">
+                <strong className="text-emerald-300">Tip:</strong> Type alternative phrasings one per line.
+                When ANY of them matches what the user typed, the answer fires instantly — no AI guessing.
+              </div>
+              {qaPairs.map((pair, i) => (
+                <div key={i} className="rounded-xl border border-white/10 bg-white/[0.015] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                      Pair {i + 1}
+                    </div>
+                    {qaPairs.length > 1 && (
+                      <button onClick={() => removeQA(i)} className="text-[11px] text-rose-300 hover:text-rose-200">
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">
+                      Questions (one per line)
+                    </div>
+                    <textarea
+                      value={pair.questions}
+                      onChange={(e) => updateQA(i, { questions: e.target.value })}
+                      rows={3}
+                      placeholder={'hello\nhi\nhey\ngood morning'}
+                      className="w-full rounded-lg bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">
+                      Answer
+                    </div>
+                    <textarea
+                      value={pair.answer}
+                      onChange={(e) => updateQA(i, { answer: e.target.value })}
+                      rows={2}
+                      placeholder="Hi there! 👋 How can I help you today?"
+                      className="w-full rounded-lg bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 resize-none"
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={addQA}
+                className="w-full rounded-lg border border-dashed border-white/15 hover:border-cyan-500/40 py-2.5 text-[12.5px] text-slate-400 hover:text-cyan-300 inline-flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add another Q&A pair
+              </button>
             </div>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Return policy, Q1 product launch FAQ"
-              className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
-            />
-          </div>
+          )}
 
-          {kind === 'text' ? (
-            <div>
-              <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Content</div>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={12}
-                placeholder="Paste anything — handbook, FAQ pairs, product specs, brand voice, sample replies."
-                className="w-full rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 resize-none font-mono leading-relaxed"
-              />
-              <div className="mt-1 text-[10.5px] text-slate-500">
-                {content.length.toLocaleString()} characters
+          {mode === 'text' && (
+            <>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">
+                  Title <span className="text-slate-500">(optional)</span>
+                </div>
+                <input
+                  value={title} onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Return policy, Q1 product launch FAQ"
+                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                />
               </div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">URL</div>
-              <input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://acme.com/faq"
-                className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
-              />
-              <div className="mt-1 text-[10.5px] text-slate-500">
-                We fetch the page, strip HTML, and embed the extracted text. Max 2 MB per page.
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Content</div>
+                <textarea
+                  value={content} onChange={(e) => setContent(e.target.value)}
+                  rows={12}
+                  placeholder="Paste anything — handbook, policies, product specs, brand voice."
+                  className="w-full rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 resize-none font-mono leading-relaxed"
+                />
+                <div className="mt-1 text-[10.5px] text-slate-500">
+                  {content.length.toLocaleString()} characters · we&apos;ll split into ~500-char chunks with overlap
+                </div>
               </div>
-            </div>
+            </>
+          )}
+
+          {mode === 'file' && (
+            <>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">
+                  Title <span className="text-slate-500">(optional — defaults to filename)</span>
+                </div>
+                <input
+                  value={title} onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. 2026 Pricing Sheet"
+                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                />
+              </div>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full rounded-xl border-2 border-dashed border-white/15 hover:border-cyan-500/50 bg-white/[0.01] py-10 text-center transition-colors"
+                >
+                  <FileUp className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                  {file ? (
+                    <>
+                      <div className="text-sm font-semibold text-white">{file.name}</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {(file.size / 1024).toFixed(1)} KB · click to change
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm font-semibold text-white">Click to upload a file</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">PDF · DOCX · TXT · MD · max 10 MB</div>
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+
+          {mode === 'url' && (
+            <>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">
+                  Title <span className="text-slate-500">(optional — auto-derived)</span>
+                </div>
+                <input
+                  value={title} onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. ACME Help Center"
+                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">URL</div>
+                <input
+                  value={url} onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://acme.com/faq"
+                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                />
+                <div className="mt-1 text-[10.5px] text-slate-500">
+                  We fetch the page, strip HTML, and embed the extracted text. Max 2 MB per page.
+                </div>
+              </div>
+            </>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/[0.04]">
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={saving}
-            className="px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {saving ? (
-              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Embedding…</>
-            ) : (
-              <><Plus className="w-4 h-4" /> Train</>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-white/5">
+          <div className="text-[11px] text-slate-500">
+            {mode === 'qa' && (
+              <>Direct match — instant reply, zero LLM tokens.</>
             )}
-          </button>
+            {mode !== 'qa' && (
+              <>Chunked + embedded into the vector index.</>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/[0.04]">
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              className="px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {saving ? (
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {mode === 'qa' ? 'Saving…' : 'Embedding…'}</>
+              ) : (
+                <><Plus className="w-4 h-4" /> {mode === 'qa' ? 'Save pairs' : 'Train'}</>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

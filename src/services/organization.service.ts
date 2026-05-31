@@ -451,6 +451,44 @@ export const OrganizationService = {
     const { data } = await apiClient.post('/organization/leads/knowledge/documents/', payload);
     return data;
   },
+  /**
+   * Bulk-create Q&A training pairs.
+   * Posts to the bulk endpoint so one round-trip persists many pairs
+   * at once. Each pair carries a list of equivalent question phrasings
+   * + a single answer + match mode.
+   */
+  kbCreateQAPairs: async (pairs: Array<{
+    questions: string[];
+    answer: string;
+    match_mode?: 'contains' | 'exact' | 'regex' | 'semantic';
+    priority?: number;
+  }>, kbId?: number) => {
+    // ``kbId`` is optional -- when omitted the backend falls back to
+    // the workspace's default KB (auto-created on first save).
+    const path = kbId
+      ? `/organization/leads/knowledge/bases/${kbId}/qa/bulk/`
+      : '/organization/leads/knowledge/qa/bulk/';
+    const { data } = await apiClient.post(path, { pairs });
+    return data;
+  },
+  /**
+   * Upload a PDF / DOCX / TXT / MD file for the chunker + embedder to
+   * process. Must be multipart -- explicitly clear the JSON default
+   * Content-Type header so axios lets the browser stamp the right
+   * ``multipart/form-data; boundary=…`` value (same fix we applied to
+   * the inbox attachments path).
+   */
+  kbUploadFile: async ({ file, title }: { file: File; title?: string }) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (title) fd.append('title', title);
+    const { data } = await apiClient.post(
+      '/organization/leads/knowledge/documents/upload/',
+      fd,
+      { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
   kbGetDocument: async (id: number) => {
     const { data } = await apiClient.get(`/organization/leads/knowledge/documents/${id}/`);
     return data;
