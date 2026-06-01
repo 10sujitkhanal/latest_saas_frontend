@@ -471,6 +471,50 @@ export const OrganizationService = {
     const { data } = await apiClient.post(path, { pairs });
     return data;
   },
+  // List all Q&A pairs scoped to one KB. Returns rows ordered by
+  // priority desc, id asc -- same order the chat engine matches in.
+  // Used by the doc detail page to show what's already trained as
+  // direct replies for THIS data.
+  kbListQAPairs: async (kbId: number) => {
+    const { data } = await apiClient.get(
+      `/organization/leads/knowledge/bases/${kbId}/qa/`,
+    );
+    return data;
+  },
+  // List every KnowledgeBase in this workspace -- one card per KB on
+  // the main /knowledge page so Q&A collections show up alongside
+  // trained documents.
+  kbListBases: async () => {
+    const { data } = await apiClient.get(
+      '/organization/leads/knowledge/bases/',
+    );
+    return data;
+  },
+  // Fetch a single KnowledgeBase row -- used by the doc detail page
+  // to read the currently-selected ``model`` so the LLM picker can
+  // highlight it as the active choice.
+  kbGetBase: async (kbId: number) => {
+    const { data } = await apiClient.get(
+      `/organization/leads/knowledge/bases/${kbId}/`,
+    );
+    return data;
+  },
+  // Patch a KnowledgeBase row (mainly ``model`` swaps from the detail
+  // page's LLM picker). Backend accepts any subset of the KB fields.
+  kbUpdateBase: async (kbId: number, patch: {
+    name?: string;
+    description?: string;
+    system_prompt?: string;
+    model?: string;
+    color?: string;
+    is_active?: boolean;
+  }) => {
+    const { data } = await apiClient.patch(
+      `/organization/leads/knowledge/bases/${kbId}/`,
+      patch,
+    );
+    return data;
+  },
   /**
    * Upload a PDF / DOCX / TXT / MD file for the chunker + embedder to
    * process. Must be multipart -- explicitly clear the JSON default

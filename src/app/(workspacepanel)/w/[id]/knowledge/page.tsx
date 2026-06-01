@@ -65,9 +65,28 @@ export default function KnowledgePage({ params }: { params: Promise<{ id: string
   );
 }
 
+type KBBase = {
+  id: number;
+  name: string;
+  description: string;
+  model: string;
+  color: string;
+  is_active: boolean;
+  document_count: number;
+  qa_count: number;
+  chunk_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
 function KnowledgeInner({ wsId }: { wsId: string }) {
   const searchParams = useSearchParams();
   const [docs, setDocs] = useState<KBDoc[]>([]);
+  // KnowledgeBase rows -- shown as their own card type so Q&A
+  // collections show up alongside trained documents. Each KB card
+  // links into the same detail flow + tells the user how many docs
+  // AND Q&A pairs live inside.
+  const [bases, setBases] = useState<KBBase[]>([]);
   const [status, setStatus] = useState<KBStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -75,11 +94,18 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [docsRes, statusRes] = await Promise.all([
+      const [docsRes, basesRes, statusRes] = await Promise.all([
         OrganizationService.kbListDocuments(),
+        OrganizationService.kbListBases().catch(() => null),
         OrganizationService.kbStatus(),
       ]);
       if (docsRes?.success) setDocs(docsRes.data);
+      // Only show KBs that have AT LEAST one Q&A pair -- avoids
+      // duplicating the auto-created "Default" KB as an empty card
+      // when the user has only trained documents and no direct Q&A.
+      if (basesRes?.success) {
+        setBases((basesRes.data as KBBase[]).filter((kb) => (kb.qa_count || 0) > 0));
+      }
       if (statusRes?.success) setStatus(statusRes.data);
     } finally { setLoading(false); }
   }, []);
@@ -218,15 +244,21 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
 
       {loading ? (
         <PageSkeleton kind="grid" />
-      ) : docs.length === 0 ? (
+      ) : docs.length === 0 && bases.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center">
           <Brain className="w-10 h-10 mx-auto mb-3 text-slate-600" />
           <p className="text-sm text-slate-400">
-            No documents trained yet. Click <strong>Train new</strong> to ingest your first one.
+            No training data yet. Click <strong>Train new</strong> to add your first Q&A pairs or document.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {/* Q&A pair collections shown FIRST -- they're the most
+              accurate training type and the most-edited surface, so
+              they belong at the top of the list visually. */}
+          {bases.map((kb) => (
+            <QACollectionCard key={`qa-${kb.id}`} kb={kb} wsId={wsId} />
+          ))}
           {docs.map((d) => (
             <DocCard key={d.id} doc={d} wsId={wsId} onDelete={() => remove(d)} onRetrain={() => retrain(d)} />
           ))}
@@ -353,6 +385,68 @@ function DocCard({ doc, wsId, onDelete, onRetrain }: {
     </article>
   );
 }
+
+/**
+ * Card for a knowledge-base's Q&A collection. Surfaces:
+ *   - Total Q&A pair count + total hit count (telemetry)
+ *   - Direct link into the train flow with this KB pre-selected
+ *   - LLM model the KB is pinned to (so users see at a glance)
+ *
+ * Lives on the main KB list page next to the document cards so Q&A
+ * collections aren't buried -- they're the most accurate training
+ * type and operators edit them most often.
+ */
+function QACollectionCard({ kb, wsId }: { kb: KBBase; wsId: string }) {
+  return (
+    <article className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.01] p-5 hover:border-emerald-400/60 hover:from-emerald-500/[0.10] transition-colors cursor-pointer group"
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, a, [data-stop-nav]')) return;
+        if (typeof window !== 'undefined') {
+          window.location.href = `/w/${wsId}/knowledge/train?kb=${kb.id}&mode=qa`;
+        }
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0">
+          <Sparkles className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-white truncate group-hover:text-emerald-200">
+            {kb.name} · Q&A pairs
+          </h3>
+          <div className="text-[11px] text-slate-400 mt-0.5">
+            Instant replies · no LLM call · 100% confidence
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-200 border border-emerald-500/40">
+          <CheckCircle2 className="w-3 h-3" />
+          Active
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <Stat label="Q&A pairs" value={kb.qa_count} />
+        <Stat label="Documents" value={kb.document_count} />
+        <Stat label="Chunks" value={kb.chunk_count} />
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-emerald-500/20 flex items-center justify-between">
+        <span className="text-[11px] italic text-slate-400 truncate" title={`Replies via ${kb.model}`}>
+          {kb.model}
+        </span>
+        <Link
+          href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=qa`}
+          data-stop-nav
+          className="text-[11px] text-emerald-300 hover:text-emerald-200 inline-flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3" /> Add more
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (

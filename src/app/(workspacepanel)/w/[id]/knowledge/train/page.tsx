@@ -19,10 +19,10 @@
 
 import { useCallback, useEffect, useRef, useState, use as reactUse } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Plus, FileUp, Type as TypeIcon, Globe, Sparkles, Save,
-  CheckCircle2, FileText, Lightbulb, Upload,
+  CheckCircle2, FileText, Lightbulb, Upload, ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
@@ -31,20 +31,69 @@ type TrainMode = 'qa' | 'text' | 'file' | 'url';
 
 type QAPair = { questions: string; answer: string };
 
-const LLM_OPTIONS = [
-  { id: 'gpt-4o-mini',             name: 'GPT-4o mini',      hint: 'Fast + cheap (recommended)' },
-  { id: 'gpt-4o',                  name: 'GPT-4o',           hint: 'Best quality, slower' },
-  { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',    hint: 'Nuanced, long context' },
-  { id: 'gemini-1.5-flash',        name: 'Gemini Flash',     hint: 'Fast, free tier' },
-  { id: 'llama3.2',                name: 'Llama 3.2 (Ollama)', hint: 'Self-hosted, free' },
-  { id: 'llama-3.1-70b-versatile', name: 'Llama 70B (Groq)', hint: 'Sub-200ms inference' },
+// Each entry binds a model ID to the Channel ``kind`` that has to be
+// connected for that model to actually work. The picker filters down
+// to only the rows whose provider the tenant has wired up, so users
+// can't pick "Claude Sonnet" without an Anthropic key on file.
+const LLM_OPTIONS: Array<{
+  id: string; name: string; hint: string; provider: string;
+}> = [
+  { id: 'gpt-4o-mini',             name: 'GPT-4o mini',        hint: 'Fast + cheap (recommended)', provider: 'openai' },
+  { id: 'gpt-4o',                  name: 'GPT-4o',             hint: 'Best quality, slower',       provider: 'openai' },
+  { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',      hint: 'Nuanced, long context',      provider: 'anthropic' },
+  { id: 'gemini-1.5-flash',        name: 'Gemini Flash',       hint: 'Fast, free tier',            provider: 'gemini' },
+  { id: 'llama3.2',                name: 'Llama 3.2 (Ollama)', hint: 'Self-hosted, free',          provider: 'ollama' },
+  { id: 'llama-3.1-70b-versatile', name: 'Llama 70B (Groq)',   hint: 'Sub-200ms inference',        provider: 'groq' },
+  { id: 'mistral-large-latest',    name: 'Mistral Large',      hint: 'Strong European model',      provider: 'mistral' },
+  { id: 'command-r-plus',          name: 'Cohere Command R+',  hint: 'Strong on RAG retrieval',    provider: 'cohere' },
+  { id: 'openrouter/auto',         name: 'OpenRouter (auto)',  hint: 'One key, every model',       provider: 'openrouter' },
+  { id: 'meta-llama/Llama-3-70b',  name: 'Llama 3 70B',        hint: 'Hosted via Together AI',     provider: 'together_ai' },
 ];
 
 export default function KBTrainPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // KB id passed in via ``?kb=<id>`` from the doc detail page's
+  // "Add more data" button. When present, Q&A pairs + documents
+  // created here are pinned to THAT specific KB so they show up in
+  // the right doc's chat playground (not the workspace default).
+  const kbIdParam = searchParams.get('kb');
+  const presetKbId = kbIdParam ? Number(kbIdParam) : null;
+  // Mode also accepts a ``?mode=qa`` deeplink so "Add Q&A" jumps
+  // straight to the right tab without an extra click.
+  const modeParam = searchParams.get('mode') as TrainMode | null;
+  const initialMode: TrainMode =
+    (modeParam && ['qa', 'text', 'file', 'url'].includes(modeParam)) ? modeParam : 'qa';
 
-  const [mode, setMode] = useState<TrainMode>('qa');
+  const [mode, setMode] = useState<TrainMode>(initialMode);
+  // Connected AI provider kinds (e.g. ``['openai', 'ollama']``).
+  // The LLM picker filters its options to entries whose ``provider``
+  // is in this set so users can only pick models they can actually
+  // run. Loaded once on mount; channel changes are rare during a
+  // single train session so we don't refresh.
+  const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
+
+  useEffect(() => {
+    OrganizationService.listChannels().then((res) => {
+      if (res?.success && Array.isArray(res.data)) {
+        const kinds = new Set<string>();
+        for (const ch of res.data as Array<{ kind: string; is_active: boolean; is_connected: boolean }>) {
+          if (ch.is_active !== false && ch.is_connected !== false) {
+            kinds.add(ch.kind);
+          }
+        }
+        setConnectedProviders(Array.from(kinds));
+      }
+    }).catch(() => { /* offline -- picker falls back to defaults */ });
+  }, []);
+
+  // Models that actually work (their provider Channel is connected).
+  // When NOTHING is connected we still show OpenAI + Ollama so the
+  // user can pick one + go connect it -- gentler than an empty list.
+  const availableModels = connectedProviders.length === 0
+    ? LLM_OPTIONS.filter((m) => m.provider === 'openai' || m.provider === 'ollama')
+    : LLM_OPTIONS.filter((m) => connectedProviders.includes(m.provider));
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
@@ -122,7 +171,11 @@ final sale and not eligible for return.`);
             answer:    r.answer.trim(),
             match_mode: 'contains' as const,
           }));
-        res = await OrganizationService.kbCreateQAPairs(pairs);
+        // Pin Q&A pairs to the KB referenced in the URL when the user
+        // came from a specific doc's "Add more data" button -- so the
+        // pairs show up in THAT doc's chat playground, not the
+        // workspace default.
+        res = await OrganizationService.kbCreateQAPairs(pairs, presetKbId || undefined);
       } else if (mode === 'file' && file) {
         res = await OrganizationService.kbUploadFile({
           file, title: title.trim() || undefined,
@@ -168,10 +221,23 @@ final sale and not eligible for return.`);
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-emerald-500/30 flex items-center justify-center">
           <Sparkles className="w-6 h-6 text-cyan-200" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-white">Train your AI</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-white">Train your AI</h1>
+            {/* Scope badge -- when the user reached this page via
+                "Add more data" from a doc, show which KB the new
+                training will land in. Stops the "where did my Q&A
+                pair go?" question before it gets asked. */}
+            {presetKbId && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                Adding to KB #{presetKbId}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-400">
-            Pick the shape of your data — samples on the right show exactly how each mode should look.
+            {presetKbId
+              ? 'New training data will be scoped to this knowledge base only.'
+              : 'Pick the shape of your data — samples on the right show exactly how each mode should look.'}
           </p>
         </div>
       </div>
@@ -377,35 +443,24 @@ final sale and not eligible for return.`);
             </>
           )}
 
-          {/* ── LLM picker (hidden for Q&A which is direct-match) ── */}
-          {mode !== 'qa' && (
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-              <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-3">
-                AI model that will answer questions about this data
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {LLM_OPTIONS.map((m) => {
-                  const active = llmModel === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => setLlmModel(m.id)}
-                      type="button"
-                      className={`text-left rounded-lg border p-2.5 transition-colors ${
-                        active
-                          ? 'border-emerald-500/60 bg-emerald-500/[0.08]'
-                          : 'border-white/10 bg-white/[0.02] hover:border-white/25'
-                      }`}
-                    >
-                      <div className={`text-[12px] font-semibold ${active ? 'text-emerald-200' : 'text-white'}`}>
-                        {m.name}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{m.hint}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          {/* ── LLM picker ───────────────────────────────────────
+              Two conditions for visibility:
+                1. Mode is NOT Q&A -- Q&A is direct-match, no LLM call.
+                2. ``presetKbId`` is NOT set -- when the user came from
+                   "Add more data" on an existing KB's doc, the LLM was
+                   already chosen at KB-creation time. Showing the
+                   picker again would imply the choice applies only to
+                   this NEW data, which would be confusing (the KB has
+                   one model that serves all its docs).
+              Filtered to providers the tenant has connected so users
+              can't pick a model they can't run. */}
+          {mode !== 'qa' && !presetKbId && (
+            <LLMSearchSelect
+              value={llmModel}
+              onChange={setLlmModel}
+              options={availableModels}
+              connectedCount={connectedProviders.length}
+            />
           )}
 
           {/* ── Footer actions ── */}
@@ -622,6 +677,137 @@ function SamplePair({ qs, a }: { qs: string[]; a: string }) {
     </div>
   );
 }
+
+/**
+ * Searchable LLM model dropdown.
+ *
+ * Replaces the previous grid-of-buttons picker because:
+ *   1. The list grows as providers are added -- a grid wraps badly
+ *      past ~6 options.
+ *   2. Users typing "claude" / "llama" should be able to type-ahead
+ *      without scanning all cards.
+ *   3. Filtering to connected providers shrinks the list, and an empty
+ *      list state needs a clear "go connect a provider" CTA -- easier
+ *      in a dropdown shell than a grid.
+ *
+ * Behaviour:
+ *   - Click button → dropdown opens with search input focused.
+ *   - Type → fuzzy contains-match on name + hint + provider.
+ *   - Pick → closes + fires ``onChange``.
+ *   - Click outside → closes without committing.
+ */
+function LLMSearchSelect({
+  value, onChange, options, connectedCount,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: Array<{ id: string; name: string; hint: string; provider: string }>;
+  connectedCount: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const selected = options.find((o) => o.id === value);
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? options.filter((o) =>
+        o.name.toLowerCase().includes(q)
+        || o.hint.toLowerCase().includes(q)
+        || o.provider.toLowerCase().includes(q),
+      )
+    : options;
+
+  return (
+    <div ref={ref} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+            AI model that will answer questions about this data
+          </div>
+          <div className="text-[10.5px] text-slate-500 mt-0.5">
+            {connectedCount === 0
+              ? 'No AI provider connected yet — connect one in Credentials to enable more models.'
+              : `Filtered to ${options.length} model(s) from your ${connectedCount} connected provider(s).`}
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left rounded-lg border border-white/10 bg-[#080e1c] px-3 py-2.5 flex items-center justify-between hover:border-emerald-500/40"
+      >
+        <div className="min-w-0">
+          {selected ? (
+            <>
+              <div className="text-[13px] font-semibold text-white truncate">{selected.name}</div>
+              <div className="text-[10.5px] text-slate-400 truncate">{selected.hint}</div>
+            </>
+          ) : (
+            <div className="text-[13px] text-slate-500">Select a model…</div>
+          )}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-lg border border-white/15 bg-[#080e1c] shadow-2xl shadow-black/50 overflow-hidden">
+          <div className="p-2 border-b border-white/5">
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search models…"
+              className="w-full bg-transparent text-[12.5px] text-white placeholder:text-slate-600 px-2 py-1.5 focus:outline-none"
+            />
+          </div>
+          <div className="max-h-[260px] overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[12px] text-slate-500">
+                {q ? `No models match "${q}".` : 'No connected providers yet.'}
+              </div>
+            ) : (
+              filtered.map((m) => {
+                const active = m.id === value;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { onChange(m.id); setOpen(false); setSearch(''); }}
+                    className={`w-full text-left px-3 py-2 hover:bg-white/[0.05] flex items-start justify-between gap-3 ${
+                      active ? 'bg-emerald-500/[0.08]' : ''
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[12.5px] font-semibold truncate ${active ? 'text-emerald-200' : 'text-white'}`}>
+                        {m.name}
+                      </div>
+                      <div className="text-[10.5px] text-slate-400 truncate">{m.hint}</div>
+                    </div>
+                    <span className="text-[9.5px] font-mono text-slate-500 shrink-0 mt-0.5">
+                      {m.provider}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function FileTypeCard({ ext, label, desc, tick }: { ext: string; label: string; desc: string; tick?: boolean }) {
   return (

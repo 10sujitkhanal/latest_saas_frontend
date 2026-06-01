@@ -44,11 +44,47 @@ type KBDoc = {
   chunk_count: number;
   char_count: number;
   embedding_model: string;
+  // KB that owns this document. Q&A pairs / further training routes
+  // through this id so they stay scoped to the same bucket.
+  knowledge_base: number | null;
   created_at: string;
   updated_at: string;
   chunks?: Array<{ id: number; position: number; content: string; token_count: number }>;
   chunks_total?: number;
 };
+
+// Q&A pair shown in the per-doc detail page. Loaded separately from
+// chunks because they're a different entity (rule-based answers, not
+// embedded vectors) and have their own hit-count telemetry.
+type QAPair = {
+  id: number;
+  questions: string[];
+  answer: string;
+  match_mode: 'contains' | 'exact' | 'regex' | 'semantic';
+  priority: number;
+  is_active: boolean;
+  hit_count: number;
+  last_hit_at: string | null;
+  created_at: string;
+};
+
+// LLM options surfaced in the per-KB picker. ``provider`` is the
+// Channel kind that must be connected for the model to actually run
+// -- the picker filters down to options the tenant can use.
+const LLM_OPTIONS: Array<{
+  id: string; name: string; hint: string; provider: string;
+}> = [
+  { id: 'gpt-4o-mini',             name: 'GPT-4o mini',        hint: 'Fast + cheap (recommended)', provider: 'openai' },
+  { id: 'gpt-4o',                  name: 'GPT-4o',             hint: 'Best quality, slower',       provider: 'openai' },
+  { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',      hint: 'Nuanced, long context',      provider: 'anthropic' },
+  { id: 'gemini-1.5-flash',        name: 'Gemini Flash',       hint: 'Fast, free tier',            provider: 'gemini' },
+  { id: 'llama3.2',                name: 'Llama 3.2 (Ollama)', hint: 'Self-hosted, free',          provider: 'ollama' },
+  { id: 'llama-3.1-70b-versatile', name: 'Llama 70B (Groq)',   hint: 'Sub-200ms inference',        provider: 'groq' },
+  { id: 'mistral-large-latest',    name: 'Mistral Large',      hint: 'Strong European model',      provider: 'mistral' },
+  { id: 'command-r-plus',          name: 'Cohere Command R+',  hint: 'Strong on RAG retrieval',    provider: 'cohere' },
+  { id: 'openrouter/auto',         name: 'OpenRouter (auto)',  hint: 'One key, every model',       provider: 'openrouter' },
+  { id: 'meta-llama/Llama-3-70b',  name: 'Llama 3 70B',        hint: 'Hosted via Together AI',     provider: 'together_ai' },
+];
 
 type ChatTurn = {
   role: 'user' | 'assistant';
@@ -63,7 +99,35 @@ export default function KBDocumentDetailPage({ params }: {
 }) {
   const { id: wsId, docId } = reactUse(params);
   const [doc, setDoc] = useState<KBDoc | null>(null);
+  const [qaPairs, setQaPairs] = useState<QAPair[]>([]);
+  const [kbModel, setKbModel] = useState<string>('gpt-4o-mini');
+  const [savingModel, setSavingModel] = useState(false);
+  // Connected AI providers (Channel kinds) -- filters the LLM picker
+  // to models the tenant can actually run.
+  const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    OrganizationService.listChannels().then((res) => {
+      if (res?.success && Array.isArray(res.data)) {
+        const kinds = new Set<string>();
+        for (const ch of res.data as Array<{ kind: string; is_active: boolean; is_connected: boolean }>) {
+          if (ch.is_active !== false && ch.is_connected !== false) {
+            kinds.add(ch.kind);
+          }
+        }
+        setConnectedProviders(Array.from(kinds));
+      }
+    }).catch(() => { /* offline -- picker keeps current value */ });
+  }, []);
+
+  // Models the user can pick -- only ones whose provider Channel is
+  // wired up. Always include the CURRENT model even if its provider
+  // isn't connected (so the picker can still show what the KB is
+  // pinned to + let the user switch).
+  const availableModels = LLM_OPTIONS.filter((m) =>
+    connectedProviders.includes(m.provider) || m.id === kbModel,
+  );
   // Chat state -- in-memory only. Reload the page to clear.
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [question, setQuestion] = useState('');
@@ -74,7 +138,28 @@ export default function KBDocumentDetailPage({ params }: {
     setLoading(true);
     try {
       const res = await OrganizationService.kbGetDocument(Number(docId));
-      if (res?.success) setDoc(res.data);
+      if (res?.success) {
+        setDoc(res.data);
+        // After the doc loads we know which KB it belongs to -- fetch
+        // the Q&A pairs scoped to THAT KB only. The /qa/ endpoint for
+        // a kb returns pairs ordered by priority desc, id asc -- same
+        // order the chat engine uses, so the UI mirrors runtime behaviour.
+        if (res.data?.knowledge_base) {
+          try {
+            const qaRes = await OrganizationService.kbListQAPairs(res.data.knowledge_base);
+            if (qaRes?.success) setQaPairs(qaRes.data || []);
+          } catch {
+            // Non-fatal: doc detail still works without QA list.
+          }
+          // Load the KB itself so we know which model it's pinned to
+          // (for the LLM picker below). Falls back to gpt-4o-mini on
+          // error so the picker always renders SOMETHING selected.
+          try {
+            const kbRes = await OrganizationService.kbGetBase(res.data.knowledge_base);
+            if (kbRes?.success && kbRes.data?.model) setKbModel(kbRes.data.model);
+          } catch { /* non-fatal */ }
+        }
+      }
     } finally { setLoading(false); }
   }, [docId]);
 
@@ -85,6 +170,31 @@ export default function KBDocumentDetailPage({ params }: {
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [history.length]);
+
+  /**
+   * Update the LLM model used by THIS knowledge base for chat replies.
+   * PATCHes the KnowledgeBase row -- every doc attached to the same KB
+   * inherits the change, so updating the model on one detail page
+   * applies to all sibling docs immediately on the next chat.
+   */
+  const changeModel = async (newModel: string) => {
+    if (!doc?.knowledge_base || savingModel || newModel === kbModel) return;
+    setSavingModel(true);
+    try {
+      const res = await OrganizationService.kbUpdateBase(doc.knowledge_base, { model: newModel });
+      if (res?.success) {
+        setKbModel(newModel);
+        toast.success(`Replies will now use ${newModel}.`);
+      } else {
+        toast.error(res?.message || 'Could not update the model.');
+      }
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Could not update the model.');
+    } finally {
+      setSavingModel(false);
+    }
+  };
 
   const retrain = async () => {
     if (!doc) return;
@@ -202,12 +312,18 @@ export default function KBDocumentDetailPage({ params }: {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Add more training data -- routes to the train page so the
-                user can extend this doc's KB with another file / text /
-                URL / Q&A pair. The new training lands in the same KB
-                so it surfaces in THIS doc's chat playground too. */}
+            {/* Add more training data -- routes to the train page
+                with this doc's KB id pre-attached. The train page
+                reads ``?kb=<id>`` and pins all created Q&A pairs +
+                documents to THAT specific KB, so they show up in
+                this doc's chat playground (not the workspace default
+                where they'd get lost). */}
             <Link
-              href={`/w/${wsId}/knowledge/train`}
+              href={
+                doc.knowledge_base
+                  ? `/w/${wsId}/knowledge/train?kb=${doc.knowledge_base}`
+                  : `/w/${wsId}/knowledge/train`
+              }
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white font-semibold"
               title="Train more data into the same knowledge base."
             >
@@ -247,7 +363,128 @@ export default function KBDocumentDetailPage({ params }: {
             {doc.error_message}
           </div>
         )}
+
+        {/* ── LLM picker for THIS knowledge base ────────────────────
+            Per-KB model selection. Changing this PATCHes the KB row
+            and every doc in the same KB inherits the new model on
+            the next chat -- no retrain needed (we only re-route the
+            chat-time LLM call, not the embedding model). */}
+        {doc.knowledge_base && (
+          <div className="mt-5 pt-5 border-t border-white/5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  AI model for replies
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Used when this data answers a chat. Embeddings stay the same -- no retrain needed.
+                </div>
+              </div>
+              {savingModel && (
+                <div className="inline-flex items-center gap-1.5 text-[11px] text-cyan-300">
+                  <div className="w-3 h-3 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin" />
+                  Saving…
+                </div>
+              )}
+            </div>
+            {availableModels.length === 0 ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.05] p-3 text-[12px] text-amber-100">
+                No AI providers connected yet. Add one in{' '}
+                <Link href={`/w/${wsId}/leads/credentials`} className="underline hover:text-amber-50">
+                  Credentials
+                </Link>{' '}
+                to enable model picking.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {availableModels.map((m) => {
+                  const active = kbModel === m.id;
+                  // Show a small "(disconnected)" hint when the model
+                  // matches the saved KB value but its provider isn't
+                  // currently connected -- still selectable so the
+                  // user knows what's set.
+                  const providerConnected = connectedProviders.includes(m.provider);
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => changeModel(m.id)}
+                      disabled={savingModel}
+                      className={`text-left rounded-lg border p-2.5 transition-colors disabled:opacity-50 ${
+                        active
+                          ? 'border-emerald-500/60 bg-emerald-500/[0.08]'
+                          : 'border-white/10 bg-white/[0.02] hover:border-white/25'
+                      }`}
+                    >
+                      <div className={`text-[12px] font-semibold flex items-center gap-1 ${active ? 'text-emerald-200' : 'text-white'}`}>
+                        {m.name}
+                        {!providerConnected && (
+                          <span className="text-[9px] text-amber-300 font-normal" title="Provider not connected">
+                            (no key)
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{m.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Q&A pairs scoped to THIS knowledge base ───────────── */}
+      {qaPairs.length > 0 && (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-300" />
+              <h2 className="text-sm font-bold text-white">Q&A pairs</h2>
+              <span className="text-[11px] text-emerald-200/80">
+                {qaPairs.length} pair{qaPairs.length === 1 ? '' : 's'} · instant replies, no LLM call
+              </span>
+            </div>
+            <Link
+              href={doc.knowledge_base ? `/w/${wsId}/knowledge/train?kb=${doc.knowledge_base}&mode=qa` : `/w/${wsId}/knowledge/train`}
+              className="text-[11px] text-emerald-300 hover:text-emerald-200 inline-flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" /> Add more
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {qaPairs.slice(0, 6).map((qa) => (
+              <div key={qa.id} className="rounded-lg bg-white/[0.03] border border-white/5 p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                    Match: {qa.match_mode}
+                  </span>
+                  {qa.hit_count > 0 && (
+                    <span className="text-[10px] text-emerald-300">
+                      🔥 {qa.hit_count} hit{qa.hit_count === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-1 mb-2">
+                  {qa.questions.slice(0, 3).map((q, i) => (
+                    <div key={i} className="text-[12px] text-slate-300 font-mono truncate">{q}</div>
+                  ))}
+                  {qa.questions.length > 3 && (
+                    <div className="text-[10px] text-slate-500">+ {qa.questions.length - 3} more phrasings</div>
+                  )}
+                </div>
+                <div className="rounded-md bg-emerald-500/[0.10] border border-emerald-500/20 px-2 py-1.5 text-[12px] text-emerald-100">
+                  {qa.answer.length > 140 ? qa.answer.slice(0, 140) + '...' : qa.answer}
+                </div>
+              </div>
+            ))}
+          </div>
+          {qaPairs.length > 6 && (
+            <div className="mt-2 text-center text-[11px] text-slate-500">
+              Showing 6 of {qaPairs.length} pairs.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Two-column: chunks preview + chat playground ─────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
