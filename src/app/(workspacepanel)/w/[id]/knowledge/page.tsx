@@ -119,13 +119,10 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/w/${wsId}/knowledge/chat`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-white"
-          >
-            <Sparkles className="w-4 h-4 text-cyan-300" />
-            Chat playground
-          </Link>
+          {/* Chat playground moved INSIDE each KB (per-KB scoping).
+              The old global chat button used to send queries across
+              ALL workspace docs which leaked context between KBs.
+              Now clicking a KB card opens its scoped chat tab. */}
           <button
             onClick={() => setShowAdd(true)}
             disabled={status !== null && !status.ready}
@@ -260,13 +257,23 @@ function DocCard({ doc, wsId, onDelete, onRetrain }: {
                     : 'Pasted text';
 
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+    <article className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:border-cyan-500/40 hover:bg-white/[0.04] transition-colors cursor-pointer group"
+      onClick={(e) => {
+        // Don't intercept clicks on the action buttons (retrain / delete)
+        // -- only navigate when the card body itself is clicked.
+        const target = e.target as HTMLElement;
+        if (target.closest('button, a, [data-stop-nav]')) return;
+        if (typeof window !== 'undefined') {
+          window.location.href = `/w/${wsId}/knowledge/${doc.id}`;
+        }
+      }}
+    >
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex items-center justify-center shrink-0">
           <SourceIcon className="w-4 h-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-white truncate">{doc.title}</h3>
+          <h3 className="text-sm font-bold text-white truncate group-hover:text-cyan-200">{doc.title}</h3>
           <div className="text-[11px] text-slate-400 mt-0.5 truncate" title={sourceLabel}>{sourceLabel}</div>
         </div>
         <span
@@ -369,6 +376,11 @@ type TrainMode = 'qa' | 'text' | 'file' | 'url';
  */
 function AddDocumentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [mode, setMode] = useState<TrainMode>('qa');
+  // LLM that will be used to answer questions about this training data.
+  // Set on the KB row when we create / update -- chat replies for this
+  // KB use whichever model is picked here. Defaults to the cheap-and-
+  // fast OpenAI option; Ollama for fully on-prem; Claude for nuance.
+  const [llmModel, setLlmModel] = useState<string>('gpt-4o-mini');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
@@ -652,13 +664,58 @@ function AddDocumentModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           )}
         </div>
 
+        {/* ── LLM picker ─────────────────────────────────────────
+            Which model answers questions about THIS training data.
+            Hidden for Q&A-only mode (Q&A pairs are direct-match and
+            don't call an LLM at all). Stored on the KB row so chat
+            replies for THIS data use the chosen model. */}
+        {mode !== 'qa' && (
+          <div className="px-6 pb-5 border-t border-white/5 pt-5">
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-2">
+              AI model for replies on this data
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { id: 'gpt-4o-mini',           name: 'GPT-4o mini',  hint: 'Fast + cheap (recommended)' },
+                { id: 'gpt-4o',                name: 'GPT-4o',       hint: 'Best quality, slower' },
+                { id: 'claude-3-5-sonnet',     name: 'Claude Sonnet', hint: 'Nuanced, long context' },
+                { id: 'gemini-1.5-flash',      name: 'Gemini Flash',  hint: 'Fast, free tier' },
+                { id: 'llama3.2',              name: 'Llama 3.2',     hint: 'Self-hosted via Ollama' },
+                { id: 'llama-3.1-70b-versatile', name: 'Llama 70B (Groq)', hint: 'Sub-200ms inference' },
+              ].map((m) => {
+                const active = llmModel === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setLlmModel(m.id)}
+                    type="button"
+                    className={`text-left rounded-lg border p-2.5 transition-colors ${
+                      active
+                        ? 'border-emerald-500/60 bg-emerald-500/[0.08]'
+                        : 'border-white/10 bg-white/[0.02] hover:border-white/25'
+                    }`}
+                  >
+                    <div className={`text-[12px] font-semibold ${active ? 'text-emerald-200' : 'text-white'}`}>
+                      {m.name}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{m.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="text-[10.5px] text-slate-500 mt-2">
+              You can change this later from the knowledge-base detail page.
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-white/5">
           <div className="text-[11px] text-slate-500">
             {mode === 'qa' && (
               <>Direct match — instant reply, zero LLM tokens.</>
             )}
             {mode !== 'qa' && (
-              <>Chunked + embedded into the vector index.</>
+              <>Chunked + embedded into the vector index · model: <span className="text-slate-300">{llmModel}</span></>
             )}
           </div>
           <div className="flex items-center gap-3">

@@ -505,7 +505,18 @@ export const OrganizationService = {
     const { data } = await apiClient.post('/organization/leads/knowledge/search/', { query, top_k });
     return data;
   },
-  kbChat: async (payload: { query: string; use_kb?: boolean; provider?: string; history?: { role: string; content: string }[] }) => {
+  kbChat: async (payload: {
+    query: string;
+    use_kb?: boolean;
+    provider?: string;
+    history?: { role: string; content: string }[];
+    // ``document_ids`` scopes retrieval to a specific set of trained
+    // documents -- used by the per-doc detail page so answers only
+    // come from that one PDF / text / URL.
+    document_ids?: number[];
+    // ``kb_id`` scopes to one KnowledgeBase container.
+    kb_id?: number;
+  }) => {
     const { data } = await apiClient.post('/organization/leads/knowledge/chat/', payload);
     return data;
   },
