@@ -123,15 +123,21 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
               The old global chat button used to send queries across
               ALL workspace docs which leaked context between KBs.
               Now clicking a KB card opens its scoped chat tab. */}
-          <button
-            onClick={() => setShowAdd(true)}
-            disabled={status !== null && !status.ready}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          {/* Train new -- now navigates to the full-page training
+              experience (was a popup modal). The page route shows
+              live samples for each mode + the LLM picker without
+              fighting for vertical space inside a modal. */}
+          <Link
+            href={`/w/${wsId}/knowledge/train`}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-500/20 ${
+              (status !== null && !status.ready) ? 'opacity-50 pointer-events-none' : ''
+            }`}
             title={status && !status.ready ? status.message : undefined}
+            aria-disabled={status !== null && !status.ready}
           >
             <Plus className="w-4 h-4" />
             Train new
-          </button>
+          </Link>
         </div>
       </div>
 
