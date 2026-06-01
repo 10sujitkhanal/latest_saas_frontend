@@ -27,7 +27,7 @@ import { useCallback, useEffect, useRef, useState, use as reactUse } from 'react
 import Link from 'next/link';
 import {
   ArrowLeft, FileText, Globe, Type as TypeIcon, RefreshCw, Trash2,
-  AlertTriangle, CheckCircle2, Send, Sparkles, MessageCircle,
+  AlertTriangle, CheckCircle2, Send, Sparkles, MessageCircle, Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
@@ -202,6 +202,18 @@ export default function KBDocumentDetailPage({ params }: {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Add more training data -- routes to the train page so the
+                user can extend this doc's KB with another file / text /
+                URL / Q&A pair. The new training lands in the same KB
+                so it surfaces in THIS doc's chat playground too. */}
+            <Link
+              href={`/w/${wsId}/knowledge/train`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white font-semibold"
+              title="Train more data into the same knowledge base."
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add more data
+            </Link>
             <button
               onClick={retrain}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/50 text-xs text-slate-300 hover:text-cyan-300"
@@ -287,12 +299,18 @@ export default function KBDocumentDetailPage({ params }: {
             className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[400px] max-h-[480px]"
           >
             {history.length === 0 ? (
-              <div className="text-center text-xs text-slate-500 py-8">
-                <MessageCircle className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                <p>Ask anything about <strong className="text-slate-300">{doc.title}</strong>.</p>
-                <p className="mt-1 text-[10.5px]">
-                  Try: "what is this about?", "give me a summary", "what are the key points?"
-                </p>
+              <div className="text-xs text-slate-400 py-4 space-y-3">
+                <div className="text-center">
+                  <MessageCircle className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                  <p>Ask anything about <strong className="text-slate-300">{doc.title}</strong>.</p>
+                </div>
+                {/* Suggested questions -- generated from chunk content
+                    keywords so the user has a real starting point
+                    instead of staring at an empty composer. */}
+                <SuggestedQuestions
+                  chunks={doc.chunks || []}
+                  onPick={(q) => { setQuestion(q); }}
+                />
               </div>
             ) : (
               history.map((turn, i) => (
@@ -367,6 +385,87 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 text-center">
       <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">{label}</div>
       <div className="text-base font-bold text-white mt-1">{value}</div>
+    </div>
+  );
+}
+
+
+/**
+ * Suggested-questions helper — extracts likely user queries from the
+ * trained chunk content so the empty chat composer has real starting
+ * points. Heuristics:
+ *
+ *   1. Grab the first non-trivial sentences of each chunk.
+ *   2. Pull out NOUN-LOOKING tokens (capitalised words, longer terms).
+ *   3. Wrap them in template questions: "what is X?", "tell me about X",
+ *      "how do I X" — that match common chatbot phrasings.
+ *
+ * This is intentionally simple (no LLM call needed). When the user
+ * clicks a suggestion it pre-fills the composer so they can edit
+ * before sending.
+ */
+function SuggestedQuestions({
+  chunks, onPick,
+}: {
+  chunks: Array<{ content: string }>;
+  onPick: (q: string) => void;
+}) {
+  // Pull key terms from the first few chunks. Capitalised multi-word
+  // phrases are the highest-signal candidates (section headings,
+  // product names, policy types).
+  const text = chunks.slice(0, 3).map((c) => c.content).join(' ');
+  const candidates = new Set<string>();
+  // Match capitalised phrases of 1-3 words (e.g. "Refund Policy",
+  // "Return Window", "ACME Corp").
+  const phraseRe = /\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){0,2}\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = phraseRe.exec(text)) !== null && candidates.size < 8) {
+    const phrase = m[0].trim();
+    if (phrase.split(' ').every((w) => w.length >= 3)) {
+      candidates.add(phrase);
+    }
+  }
+
+  const templates = [
+    (k: string) => `What is the ${k.toLowerCase()}?`,
+    (k: string) => `Tell me about ${k.toLowerCase()}`,
+    (k: string) => `How does ${k.toLowerCase()} work?`,
+  ];
+  const suggestions: string[] = [];
+  let i = 0;
+  for (const phrase of candidates) {
+    const tpl = templates[i % templates.length];
+    suggestions.push(tpl(phrase));
+    i += 1;
+    if (suggestions.length >= 4) break;
+  }
+  // Fall through to generic questions when we couldn't extract any
+  // capitalised phrases (short chunks, lowercase data).
+  if (suggestions.length === 0) {
+    suggestions.push(
+      'What is this about?',
+      'Give me a summary',
+      'What are the key points?',
+      'How do I get started?',
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-center text-[10.5px] text-slate-500 mb-2 uppercase tracking-wider font-semibold">
+        Try one of these
+      </p>
+      <div className="flex flex-wrap gap-1.5 justify-center">
+        {suggestions.map((q) => (
+          <button
+            key={q}
+            onClick={() => onPick(q)}
+            className="px-2.5 py-1 rounded-full bg-white/[0.05] hover:bg-cyan-500/15 border border-white/10 hover:border-cyan-500/40 text-[11px] text-slate-300 hover:text-cyan-200 transition-colors"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
