@@ -447,7 +447,17 @@ export const OrganizationService = {
     const { data } = await apiClient.get('/organization/leads/knowledge/documents/');
     return data;
   },
-  kbCreateDocument: async (payload: { kind: 'text' | 'url' | 'file'; title?: string; content?: string; url?: string }) => {
+  kbCreateDocument: async (payload: {
+    kind: 'text' | 'url' | 'file';
+    title?: string;
+    content?: string;
+    url?: string;
+    // ``kb_id`` pins the new document to a specific KnowledgeBase --
+    // used by "Add more data" from a doc detail page so the new
+    // training joins the same bucket. Omit to use the workspace's
+    // default KB.
+    kb_id?: number;
+  }) => {
     const { data } = await apiClient.post('/organization/leads/knowledge/documents/', payload);
     return data;
   },
@@ -522,14 +532,27 @@ export const OrganizationService = {
    * ``multipart/form-data; boundary=…`` value (same fix we applied to
    * the inbox attachments path).
    */
-  kbUploadFile: async ({ file, title }: { file: File; title?: string }) => {
+  kbUploadFile: async ({ file, title, kbId }: { file: File; title?: string; kbId?: number }) => {
     const fd = new FormData();
     fd.append('file', file);
     if (title) fd.append('title', title);
+    // KB scoping -- the backend reads ``kb_id`` from the multipart
+    // body and attaches the new document to that KB. Without it,
+    // the workspace's default KB gets used (auto-created).
+    if (kbId) fd.append('kb_id', String(kbId));
     const { data } = await apiClient.post(
       '/organization/leads/knowledge/documents/upload/',
       fd,
       { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
+  // Delete one Q&A pair by id. Used by the per-doc detail page's
+  // Q&A list -- removes the rule + its hit-count telemetry. Doesn't
+  // affect any other Q&A pairs or trained documents.
+  kbDeleteQA: async (qaId: number) => {
+    const { data } = await apiClient.delete(
+      `/organization/leads/knowledge/qa/${qaId}/`,
     );
     return data;
   },

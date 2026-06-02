@@ -217,6 +217,30 @@ export default function KBDocumentDetailPage({ params }: {
   };
 
   /**
+   * Delete a single Q&A pair. Confirms first because the rule + its
+   * hit-count telemetry get wiped. Optimistic removal -- the row
+   * disappears immediately on success, no full re-fetch needed.
+   */
+  const deleteQA = async (qa: QAPair) => {
+    const firstQ = (qa.questions || [])[0] || '(empty)';
+    if (!window.confirm(`Delete this Q&A pair?\n\n"${firstQ}" → "${qa.answer.slice(0, 60)}…"\n\nThe rule will stop firing immediately.`)) {
+      return;
+    }
+    try {
+      const res = await OrganizationService.kbDeleteQA(qa.id);
+      if (res?.success) {
+        setQaPairs((rows) => rows.filter((r) => r.id !== qa.id));
+        toast.success('Q&A pair deleted.');
+      } else {
+        toast.error(res?.message || 'Delete failed.');
+      }
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Delete failed.');
+    }
+  };
+
+  /**
    * Send one chat turn, scoped to THIS document only.
    * The backend's ``/knowledge/chat/`` accepts ``document_ids`` --
    * we pass [doc.id] so the retrieval layer only walks chunks from
@@ -453,8 +477,21 @@ export default function KBDocumentDetailPage({ params }: {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {qaPairs.slice(0, 6).map((qa) => (
-              <div key={qa.id} className="rounded-lg bg-white/[0.03] border border-white/5 p-3">
-                <div className="flex items-center justify-between mb-1.5">
+              <div
+                key={qa.id}
+                className="group/qa rounded-lg bg-white/[0.03] border border-white/5 p-3 relative"
+              >
+                {/* Hover-revealed delete button -- positioned absolutely
+                    in the top-right so it doesn't shift the layout. */}
+                <button
+                  onClick={() => deleteQA(qa)}
+                  className="absolute top-2 right-2 opacity-0 group-hover/qa:opacity-100 transition-opacity p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
+                  title="Delete this Q&A pair"
+                  aria-label="Delete Q&A pair"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+                <div className="flex items-center justify-between mb-1.5 pr-7">
                   <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
                     Match: {qa.match_mode}
                   </span>

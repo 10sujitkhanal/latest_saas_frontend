@@ -177,15 +177,22 @@ final sale and not eligible for return.`);
         // workspace default.
         res = await OrganizationService.kbCreateQAPairs(pairs, presetKbId || undefined);
       } else if (mode === 'file' && file) {
+        // Same scoping for file uploads -- the new PDF / DOCX / TXT
+        // joins the same KB the user is already managing, so its
+        // chunks become searchable in that KB's chat playground.
         res = await OrganizationService.kbUploadFile({
-          file, title: title.trim() || undefined,
+          file,
+          title: title.trim() || undefined,
+          kbId: presetKbId || undefined,
         });
       } else {
+        // text / url -- same scoping path.
         res = await OrganizationService.kbCreateDocument({
           kind: mode,
           title: title.trim() || undefined,
           content: mode === 'text' ? content : undefined,
           url:     mode === 'url'  ? url     : undefined,
+          kb_id:   presetKbId || undefined,
         });
       }
       if (res?.success) {
