@@ -338,19 +338,28 @@ export default function KBDocumentDetailPage({ params }: {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* Add more training data -- routes to the train page
-                with this doc's KB id pre-attached. The train page
-                reads ``?kb=<id>`` and pins all created Q&A pairs +
-                documents to THAT specific KB, so they show up in
-                this doc's chat playground (not the workspace default
-                where they'd get lost). */}
+                with this doc's KB id pre-attached so the new training
+                joins the SAME KB instead of creating a duplicate.
+                The backend GET endpoint auto-backfills the KB FK on
+                legacy docs that were created before per-KB scoping,
+                so ``doc.knowledge_base`` is guaranteed to be set by
+                the time we render this button. The fallback to
+                ``/train`` without ?kb= would only trigger if the KB
+                table doesn't exist on this tenant -- in that case
+                we deliberately let the user create a fresh KB
+                (the only safe option). */}
             <Link
               href={
                 doc.knowledge_base
-                  ? `/w/${wsId}/knowledge/train?kb=${doc.knowledge_base}`
+                  ? `/w/${wsId}/knowledge/train?kb=${doc.knowledge_base}&return_to=${encodeURIComponent(`/w/${wsId}/knowledge/${doc.id}`)}`
                   : `/w/${wsId}/knowledge/train`
               }
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white font-semibold"
-              title="Train more data into the same knowledge base."
+              title={
+                doc.knowledge_base
+                  ? `New data will be added to this same knowledge base (KB #${doc.knowledge_base}).`
+                  : 'Train more data.'
+              }
             >
               <Plus className="w-3.5 h-3.5" />
               Add more data

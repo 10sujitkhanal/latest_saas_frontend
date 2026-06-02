@@ -197,7 +197,11 @@ final sale and not eligible for return.`);
       }
       if (res?.success) {
         toast.success(res.message || 'Trained.');
-        router.push(`/w/${wsId}/knowledge`);
+        // ``?return_to=`` lets the calling page tell us where to go
+        // after save (e.g. back to the doc detail page that opened
+        // this train flow). Default to /knowledge if not provided.
+        const returnTo = searchParams.get('return_to');
+        router.push(returnTo || `/w/${wsId}/knowledge`);
       } else {
         toast.error(res?.message || 'Training failed');
       }
