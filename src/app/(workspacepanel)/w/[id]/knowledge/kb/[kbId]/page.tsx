@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState, use as reactUse } from 'react
 import Link from 'next/link';
 import {
   ArrowLeft, Plus, Trash2, Sparkles, FileText, Send,
-  MessageCircle, Database, ChevronDown,
+  MessageCircle, Database, ChevronDown, Type as TypeIcon, Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
@@ -340,49 +340,91 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
         )}
       </section>
 
-      {/* ── Documents (clickable + deletable) ──────────────────── */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-cyan-300" />
-            <h2 className="text-sm font-bold text-white">Documents</h2>
-            <span className="text-[11px] text-slate-400">
-              {(kb.documents || []).length} doc{(kb.documents || []).length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <Link
-            href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=text`}
-            className="text-[11px] text-cyan-300 hover:text-cyan-200 inline-flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" /> Add document
-          </Link>
-        </div>
-        {(kb.documents || []).length === 0 ? (
-          <p className="text-center text-xs text-slate-500 py-6">
-            No documents trained yet.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {(kb.documents || []).map((d) => (
-              <div key={d.id} className="group/doc flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-colors">
-                <Link href={`/w/${wsId}/knowledge/${d.id}`} className="flex-1 min-w-0 cursor-pointer">
-                  <div className="text-sm font-semibold text-white truncate hover:text-cyan-200">{d.title}</div>
-                  <div className="text-[11px] text-slate-400 truncate">
-                    {d.source_filename || d.source_url || d.source_kind} · {d.chunk_count} chunks · {d.char_count.toLocaleString()} chars
-                  </div>
-                </Link>
-                <button
-                  onClick={() => deleteDoc(d)}
-                  className="opacity-0 group-hover/doc:opacity-100 transition-opacity p-1.5 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
-                  title="Delete this document"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+      {/* ── Training sources grouped by TYPE ───────────────────────
+          Three separate sections so the user can see at a glance what
+          kind of data they've trained: uploaded files, pasted text,
+          and crawled URLs. Each section only renders when it has at
+          least one doc (or, for the "Add" affordance, always shows the
+          add link in its header). */}
+      {(() => {
+        const docs = kb.documents || [];
+        const fileDocs = docs.filter((d) => d.source_kind === 'file');
+        const textDocs = docs.filter((d) => d.source_kind === 'text' || d.source_kind === 'past_conversations');
+        const urlDocs  = docs.filter((d) => d.source_kind === 'url');
+
+        const Row = (d: NonNullable<KB['documents']>[number]) => (
+          <div key={d.id} className="group/doc flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-colors">
+            <Link href={`/w/${wsId}/knowledge/${d.id}`} className="flex-1 min-w-0 cursor-pointer">
+              <div className="text-sm font-semibold text-white truncate hover:text-cyan-200">{d.title}</div>
+              <div className="text-[11px] text-slate-400 truncate">
+                {d.source_filename || d.source_url || d.source_kind} · {d.chunk_count} chunks · {d.char_count.toLocaleString()} chars
               </div>
-            ))}
+            </Link>
+            <button
+              onClick={() => deleteDoc(d)}
+              className="opacity-0 group-hover/doc:opacity-100 transition-opacity p-1.5 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
+              title="Delete this document"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
-        )}
-      </section>
+        );
+
+        const Section = ({
+          icon: Icon, title, color, items, addMode, emptyHint,
+        }: {
+          icon: typeof FileText;
+          title: string;
+          color: string;
+          items: NonNullable<KB['documents']>;
+          addMode: 'file' | 'text' | 'url';
+          emptyHint: string;
+        }) => (
+          <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Icon className="w-4 h-4" style={{ color }} />
+                <h2 className="text-sm font-bold text-white">{title}</h2>
+                <span className="text-[11px] text-slate-400">
+                  {items.length} item{items.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <Link
+                href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=${addMode}`}
+                className="text-[11px] hover:opacity-80 inline-flex items-center gap-1"
+                style={{ color }}
+              >
+                <Plus className="w-3 h-3" /> Add
+              </Link>
+            </div>
+            {items.length === 0 ? (
+              <p className="text-center text-xs text-slate-500 py-5">{emptyHint}</p>
+            ) : (
+              <div className="space-y-2">{items.map(Row)}</div>
+            )}
+          </section>
+        );
+
+        return (
+          <>
+            <Section
+              icon={FileText} title="Uploaded files" color="#06b6d4"
+              items={fileDocs} addMode="file"
+              emptyHint="No files uploaded yet. PDF / DOCX / TXT / MD."
+            />
+            <Section
+              icon={TypeIcon} title="Pasted text" color="#a855f7"
+              items={textDocs} addMode="text"
+              emptyHint="No pasted text yet. Handbooks, policies, FAQs."
+            />
+            <Section
+              icon={Globe} title="Crawled URLs" color="#f59e0b"
+              items={urlDocs} addMode="url"
+              emptyHint="No URLs crawled yet. Public pages or articles."
+            />
+          </>
+        );
+      })()}
 
       {/* ── Chat playground scoped to THIS KB only ─────────────── */}
       <section className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
