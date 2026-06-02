@@ -207,12 +207,28 @@ final sale and not eligible for return.`);
     } finally { setSaving(false); }
   };
 
-  const modes: { id: TrainMode; label: string; tagline: string; icon: typeof TypeIcon }[] = [
-    { id: 'qa',   label: 'Q&A pairs',  tagline: 'Greetings, FAQs, fixed replies',  icon: Sparkles },
-    { id: 'text', label: 'Paste text', tagline: 'Handbook, policies, brand voice', icon: TypeIcon },
-    { id: 'file', label: 'Upload file', tagline: 'PDF, DOCX, TXT, Markdown',       icon: FileUp },
+  // Mode list. Q&A is intentionally HIDDEN when ``presetKbId`` is
+  // set (the "Add more data" flow from a doc detail page):
+  //   * Q&A pairs are workspace-wide, not per-KB. Letting users pick
+  //     "Q&A" from inside a specific KB's add-more flow implies the
+  //     pair would be scoped to that KB -- which would be misleading.
+  //   * Q&A pairs are managed on the dedicated /knowledge/qa page;
+  //     this flow is for adding documents into the selected KB.
+  const allModes: { id: TrainMode; label: string; tagline: string; icon: typeof TypeIcon }[] = [
+    { id: 'qa',   label: 'Q&A pairs',  tagline: 'Greetings, FAQs, fixed replies',   icon: Sparkles },
+    { id: 'text', label: 'Paste text', tagline: 'Handbook, policies, brand voice',  icon: TypeIcon },
+    { id: 'file', label: 'Upload file', tagline: 'PDF, DOCX, TXT, Markdown',        icon: FileUp },
     { id: 'url',  label: 'Crawl URL',  tagline: 'Public page or knowledge article', icon: Globe },
   ];
+  const modes = presetKbId
+    ? allModes.filter((m) => m.id !== 'qa')
+    : allModes;
+  // When Q&A is hidden but the user landed in QA mode (initial state
+  // defaults to 'qa'), bump them to 'text' so the form actually
+  // renders something useful.
+  useEffect(() => {
+    if (presetKbId && mode === 'qa') setMode('text');
+  }, [presetKbId, mode]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -249,8 +265,9 @@ final sale and not eligible for return.`);
         </div>
       </div>
 
-      {/* Mode picker */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {/* Mode picker -- 3 columns when Q&A is hidden (add-more flow),
+          4 columns otherwise. Keeps cards equal width regardless. */}
+      <div className={`grid grid-cols-2 ${presetKbId ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-3 mb-6`}>
         {modes.map((m) => {
           const active = mode === m.id;
           const Icon = m.icon;

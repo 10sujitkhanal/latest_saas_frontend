@@ -28,6 +28,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, FileText, Globe, Type as TypeIcon, RefreshCw, Trash2,
   AlertTriangle, CheckCircle2, Send, Sparkles, MessageCircle, Plus,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
@@ -420,38 +421,16 @@ export default function KBDocumentDetailPage({ params }: {
                 to enable model picking.
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {availableModels.map((m) => {
-                  const active = kbModel === m.id;
-                  // Show a small "(disconnected)" hint when the model
-                  // matches the saved KB value but its provider isn't
-                  // currently connected -- still selectable so the
-                  // user knows what's set.
-                  const providerConnected = connectedProviders.includes(m.provider);
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => changeModel(m.id)}
-                      disabled={savingModel}
-                      className={`text-left rounded-lg border p-2.5 transition-colors disabled:opacity-50 ${
-                        active
-                          ? 'border-emerald-500/60 bg-emerald-500/[0.08]'
-                          : 'border-white/10 bg-white/[0.02] hover:border-white/25'
-                      }`}
-                    >
-                      <div className={`text-[12px] font-semibold flex items-center gap-1 ${active ? 'text-emerald-200' : 'text-white'}`}>
-                        {m.name}
-                        {!providerConnected && (
-                          <span className="text-[9px] text-amber-300 font-normal" title="Provider not connected">
-                            (no key)
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{m.hint}</div>
-                    </button>
-                  );
-                })}
-              </div>
+              // Searchable single-select dropdown (matches the
+              // train-page picker so users see the same UX everywhere
+              // they touch model selection).
+              <LLMSearchSelect
+                value={kbModel}
+                onChange={changeModel}
+                options={availableModels}
+                connectedProviders={connectedProviders}
+                disabled={savingModel}
+              />
             )}
           </div>
         )}
@@ -653,6 +632,128 @@ export default function KBDocumentDetailPage({ params }: {
     </div>
   );
 }
+
+/**
+ * Searchable LLM picker -- mirrors the train-page component so users
+ * see the same control everywhere they touch model selection. Filters
+ * the list to providers the tenant has connected (with the currently-
+ * saved model always kept visible even if its provider got disconnected).
+ *
+ * Why a dropdown instead of a grid:
+ *   * The list grows as more providers are added -- a grid wraps badly.
+ *   * Typing "claude" / "llama" jumps to the right entry instantly.
+ *   * Compact -- doesn't fight for vertical space on the detail page.
+ */
+function LLMSearchSelect({
+  value, onChange, options, connectedProviders, disabled,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: Array<{ id: string; name: string; hint: string; provider: string }>;
+  connectedProviders: string[];
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const selected = options.find((o) => o.id === value);
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? options.filter((o) =>
+        o.name.toLowerCase().includes(q)
+        || o.hint.toLowerCase().includes(q)
+        || o.provider.toLowerCase().includes(q),
+      )
+    : options;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left rounded-lg border border-white/10 bg-[#080e1c] px-3 py-2.5 flex items-center justify-between hover:border-emerald-500/40 disabled:opacity-50"
+      >
+        <div className="min-w-0 flex-1">
+          {selected ? (
+            <>
+              <div className="text-[13px] font-semibold text-white truncate flex items-center gap-1.5">
+                {selected.name}
+                {!connectedProviders.includes(selected.provider) && (
+                  <span className="text-[9px] text-amber-300 font-normal">(no key)</span>
+                )}
+              </div>
+              <div className="text-[10.5px] text-slate-400 truncate">{selected.hint}</div>
+            </>
+          ) : (
+            <div className="text-[13px] text-slate-500">Select a model…</div>
+          )}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ml-2 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 left-0 right-0 mt-2 rounded-lg border border-white/15 bg-[#080e1c] shadow-2xl shadow-black/50 overflow-hidden">
+          <div className="p-2 border-b border-white/5">
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search models…"
+              className="w-full bg-transparent text-[12.5px] text-white placeholder:text-slate-600 px-2 py-1.5 focus:outline-none"
+            />
+          </div>
+          <div className="max-h-[260px] overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[12px] text-slate-500">
+                {q ? `No models match "${q}".` : 'No connected providers yet.'}
+              </div>
+            ) : (
+              filtered.map((m) => {
+                const active = m.id === value;
+                const connected = connectedProviders.includes(m.provider);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { onChange(m.id); setOpen(false); setSearch(''); }}
+                    className={`w-full text-left px-3 py-2 hover:bg-white/[0.05] flex items-start justify-between gap-3 ${
+                      active ? 'bg-emerald-500/[0.08]' : ''
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[12.5px] font-semibold truncate flex items-center gap-1 ${active ? 'text-emerald-200' : 'text-white'}`}>
+                        {m.name}
+                        {!connected && (
+                          <span className="text-[9px] text-amber-300 font-normal">(no key)</span>
+                        )}
+                      </div>
+                      <div className="text-[10.5px] text-slate-400 truncate">{m.hint}</div>
+                    </div>
+                    <span className="text-[9.5px] font-mono text-slate-500 shrink-0 mt-0.5">
+                      {m.provider}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
