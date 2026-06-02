@@ -100,11 +100,13 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
         OrganizationService.kbStatus(),
       ]);
       if (docsRes?.success) setDocs(docsRes.data);
-      // Only show KBs that have AT LEAST one Q&A pair -- avoids
-      // duplicating the auto-created "Default" KB as an empty card
-      // when the user has only trained documents and no direct Q&A.
+      // Show EVERY KB as its own card (was previously filtered to
+      // KBs with at least one Q&A pair). Surfacing all KBs lets the
+      // user click into any of them to see their full content -- docs,
+      // Q&A pairs, and chat -- not just the ones that happen to have
+      // direct-match rules trained.
       if (basesRes?.success) {
-        setBases((basesRes.data as KBBase[]).filter((kb) => (kb.qa_count || 0) > 0));
+        setBases(basesRes.data as KBBase[]);
       }
       if (statusRes?.success) setStatus(statusRes.data);
     } finally { setLoading(false); }
@@ -397,13 +399,17 @@ function DocCard({ doc, wsId, onDelete, onRetrain }: {
  * type and operators edit them most often.
  */
 function QACollectionCard({ kb, wsId }: { kb: KBBase; wsId: string }) {
+  // Card → KB detail page (NOT the train page) so the click reveals
+  // the FULL contents of the KB (docs + Q&A + chat + delete controls).
+  // Only the explicit "+ Add more" pill inside the card jumps to the
+  // train flow with the right KB pre-selected.
   return (
     <article className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.01] p-5 hover:border-emerald-400/60 hover:from-emerald-500/[0.10] transition-colors cursor-pointer group"
       onClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button, a, [data-stop-nav]')) return;
         if (typeof window !== 'undefined') {
-          window.location.href = `/w/${wsId}/knowledge/train?kb=${kb.id}&mode=qa`;
+          window.location.href = `/w/${wsId}/knowledge/kb/${kb.id}`;
         }
       }}
     >
