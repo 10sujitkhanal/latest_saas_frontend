@@ -509,6 +509,16 @@ export const OrganizationService = {
     );
     return data;
   },
+  // Delete an entire KnowledgeBase + all its documents, chunks, and
+  // Q&A pairs. Cascading delete on the FK chain handles the cleanup.
+  // Used by the trash button on each KB card (except the workspace
+  // Q&A pool which is intentionally protected on the frontend).
+  kbDeleteBase: async (kbId: number) => {
+    const { data } = await apiClient.delete(
+      `/organization/leads/knowledge/bases/${kbId}/`,
+    );
+    return data;
+  },
   // Patch a KnowledgeBase row (mainly ``model`` swaps from the detail
   // page's LLM picker). Backend accepts any subset of the KB fields.
   kbUpdateBase: async (kbId: number, patch: {

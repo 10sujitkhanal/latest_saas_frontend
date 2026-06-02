@@ -129,6 +129,28 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
     if (res?.success) { toast.success('Deleted'); load(); }
   };
 
+  /**
+   * Delete a whole KnowledgeBase (and all its docs / chunks / Q&A).
+   * Optimistic: drops the card from local state immediately on
+   * success so the UI feels instant; a full re-load happens too
+   * in case the backend cascade changed other counts.
+   */
+  const removeBase = async (kbId: number) => {
+    try {
+      const res = await OrganizationService.kbDeleteBase(kbId);
+      if (res?.success) {
+        setBases((bs) => bs.filter((b) => b.id !== kbId));
+        toast.success('Knowledge base deleted.');
+        load();
+      } else {
+        toast.error(res?.message || 'Delete failed.');
+      }
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Delete failed.');
+    }
+  };
+
   const retrain = async (d: KBDoc) => {
     toast.loading('Re-embedding…', { id: `retrain-${d.id}` });
     const res = await OrganizationService.kbRetrainDocument(d.id);
@@ -296,9 +318,15 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
             );
             return (
               <>
+                {/* Q&A pool card -- onDelete is NOT passed so the
+                    component renders without the trash icon (the pool
+                    is universal and shouldn't be deleted accidentally). */}
                 {qaPoolKb && <QACollectionCard key={`qa-${qaPoolKb.id}`} kb={qaPoolKb} wsId={wsId} />}
+                {/* All other KBs are deletable -- pass onDelete so
+                    the component renders the trash icon next to the
+                    "Active" badge. */}
                 {otherKbs.map((kb) => (
-                  <QACollectionCard key={`kb-${kb.id}`} kb={kb} wsId={wsId} />
+                  <QACollectionCard key={`kb-${kb.id}`} kb={kb} wsId={wsId} onDelete={removeBase} />
                 ))}
                 {orphanDocs.map((d) => (
                   <DocCard key={d.id} doc={d} wsId={wsId}
@@ -441,7 +469,34 @@ function DocCard({ doc, wsId, onDelete, onRetrain }: {
  * collections aren't buried -- they're the most accurate training
  * type and operators edit them most often.
  */
-function QACollectionCard({ kb, wsId }: { kb: KBBase; wsId: string }) {
+function QACollectionCard({ kb, wsId, onDelete }: {
+  kb: KBBase;
+  wsId: string;
+  onDelete?: (kbId: number) => void;
+}) {
+  // The workspace Q&A pool is the one container that should ALWAYS
+  // exist -- it holds the universal Q&A pairs that fire on every
+  // chat. Protect it from accidental deletion by hiding the trash
+  // icon on this specific card. Detection by name ("Default" is the
+  // legacy auto-created pool; "Workspace Q&A Pool" is the new one).
+  const isProtectedPool = kb.name === 'Workspace Q&A Pool' || kb.name === 'Default';
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docCount = kb.document_count || 0;
+    const chunkCount = kb.chunk_count || 0;
+    const qaCount = kb.qa_count || 0;
+    const summary = [
+      docCount && `${docCount} document${docCount === 1 ? '' : 's'}`,
+      chunkCount && `${chunkCount} chunk${chunkCount === 1 ? '' : 's'}`,
+      qaCount && `${qaCount} Q&A pair${qaCount === 1 ? '' : 's'}`,
+    ].filter(Boolean).join(', ') || '(empty)';
+    if (!window.confirm(
+      `Delete "${kb.name}" and all its training data?\n\nThis will permanently remove ${summary}.`
+    )) return;
+    onDelete?.(kb.id);
+  };
+
   // Card → KB detail page (NOT the train page) so the click reveals
   // the FULL contents of the KB (docs + Q&A + chat + delete controls).
   // Only the explicit "+ Add more" pill inside the card jumps to the
@@ -468,10 +523,26 @@ function QACollectionCard({ kb, wsId }: { kb: KBBase; wsId: string }) {
             Instant replies · no LLM call · 100% confidence
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-200 border border-emerald-500/40">
-          <CheckCircle2 className="w-3 h-3" />
-          Active
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-200 border border-emerald-500/40">
+            <CheckCircle2 className="w-3 h-3" />
+            Active
+          </span>
+          {/* Delete -- hidden on the workspace Q&A pool card so users
+              can't accidentally wipe the universal answer pool that
+              fires across every chat. All other KBs are deletable. */}
+          {!isProtectedPool && onDelete && (
+            <button
+              onClick={handleDelete}
+              data-stop-nav
+              className="p-1.5 rounded-md text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+              title={`Delete "${kb.name}" and its training data`}
+              aria-label="Delete knowledge base"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
