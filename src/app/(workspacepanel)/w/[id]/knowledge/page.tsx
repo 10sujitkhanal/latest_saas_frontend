@@ -156,20 +156,35 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
               The old global chat button used to send queries across
               ALL workspace docs which leaked context between KBs.
               Now clicking a KB card opens its scoped chat tab. */}
-          {/* Train new -- now navigates to the full-page training
-              experience (was a popup modal). The page route shows
-              live samples for each mode + the LLM picker without
-              fighting for vertical space inside a modal. */}
+          {/* Two distinct training buttons:
+                1. "Train Q&A"  -- one workspace-wide Q&A pool, fires
+                                   on every chat regardless of KB.
+                2. "Train new KB" -- creates a fresh KB with docs /
+                                   text / URL content. Each KB owns
+                                   its own chat scope.
+              Splitting them visually stops users from accidentally
+              dumping Q&A into a doc KB or vice-versa. */}
+          <Link
+            href={`/w/${wsId}/knowledge/train?mode=qa`}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.08] hover:bg-emerald-500/[0.16] text-emerald-200 text-sm font-semibold ${
+              (status !== null && !status.ready) ? 'opacity-50 pointer-events-none' : ''
+            }`}
+            title="Add Q&A pairs to the workspace-wide pool. Fires on every chat."
+            aria-disabled={status !== null && !status.ready}
+          >
+            <Sparkles className="w-4 h-4" />
+            Train Q&A
+          </Link>
           <Link
             href={`/w/${wsId}/knowledge/train`}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-500/20 ${
               (status !== null && !status.ready) ? 'opacity-50 pointer-events-none' : ''
             }`}
-            title={status && !status.ready ? status.message : undefined}
+            title={status && !status.ready ? status.message : 'Create a new knowledge base with documents, text or URLs.'}
             aria-disabled={status !== null && !status.ready}
           >
             <Plus className="w-4 h-4" />
-            Train new
+            Train new KB
           </Link>
         </div>
       </div>

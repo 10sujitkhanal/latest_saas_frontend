@@ -211,22 +211,23 @@ final sale and not eligible for return.`);
     } finally { setSaving(false); }
   };
 
-  // Mode list. Q&A is intentionally HIDDEN when ``presetKbId`` is
-  // set (the "Add more data" flow from a doc detail page):
-  //   * Q&A pairs are workspace-wide, not per-KB. Letting users pick
-  //     "Q&A" from inside a specific KB's add-more flow implies the
-  //     pair would be scoped to that KB -- which would be misleading.
-  //   * Q&A pairs are managed on the dedicated /knowledge/qa page;
-  //     this flow is for adding documents into the selected KB.
+  // Mode list -- filtered by the entry point:
+  //   * ``?mode=qa``      -> Q&A only (hides doc modes)
+  //   * ``?kb=<id>``      -> doc modes only (hides Q&A; KB-scoped)
+  //   * neither           -> all 4 modes (creating new KB or Q&A)
+  // The forced-Q&A entry comes from the main page's "Train Q&A"
+  // button so users can't accidentally pick a doc mode in the
+  // workspace-wide Q&A flow.
+  const forcedQAOnly = modeParam === 'qa' && !presetKbId;
   const allModes: { id: TrainMode; label: string; tagline: string; icon: typeof TypeIcon }[] = [
     { id: 'qa',   label: 'Q&A pairs',  tagline: 'Greetings, FAQs, fixed replies',   icon: Sparkles },
     { id: 'text', label: 'Paste text', tagline: 'Handbook, policies, brand voice',  icon: TypeIcon },
     { id: 'file', label: 'Upload file', tagline: 'PDF, DOCX, TXT, Markdown',        icon: FileUp },
     { id: 'url',  label: 'Crawl URL',  tagline: 'Public page or knowledge article', icon: Globe },
   ];
-  const modes = presetKbId
-    ? allModes.filter((m) => m.id !== 'qa')
-    : allModes;
+  let modes = allModes;
+  if (presetKbId)    modes = allModes.filter((m) => m.id !== 'qa');
+  if (forcedQAOnly)  modes = allModes.filter((m) => m.id === 'qa');
   // When Q&A is hidden but the user landed in QA mode (initial state
   // defaults to 'qa'), bump them to 'text' so the form actually
   // renders something useful.
@@ -376,16 +377,21 @@ final sale and not eligible for return.`);
                   Load sample
                 </button>
               </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
-                  Title <span className="text-slate-500">(optional)</span>
-                </label>
-                <input
-                  value={title} onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Return policy, Q1 product launch FAQ"
-                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
-                />
-              </div>
+              {/* Title field hidden when adding to an existing KB --
+                  the KB already has a name, this new content just
+                  joins it. Shown only for brand-new KB creation. */}
+              {!presetKbId && (
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
+                    Title <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <input
+                    value={title} onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Return policy, Q1 product launch FAQ"
+                    className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
                   Content
