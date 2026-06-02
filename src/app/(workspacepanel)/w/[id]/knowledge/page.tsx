@@ -497,12 +497,43 @@ function QACollectionCard({ kb, wsId, onDelete }: {
     onDelete?.(kb.id);
   };
 
-  // Card → KB detail page (NOT the train page) so the click reveals
-  // the FULL contents of the KB (docs + Q&A + chat + delete controls).
-  // Only the explicit "+ Add more" pill inside the card jumps to the
-  // train flow with the right KB pre-selected.
+  // Two distinct card identities:
+  //   * Q&A pool  -> emerald theme, Sparkles icon, ONLY the Q&A count,
+  //                  "Add more" jumps to the Q&A train flow.
+  //   * Doc KB    -> cyan theme, Database icon, Documents + Chunks
+  //                  stats (Q&A hidden -- it lives in the pool),
+  //                  "Add more" jumps to the doc train flow.
+  const isQAPool = isProtectedPool;
+  const theme = isQAPool
+    ? {
+        border: 'border-emerald-500/30 hover:border-emerald-400/60',
+        bg: 'from-emerald-500/[0.07] to-emerald-500/[0.01] hover:from-emerald-500/[0.12]',
+        iconBg: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300',
+        title: 'group-hover:text-emerald-200',
+        accent: 'text-emerald-300 hover:text-emerald-200',
+        divider: 'border-emerald-500/20',
+        Icon: Sparkles,
+        suffix: 'Q&A pool',
+        tagline: 'Instant replies · fires on every chat · 100% confidence',
+        addMode: 'qa' as const,
+      }
+    : {
+        border: 'border-cyan-500/25 hover:border-cyan-400/60',
+        bg: 'from-cyan-500/[0.06] to-cyan-500/[0.01] hover:from-cyan-500/[0.11]',
+        iconBg: 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300',
+        title: 'group-hover:text-cyan-200',
+        accent: 'text-cyan-300 hover:text-cyan-200',
+        divider: 'border-cyan-500/15',
+        Icon: Database,
+        suffix: 'Knowledge base',
+        tagline: 'Documents · semantic search · grounded answers',
+        addMode: 'text' as const,
+      };
+  const CardIcon = theme.Icon;
+
   return (
-    <article className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.01] p-5 hover:border-emerald-400/60 hover:from-emerald-500/[0.10] transition-colors cursor-pointer group"
+    <article
+      className={`group relative rounded-2xl border ${theme.border} bg-gradient-to-br ${theme.bg} p-5 transition-all cursor-pointer hover:shadow-lg hover:shadow-black/20`}
       onClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button, a, [data-stop-nav]')) return;
@@ -511,59 +542,78 @@ function QACollectionCard({ kb, wsId, onDelete }: {
         }
       }}
     >
+      {/* Header row */}
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0">
-          <Sparkles className="w-4 h-4" />
+        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${theme.iconBg}`}>
+          <CardIcon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-white truncate group-hover:text-emerald-200">
-            {kb.name} · Q&A pairs
+          <h3 className={`text-[15px] font-bold text-white truncate ${theme.title}`}>
+            {kb.name}
           </h3>
-          <div className="text-[11px] text-slate-400 mt-0.5">
-            Instant replies · no LLM call · 100% confidence
+          <div className="text-[10.5px] text-slate-400 mt-0.5 truncate">
+            {theme.suffix} · {theme.tagline}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-200 border border-emerald-500/40">
-            <CheckCircle2 className="w-3 h-3" />
-            Active
+        {/* Delete -- never on the Q&A pool. */}
+        {!isProtectedPool && onDelete && (
+          <button
+            onClick={handleDelete}
+            data-stop-nav
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 shrink-0"
+            title={`Delete "${kb.name}"`}
+            aria-label="Delete knowledge base"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Stats -- ADAPT to card type. Q&A pool shows only its pair
+          count (docs/chunks are always 0 there); doc KBs show
+          Documents + Chunks (qa_count is always 0 there). */}
+      <div className={`mt-4 grid ${isQAPool ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+        {isQAPool ? (
+          <BigStat label="Q&A pairs" value={kb.qa_count} accent="#10b981" />
+        ) : (
+          <>
+            <BigStat label="Documents" value={kb.document_count} accent="#06b6d4" />
+            <BigStat label="Chunks" value={kb.chunk_count} accent="#06b6d4" />
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className={`mt-4 pt-3 border-t ${theme.divider} flex items-center justify-between`}>
+        {isQAPool ? (
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-emerald-300/80">
+            <CheckCircle2 className="w-3 h-3" /> No model needed
           </span>
-          {/* Delete -- hidden on the workspace Q&A pool card so users
-              can't accidentally wipe the universal answer pool that
-              fires across every chat. All other KBs are deletable. */}
-          {!isProtectedPool && onDelete && (
-            <button
-              onClick={handleDelete}
-              data-stop-nav
-              className="p-1.5 rounded-md text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-              title={`Delete "${kb.name}" and its training data`}
-              aria-label="Delete knowledge base"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Q&A pairs" value={kb.qa_count} />
-        <Stat label="Documents" value={kb.document_count} />
-        <Stat label="Chunks" value={kb.chunk_count} />
-      </div>
-
-      <div className="mt-3 pt-3 border-t border-emerald-500/20 flex items-center justify-between">
-        <span className="text-[11px] italic text-slate-400 truncate" title={`Replies via ${kb.model}`}>
-          {kb.model}
-        </span>
+        ) : (
+          <span className="text-[11px] italic text-slate-400 truncate" title={`Replies via ${kb.model}`}>
+            {kb.model}
+          </span>
+        )}
         <Link
-          href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=qa`}
+          href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=${theme.addMode}`}
           data-stop-nav
-          className="text-[11px] text-emerald-300 hover:text-emerald-200 inline-flex items-center gap-1"
+          className={`text-[11px] font-semibold inline-flex items-center gap-1 ${theme.accent}`}
         >
           <Plus className="w-3 h-3" /> Add more
         </Link>
       </div>
     </article>
+  );
+}
+
+
+/** Larger stat tile for the redesigned KB cards. */
+function BigStat({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+  return (
+    <div className="rounded-xl bg-black/20 border border-white/5 px-3 py-2.5">
+      <div className="text-[9.5px] uppercase tracking-wider text-slate-500 font-semibold">{label}</div>
+      <div className="text-lg font-bold mt-0.5" style={{ color: accent }}>{value}</div>
+    </div>
   );
 }
 
