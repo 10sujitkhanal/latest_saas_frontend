@@ -21,7 +21,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Plus, Trash2, Sparkles, FileText, Send,
   MessageCircle, Database, ChevronDown, Type as TypeIcon, Globe,
-  X, RefreshCw,
+  X, RefreshCw, CheckCircle2, PauseCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
@@ -135,20 +135,30 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
     } finally { setSavingModel(false); }
   };
 
-  const deleteQA = async (qa: { id: number; questions: string[]; answer: string }) => {
-    const first = qa.questions[0] || '(empty)';
-    if (!window.confirm(`Delete this Q&A pair?\n"${first}" → "${qa.answer.slice(0, 60)}…"`)) return;
-    const res = await OrganizationService.kbDeleteQA(qa.id);
-    if (res?.success) {
-      if (kb) {
-        setKb({
-          ...kb,
-          qa_pairs: (kb.qa_pairs || []).filter((p) => p.id !== qa.id),
-          qa_count: Math.max(0, (kb.qa_count || 1) - 1),
-        });
+  /**
+   * Flip the KB's active state. When inactive, the chat engine skips
+   * this KB's documents during retrieval -- a soft "pause" without
+   * deleting the training data. Optimistic toggle with rollback on
+   * error so the switch feels instant.
+   */
+  const [togglingActive, setTogglingActive] = useState(false);
+  const toggleActive = async () => {
+    if (!kb || togglingActive) return;
+    const next = !kb.is_active;
+    setTogglingActive(true);
+    setKb({ ...kb, is_active: next });   // optimistic
+    try {
+      const res = await OrganizationService.kbUpdateBase(kb.id, { is_active: next });
+      if (res?.success) {
+        toast.success(next ? 'Knowledge base activated.' : 'Knowledge base paused.');
+      } else {
+        setKb({ ...kb, is_active: !next });   // rollback
+        toast.error(res?.message || 'Could not update status.');
       }
-      toast.success('Q&A pair deleted.');
-    } else { toast.error(res?.message || 'Delete failed.'); }
+    } catch {
+      setKb({ ...kb, is_active: !next });
+      toast.error('Could not update status.');
+    } finally { setTogglingActive(false); }
   };
 
   const deleteDoc = async (doc: { id: number; title: string }) => {
@@ -222,7 +232,19 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
             <Database className="w-6 h-6" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-white">{kb.name}</h1>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl font-bold text-white">{kb.name}</h1>
+              {/* Status pill mirrors the toggle below -- green when
+                  active, slate when paused. */}
+              <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full border ${
+                kb.is_active
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                  : 'bg-slate-500/15 text-slate-400 border-slate-500/40'
+              }`}>
+                {kb.is_active ? <CheckCircle2 className="w-3 h-3" /> : <PauseCircle className="w-3 h-3" />}
+                {kb.is_active ? 'Active' : 'Paused'}
+              </span>
+            </div>
             {kb.description && (
               <p className="text-sm text-slate-400 mt-1">{kb.description}</p>
             )}
@@ -232,13 +254,27 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
               <span>Updated {new Date(kb.updated_at).toLocaleDateString()}</span>
             </div>
           </div>
-          <div className="shrink-0">
-            {/* "Add more" -> full train page with this KB pre-selected.
-                When called from inside a KB detail page like this, the
-                user is already committed to a specific KB so we route
-                them straight to the full-power train page instead of
-                a cramped modal -- they can pick mode + load samples +
-                inspect sidebar guidance. */}
+          <div className="shrink-0 flex flex-col items-end gap-3">
+            {/* Active / paused toggle. A paused KB keeps all its data
+                but is skipped by the chat engine's retrieval, so the
+                user can mute a KB temporarily without deleting it. */}
+            <button
+              onClick={toggleActive}
+              disabled={togglingActive}
+              className="inline-flex items-center gap-2 text-[12px] text-slate-300 disabled:opacity-50"
+              title={kb.is_active ? 'Pause this KB (chat will skip it)' : 'Activate this KB'}
+            >
+              <span className={kb.is_active ? 'text-emerald-300' : 'text-slate-500'}>
+                {kb.is_active ? 'Active' : 'Paused'}
+              </span>
+              <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                kb.is_active ? 'bg-emerald-500/70' : 'bg-slate-600/70'
+              }`}>
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  kb.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                }`} />
+              </span>
+            </button>
             <Link
               href={`/w/${wsId}/knowledge/train?kb=${kb.id}`}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
@@ -249,11 +285,11 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats -- Q&A removed (it's workspace-wide, not per-KB). */}
         <div className="mt-5 grid grid-cols-3 gap-3">
-          <Stat label="Q&A pairs" value={kb.qa_count} />
           <Stat label="Documents" value={kb.document_count} />
           <Stat label="Chunks" value={kb.chunk_count} />
+          <Stat label="Model" value={kb.model} />
         </div>
 
         {/* LLM picker -- only visible providers (with current always shown) */}
@@ -288,62 +324,10 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
         </div>
       </div>
 
-      {/* ── Q&A pairs (full list, deletable inline) ────────────── */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-300" />
-            <h2 className="text-sm font-bold text-white">Q&A pairs</h2>
-            <span className="text-[11px] text-slate-400">
-              {(kb.qa_pairs || []).length} pair{(kb.qa_pairs || []).length === 1 ? '' : 's'} · instant replies, no LLM call
-            </span>
-          </div>
-          <Link
-            href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=qa`}
-            className="text-[11px] text-emerald-300 hover:text-emerald-200 inline-flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" /> Add Q&A
-          </Link>
-        </div>
-        {(kb.qa_pairs || []).length === 0 ? (
-          <p className="text-center text-xs text-slate-500 py-6">
-            No Q&A pairs yet. Click <strong>+ Add Q&A</strong> to create instant-reply rules.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(kb.qa_pairs || []).map((qa) => (
-              <div key={qa.id} className="group/qa rounded-lg bg-white/[0.03] border border-white/5 p-3 relative">
-                <button
-                  onClick={() => deleteQA(qa)}
-                  className="absolute top-2 right-2 opacity-0 group-hover/qa:opacity-100 transition-opacity p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
-                  title="Delete this Q&A pair"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-                <div className="flex items-center justify-between mb-1.5 pr-7">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Match: {qa.match_mode}
-                  </span>
-                  {qa.hit_count > 0 && (
-                    <span className="text-[10px] text-emerald-300">🔥 {qa.hit_count}</span>
-                  )}
-                </div>
-                <div className="space-y-1 mb-2">
-                  {qa.questions.slice(0, 3).map((q, i) => (
-                    <div key={i} className="text-[12px] text-slate-300 font-mono truncate">{q}</div>
-                  ))}
-                  {qa.questions.length > 3 && (
-                    <div className="text-[10px] text-slate-500">+ {qa.questions.length - 3} more</div>
-                  )}
-                </div>
-                <div className="rounded-md bg-emerald-500/[0.10] border border-emerald-500/20 px-2 py-1.5 text-[12px] text-emerald-100">
-                  {qa.answer.length > 140 ? qa.answer.slice(0, 140) + '...' : qa.answer}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Q&A pairs are workspace-wide (managed via the "Train Q&A"
+          button on the main page), NOT per-KB -- so this detail page
+          deliberately does NOT show a Q&A section. A KB is purely a
+          bucket of documents + a chat scope. */}
 
       {/* ── Training sources grouped by TYPE ───────────────────────
           Three separate sections so the user can see at a glance what

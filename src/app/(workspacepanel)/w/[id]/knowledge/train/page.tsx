@@ -218,22 +218,32 @@ final sale and not eligible for return.`);
   // The forced-Q&A entry comes from the main page's "Train Q&A"
   // button so users can't accidentally pick a doc mode in the
   // workspace-wide Q&A flow.
-  const forcedQAOnly = modeParam === 'qa' && !presetKbId;
+  // Q&A is a SEPARATE flow reached only via the "Train Q&A" button
+  // (which sets ``?mode=qa``). Everywhere else -- "Train new KB" and
+  // "Add more data" -- only the document modes show, because:
+  //   * Q&A pairs are workspace-wide, not part of any KB.
+  //   * A KB is built from documents (text / file / URL) only.
+  const forcedQAOnly = modeParam === 'qa';
   const allModes: { id: TrainMode; label: string; tagline: string; icon: typeof TypeIcon }[] = [
     { id: 'qa',   label: 'Q&A pairs',  tagline: 'Greetings, FAQs, fixed replies',   icon: Sparkles },
     { id: 'text', label: 'Paste text', tagline: 'Handbook, policies, brand voice',  icon: TypeIcon },
     { id: 'file', label: 'Upload file', tagline: 'PDF, DOCX, TXT, Markdown',        icon: FileUp },
     { id: 'url',  label: 'Crawl URL',  tagline: 'Public page or knowledge article', icon: Globe },
   ];
-  let modes = allModes;
-  if (presetKbId)    modes = allModes.filter((m) => m.id !== 'qa');
-  if (forcedQAOnly)  modes = allModes.filter((m) => m.id === 'qa');
-  // When Q&A is hidden but the user landed in QA mode (initial state
-  // defaults to 'qa'), bump them to 'text' so the form actually
-  // renders something useful.
+  // Default: document modes only (no Q&A). Q&A appears ONLY when the
+  // user explicitly came from "Train Q&A" (``?mode=qa``).
+  const modes = forcedQAOnly
+    ? allModes.filter((m) => m.id === 'qa')
+    : allModes.filter((m) => m.id !== 'qa');
+  // Keep the active ``mode`` valid for the current filter. When Q&A
+  // isn't an offered mode (any doc-only flow) but the state still
+  // holds the 'qa' default, switch to 'text' so the form renders a
+  // real document input instead of a hidden Q&A editor.
   useEffect(() => {
-    if (presetKbId && mode === 'qa') setMode('text');
-  }, [presetKbId, mode]);
+    const ids = modes.map((m) => m.id);
+    if (!ids.includes(mode)) setMode(ids[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedQAOnly, presetKbId]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -272,7 +282,13 @@ final sale and not eligible for return.`);
 
       {/* Mode picker -- 3 columns when Q&A is hidden (add-more flow),
           4 columns otherwise. Keeps cards equal width regardless. */}
-      <div className={`grid grid-cols-2 ${presetKbId ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-3 mb-6`}>
+      {/* Column count follows how many modes are actually shown:
+          1 (Q&A-only) · 3 (doc-only) · 4 (legacy all). */}
+      <div className={`grid grid-cols-2 ${
+        modes.length === 1 ? 'md:grid-cols-1'
+        : modes.length === 3 ? 'md:grid-cols-3'
+        : 'md:grid-cols-4'
+      } gap-3 mb-6`}>
         {modes.map((m) => {
           const active = mode === m.id;
           const Icon = m.icon;
