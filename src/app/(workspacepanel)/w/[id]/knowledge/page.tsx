@@ -36,6 +36,11 @@ interface KBDoc {
   chunk_count: number;
   char_count: number;
   embedding_model: string;
+  // FK to the KnowledgeBase that owns this doc. Drives the de-dupe
+  // logic on the list page: if this id appears in the ``bases`` array
+  // as its own card, we hide the doc card so the same training data
+  // isn't shown twice (once aggregated in the KB card, once here).
+  knowledge_base: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -255,15 +260,38 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {/* Q&A pair collections shown FIRST -- they're the most
-              accurate training type and the most-edited surface, so
-              they belong at the top of the list visually. */}
-          {bases.map((kb) => (
-            <QACollectionCard key={`qa-${kb.id}`} kb={kb} wsId={wsId} />
-          ))}
-          {docs.map((d) => (
-            <DocCard key={d.id} doc={d} wsId={wsId} onDelete={() => remove(d)} onRetrain={() => retrain(d)} />
-          ))}
+          {/* Architecture:
+              - One "Workspace Q&A Pool" card aggregates ALL workspace
+                Q&A pairs (fires on every chat regardless of KB).
+              - One card per KB EXCEPT the workspace Q&A pool KB
+                (which is shown as the Q&A card above, not duplicated).
+              - Individual doc cards are hidden when their KB is
+                already shown as a KB card -- prevents the same
+                training data appearing twice. */}
+          {(() => {
+            const qaPoolKb = bases.find((b) => b.name === 'Workspace Q&A Pool');
+            const otherKbs = bases.filter((b) => b.name !== 'Workspace Q&A Pool');
+            // Doc cards: only show docs that are NOT inside a KB
+            // already rendered as a KB card (orphan docs from before
+            // the per-KB-per-doc rollout, basically).
+            const kbIdsShown = new Set(otherKbs.map((b) => b.id));
+            if (qaPoolKb) kbIdsShown.add(qaPoolKb.id);
+            const orphanDocs = docs.filter(
+              (d) => d.knowledge_base == null || !kbIdsShown.has(d.knowledge_base),
+            );
+            return (
+              <>
+                {qaPoolKb && <QACollectionCard key={`qa-${qaPoolKb.id}`} kb={qaPoolKb} wsId={wsId} />}
+                {otherKbs.map((kb) => (
+                  <QACollectionCard key={`kb-${kb.id}`} kb={kb} wsId={wsId} />
+                ))}
+                {orphanDocs.map((d) => (
+                  <DocCard key={d.id} doc={d} wsId={wsId}
+                            onDelete={() => remove(d)} onRetrain={() => retrain(d)} />
+                ))}
+              </>
+            );
+          })()}
         </div>
       )}
 
