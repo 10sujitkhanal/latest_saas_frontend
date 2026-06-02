@@ -21,6 +21,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Plus, Trash2, Sparkles, FileText, Send,
   MessageCircle, Database, ChevronDown, Type as TypeIcon, Globe,
+  X, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
@@ -85,6 +86,10 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
+  // Document-detail popup -- replaces the standalone /knowledge/<docId>
+  // page. Clicking a doc row sets ``openDocId``; the modal fetches its
+  // chunks + metadata and shows them in an overlay.
+  const [openDocId, setOpenDocId] = useState<number | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -354,12 +359,17 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
 
         const Row = (d: NonNullable<KB['documents']>[number]) => (
           <div key={d.id} className="group/doc flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-colors">
-            <Link href={`/w/${wsId}/knowledge/${d.id}`} className="flex-1 min-w-0 cursor-pointer">
+            {/* Row body opens the doc-detail POPUP (was a link to a
+                standalone /knowledge/<docId> page, now removed). */}
+            <button
+              onClick={() => setOpenDocId(d.id)}
+              className="flex-1 min-w-0 text-left cursor-pointer"
+            >
               <div className="text-sm font-semibold text-white truncate hover:text-cyan-200">{d.title}</div>
               <div className="text-[11px] text-slate-400 truncate">
                 {d.source_filename || d.source_url || d.source_kind} · {d.chunk_count} chunks · {d.char_count.toLocaleString()} chars
               </div>
-            </Link>
+            </button>
             <button
               onClick={() => deleteDoc(d)}
               className="opacity-0 group-hover/doc:opacity-100 transition-opacity p-1.5 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
@@ -488,6 +498,192 @@ export default function KBDetailPage({ params }: { params: Promise<{ id: string;
           </button>
         </div>
       </section>
+
+      {/* Document-detail popup -- shows the trained chunks for one
+          doc without leaving the KB page. Replaces the old standalone
+          /knowledge/<docId> route. */}
+      {openDocId != null && (
+        <DocumentDetailModal
+          docId={openDocId}
+          onClose={() => setOpenDocId(null)}
+          onDeleted={() => {
+            setOpenDocId(null);
+            load();   // refresh the KB so the deleted doc disappears
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * Document-detail popup. Fetches one document's metadata + indexed
+ * chunks and renders them in an overlay. Lets the user inspect what
+ * was actually trained (chunk-by-chunk) + retrain / delete -- all the
+ * things the removed /knowledge/<docId> page used to do, now inline.
+ */
+function DocumentDetailModal({
+  docId, onClose, onDeleted,
+}: {
+  docId: number;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [doc, setDoc] = useState<{
+    id: number; title: string; source_kind: string; source_filename: string;
+    source_url: string; status: string; chunk_count: number; char_count: number;
+    embedding_model: string; created_at: string; updated_at: string;
+    chunks?: Array<{ id: number; position: number; content: string; token_count: number }>;
+    chunks_total?: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await OrganizationService.kbGetDocument(docId);
+        if (!cancelled && res?.success) setDoc(res.data);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [docId]);
+
+  // Close on Escape.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const retrain = async () => {
+    if (!doc || busy) return;
+    setBusy(true);
+    try {
+      const res = await OrganizationService.kbRetrainDocument(doc.id);
+      if (res?.success) {
+        toast.success('Re-trained.');
+        const fresh = await OrganizationService.kbGetDocument(doc.id);
+        if (fresh?.success) setDoc(fresh.data);
+      } else { toast.error(res?.message || 'Retrain failed.'); }
+    } finally { setBusy(false); }
+  };
+
+  const remove = async () => {
+    if (!doc || busy) return;
+    if (!window.confirm(`Delete "${doc.title}" and all its chunks?`)) return;
+    setBusy(true);
+    try {
+      const res = await OrganizationService.kbDeleteDocument(doc.id);
+      if (res?.success) { toast.success('Deleted.'); onDeleted(); }
+      else { toast.error(res?.message || 'Delete failed.'); setBusy(false); }
+    } catch {
+      toast.error('Delete failed.'); setBusy(false);
+    }
+  };
+
+  const sourceLabel = doc
+    ? (doc.source_kind === 'url' ? doc.source_url
+       : doc.source_kind === 'file' ? doc.source_filename
+       : 'Pasted text')
+    : '';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-white/10 bg-[#0a1020] my-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-5 border-b border-white/5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex items-center justify-center shrink-0">
+              {doc?.source_kind === 'url' ? <Globe className="w-5 h-5" />
+               : doc?.source_kind === 'file' ? <FileText className="w-5 h-5" />
+               : <TypeIcon className="w-5 h-5" />}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-white truncate">{doc?.title || 'Loading…'}</h2>
+              <div className="text-[11px] text-slate-400 truncate">{sourceLabel}</div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-white/[0.06] text-slate-400 hover:text-white shrink-0"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {loading || !doc ? (
+          <div className="px-6 py-12 text-center text-sm text-slate-500">
+            <div className="w-6 h-6 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            Loading training data…
+          </div>
+        ) : (
+          <div className="px-6 py-5">
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <Stat label="Chunks" value={doc.chunk_count} />
+              <Stat label="Chars" value={doc.char_count.toLocaleString()} />
+              <Stat label="Trained" value={new Date(doc.created_at).toLocaleDateString()} />
+            </div>
+            {doc.embedding_model && (
+              <div className="text-[11px] text-slate-500 italic mb-4">
+                Embedded with {doc.embedding_model}
+              </div>
+            )}
+
+            {/* Chunk list */}
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-2">
+              Indexed chunks {doc.chunks_total != null ? `(${(doc.chunks || []).length} of ${doc.chunks_total})` : ''}
+            </div>
+            <div className="max-h-[360px] overflow-y-auto space-y-2 pr-1">
+              {(!doc.chunks || doc.chunks.length === 0) ? (
+                <p className="text-center text-xs text-slate-500 py-6">No chunks indexed.</p>
+              ) : (
+                doc.chunks.map((c) => (
+                  <div key={c.id} className="rounded-lg bg-white/[0.02] border border-white/5 p-2.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono text-slate-500">#{c.position}</span>
+                      <span className="text-[10px] text-slate-500">{c.token_count} tokens</span>
+                    </div>
+                    <p className="text-[12.5px] text-slate-300 leading-relaxed">{c.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer actions */}
+        {doc && (
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-lg border border-white/10 hover:border-red-500/50 text-xs text-slate-300 hover:text-red-300 inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+            <button
+              onClick={retrain}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/50 text-xs text-slate-300 hover:text-cyan-300 inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} /> Retrain
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
