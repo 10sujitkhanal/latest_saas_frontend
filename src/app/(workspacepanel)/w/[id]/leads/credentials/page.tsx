@@ -176,6 +176,11 @@ function CredentialsInner({ wsId }: { wsId: string }) {
         </div>
       </div>
 
+      {/* MoreTech AI — our managed Qwen LLM. Not a bring-your-own
+          credential: tenants subscribe (monthly/yearly) to unlock it.
+          Pinned above the catalog so it reads as a premium offering. */}
+      <MoreTechAICard />
+
       {/* Plan-quota banner — explains why a Connect button could fail */}
       {!catalog.quota.unlimited && catalog.quota.used >= catalog.quota.cap && (
         <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/5 p-4 flex items-start gap-3">
@@ -267,6 +272,143 @@ function CredentialsInner({ wsId }: { wsId: string }) {
         />
       )}
     </div>
+  );
+}
+
+interface MoreTechStatus {
+  has_access: boolean;
+  is_active: boolean;
+  billing_cycle: 'monthly' | 'yearly' | null;
+  current_period_end: string | null;
+  lifetime_spend: number;
+  pricing: { monthly: number; yearly: number; currency: string; model: string };
+}
+
+/**
+ * MoreTech AI subscription card.
+ *
+ * Unlike the catalog cards (which connect a bring-your-own provider via
+ * an API key), MoreTech AI is the platform's OWN hosted Qwen model.
+ * There's no key to paste — the tenant SUBSCRIBES (monthly or yearly)
+ * and the backend proxies every call with a server-side shared secret.
+ *
+ * States:
+ *   - **Active** — green, shows renewal date + a "Renew / extend" action.
+ *   - **Locked** — shows the two price buttons (monthly / yearly).
+ *
+ * On subscribe the backend issues an Invoice routed to the org's agency
+ * (commission) or straight to the platform (direct orgs).
+ */
+function MoreTechAICard() {
+  const [status, setStatus] = useState<MoreTechStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<'monthly' | 'yearly' | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await OrganizationService.moretechAIStatus();
+      if (res?.success) setStatus(res.data);
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const subscribe = async (cycle: 'monthly' | 'yearly') => {
+    setBusy(cycle);
+    try {
+      const res = await OrganizationService.moretechAISubscribe(cycle);
+      if (res?.success) {
+        toast.success(res.message || `MoreTech AI unlocked (${cycle}).`);
+        await load();
+      } else {
+        toast.error(res?.message || 'Could not complete the subscription.');
+      }
+    } catch (e) {
+      toast.error((e as Error)?.message || 'Subscription failed.');
+    } finally { setBusy(null); }
+  };
+
+  if (loading) {
+    return (
+      <div className="mb-6 h-28 rounded-2xl border border-white/10 bg-white/[0.03] animate-pulse" />
+    );
+  }
+  if (!status) return null;
+
+  const active = status.is_active;
+  const monthly = status.pricing?.monthly ?? 29;
+  const yearly = status.pricing?.yearly ?? 290;
+  const cur = status.pricing?.currency === 'USD' ? '$' : (status.pricing?.currency || '$');
+  const renews = status.current_period_end
+    ? new Date(status.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : null;
+
+  return (
+    <section className="mb-7">
+      <div className="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/[0.12] via-fuchsia-500/[0.06] to-transparent p-5">
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
+              <Icons.Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-white">MoreTech AI</h2>
+                {active ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                    <Icons.CheckCircle2 className="w-2.5 h-2.5" /> Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    <Icons.Lock className="w-2.5 h-2.5" /> Locked
+                  </span>
+                )}
+              </div>
+              <p className="text-[12px] text-slate-300 mt-1 max-w-md">
+                Our managed Qwen model — private, hosted on our own servers.
+                No API key to paste; just subscribe and select <span className="text-violet-200">MoreTech AI</span> as
+                the model on any Knowledge Base.
+              </p>
+              {active && renews && (
+                <p className="text-[11px] text-emerald-300/80 mt-1.5">
+                  {status.billing_cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · renews {renews}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {active ? (
+              <button
+                onClick={() => subscribe(status.billing_cycle === 'yearly' ? 'yearly' : 'monthly')}
+                disabled={busy !== null}
+                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
+              >
+                {busy ? 'Processing…' : 'Renew / extend'}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => subscribe('monthly')}
+                  disabled={busy !== null}
+                  className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
+                >
+                  {busy === 'monthly' ? 'Processing…' : `${cur}${monthly}/mo`}
+                </button>
+                <button
+                  onClick={() => subscribe('yearly')}
+                  disabled={busy !== null}
+                  className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-50"
+                >
+                  {busy === 'yearly' ? 'Processing…' : `${cur}${yearly}/yr`}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
