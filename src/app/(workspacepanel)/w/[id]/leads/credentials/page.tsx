@@ -349,8 +349,9 @@ function MoreTechAICard() {
   // (``included``). The <MoreTechAIPromo> banner handles the "suggest to
   // purchase" state (paid add-on, not yet bought), so the two never
   // overlap. Hidden otherwise.
+  if (loading || !status) return null;
   const included = !!status.included;
-  if (loading || !status || (!status.is_active && !included)) return null;
+  if (!status.is_active && !included) return null;
 
   const cycle = String(status.billing_cycle || '').toLowerCase();
   const renews = status.current_period_end
