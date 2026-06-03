@@ -7,6 +7,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import QuotaChip from '@/components/workspace/QuotaChip';
 import QuotaBadge from '@/components/QuotaBadge';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
+import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
 
 /**
@@ -186,7 +187,12 @@ function CredentialsInner({ wsId }: { wsId: string }) {
 
       {/* MoreTech AI — our managed Qwen LLM. Not a bring-your-own
           credential: tenants subscribe (monthly/yearly) to unlock it.
-          Pinned above the catalog so it reads as a premium offering. */}
+          Two complementary pieces, only one shows at a time:
+            * Not purchased → <MoreTechAIPromo> suggests the upgrade and
+              opens the purchase popup (same UX as Documents/Overview).
+            * Active        → <MoreTechAICard> shows the live entitlement
+              (renewal date + Renew/extend). */}
+      <MoreTechAIPromo variant="banner" />
       <MoreTechAICard />
 
       {/* Plan-quota banner — explains why a Connect button could fail */}
@@ -336,17 +342,12 @@ function MoreTechAICard() {
     } finally { setBusy(null); }
   };
 
-  if (loading) {
-    return (
-      <div className="mb-6 h-28 rounded-2xl border border-white/10 bg-white/[0.03] animate-pulse" />
-    );
-  }
-  if (!status) return null;
+  // While loading, or before purchase, this card stays hidden: the
+  // <MoreTechAIPromo> banner above handles the "suggest to purchase"
+  // state (with the popup). This card is purely the ACTIVE/renewal view
+  // so the two never overlap.
+  if (loading || !status || !status.is_active) return null;
 
-  const active = status.is_active;
-  const monthly = status.pricing?.monthly ?? 29;
-  const yearly = status.pricing?.yearly ?? 290;
-  const cur = status.pricing?.currency === 'USD' ? '$' : (status.pricing?.currency || '$');
   const renews = status.current_period_end
     ? new Date(status.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
     : null;
@@ -363,22 +364,15 @@ function MoreTechAICard() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white">MoreTech AI</h2>
-                {active ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                    <Icons.CheckCircle2 className="w-2.5 h-2.5" /> Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                    <Icons.Lock className="w-2.5 h-2.5" /> Locked
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  <Icons.CheckCircle2 className="w-2.5 h-2.5" /> Active
+                </span>
               </div>
               <p className="text-[12px] text-slate-300 mt-1 max-w-md">
                 Our managed Qwen model — private, hosted on our own servers.
-                No API key to paste; just subscribe and select <span className="text-violet-200">MoreTech AI</span> as
-                the model on any Knowledge Base.
+                Select <span className="text-violet-200">MoreTech AI</span> as the model on any Knowledge Base.
               </p>
-              {active && renews && (
+              {renews && (
                 <p className="text-[11px] text-emerald-300/80 mt-1.5">
                   {status.billing_cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · renews {renews}
                 </p>
@@ -387,32 +381,13 @@ function MoreTechAICard() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {active ? (
-              <button
-                onClick={() => subscribe(status.billing_cycle === 'yearly' ? 'yearly' : 'monthly')}
-                disabled={busy !== null}
-                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
-              >
-                {busy ? 'Processing…' : 'Renew / extend'}
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={() => subscribe('monthly')}
-                  disabled={busy !== null}
-                  className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
-                >
-                  {busy === 'monthly' ? 'Processing…' : `${cur}${monthly}/mo`}
-                </button>
-                <button
-                  onClick={() => subscribe('yearly')}
-                  disabled={busy !== null}
-                  className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-50"
-                >
-                  {busy === 'yearly' ? 'Processing…' : `${cur}${yearly}/yr`}
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => subscribe(status.billing_cycle === 'yearly' ? 'yearly' : 'monthly')}
+              disabled={busy !== null}
+              className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
+            >
+              {busy ? 'Processing…' : 'Renew / extend'}
+            </button>
           </div>
         </div>
       </div>
