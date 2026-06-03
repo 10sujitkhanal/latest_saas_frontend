@@ -38,6 +38,7 @@ type QAPair = { questions: string; answer: string };
 const LLM_OPTIONS: Array<{
   id: string; name: string; hint: string; provider: string;
 }> = [
+  { id: 'moretech_ai',             name: 'MoreTech AI',        hint: 'Managed Qwen · private',     provider: 'moretech_ai' },
   { id: 'gpt-4o-mini',             name: 'GPT-4o mini',        hint: 'Fast + cheap (recommended)', provider: 'openai' },
   { id: 'gpt-4o',                  name: 'GPT-4o',             hint: 'Best quality, slower',       provider: 'openai' },
   { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',      hint: 'Nuanced, long context',      provider: 'anthropic' },
@@ -75,17 +76,20 @@ export default function KBTrainPage({ params }: { params: Promise<{ id: string }
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
 
   useEffect(() => {
-    OrganizationService.listChannels().then((res) => {
-      if (res?.success && Array.isArray(res.data)) {
-        const kinds = new Set<string>();
-        for (const ch of res.data as Array<{ kind: string; is_active: boolean; is_connected: boolean }>) {
-          if (ch.is_active !== false && ch.is_connected !== false) {
-            kinds.add(ch.kind);
-          }
+    Promise.all([
+      OrganizationService.listChannels().catch(() => null),
+      OrganizationService.moretechAIStatus().catch(() => null),
+    ]).then(([chRes, mtRes]) => {
+      const kinds = new Set<string>();
+      if (chRes?.success && Array.isArray(chRes.data)) {
+        for (const ch of chRes.data as Array<{ kind: string; is_active: boolean; is_connected: boolean }>) {
+          if (ch.is_active !== false && ch.is_connected !== false) kinds.add(ch.kind);
         }
-        setConnectedProviders(Array.from(kinds));
       }
-    }).catch(() => { /* offline -- picker falls back to defaults */ });
+      // MoreTech AI -- subscription-gated, not a Channel.
+      if (mtRes?.success && mtRes.data?.has_access) kinds.add('moretech_ai');
+      setConnectedProviders(Array.from(kinds));
+    });
   }, []);
 
   // Models that actually work (their provider Channel is connected).

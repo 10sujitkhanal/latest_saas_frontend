@@ -500,6 +500,22 @@ export const OrganizationService = {
     );
     return data;
   },
+  // MoreTech AI -- the platform's managed Qwen. Status returns the
+  // entitlement + pricing so the model picker can offer it (when
+  // unlocked) and the credentials card can show Subscribe / Active.
+  moretechAIStatus: async () => {
+    const { data } = await apiClient.get(
+      '/organization/leads/knowledge/moretech-ai/',
+    );
+    return data;
+  },
+  moretechAISubscribe: async (cycle: 'monthly' | 'yearly') => {
+    const { data } = await apiClient.post(
+      '/organization/leads/knowledge/moretech-ai/subscribe/',
+      { cycle },
+    );
+    return data;
+  },
   // Fetch a single KnowledgeBase row -- used by the doc detail page
   // to read the currently-selected ``model`` so the LLM picker can
   // highlight it as the active choice.
