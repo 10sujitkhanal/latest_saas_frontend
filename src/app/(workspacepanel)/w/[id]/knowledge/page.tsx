@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import QuotaBadge from '@/components/QuotaBadge';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
+import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
 
 /**
@@ -210,6 +211,12 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
           </Link>
         </div>
       </div>
+
+      {/* MoreTech AI promo — only renders when the workspace hasn't
+          bought it yet. Pitches "unlimited tokens" + opens a purchase
+          popup. ``load`` refetches the KB status after a purchase so
+          the new model is immediately usable. */}
+      <MoreTechAIPromo variant="banner" onPurchased={load} />
 
       {/* Readiness strip — three states:
           1. ``ready``    → green. Provider connected and at least one
