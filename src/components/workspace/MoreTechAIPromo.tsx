@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Sparkles, Infinity as InfinityIcon, ShieldCheck, Zap, X, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Infinity as InfinityIcon, ShieldCheck, Zap, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
 
@@ -30,6 +30,9 @@ interface Pricing { monthly: number; yearly: number; currency: string; model: st
 interface Status {
   has_access: boolean;
   is_active: boolean;
+  expired?: boolean;
+  days_left?: number | null;
+  expiring_soon?: boolean;
   pricing: Pricing;
 }
 
@@ -55,16 +58,43 @@ export default function MoreTechAIPromo({
 
   useEffect(() => { load(); }, [load]);
 
-  // Hide entirely while loading, on error, once the workspace owns it,
-  // or when the platform/agency has switched MoreTech AI off (the
-  // ``enabled`` flag from the resolved pricing — agencies can choose not
-  // to resell it to their orgs).
-  if (loading || !status || status.has_access) return null;
+  // Hide while loading/on error, or when MoreTech AI is switched off.
+  if (loading || !status) return null;
   if (status.pricing?.enabled === false) return null;
+
+  const expiringSoon = !!status.expiring_soon;   // active AND within 5 days
+  const expired = !!status.expired;
+  // When active and NOT about to expire, there's nothing to nag about.
+  if (status.has_access && !expiringSoon) return null;
 
   const cur = status.pricing?.currency === 'USD' ? '$' : (status.pricing?.currency || '$');
   const monthly = status.pricing?.monthly ?? 29;
   const yearly = status.pricing?.yearly ?? 290;
+  const daysLeft = status.days_left ?? null;
+
+  // Three tones: renew-soon (amber, still active), expired (red),
+  // first purchase (violet).
+  const tone = expiringSoon ? 'amber' : (expired ? 'red' : 'violet');
+  const isRenew = expiringSoon || expired;
+  const toneRing = tone === 'amber' ? 'border-amber-500/40' : tone === 'red' ? 'border-red-500/40' : 'border-violet-500/30';
+  const toneGrad = tone === 'amber'
+    ? 'from-amber-500/[0.13] via-amber-500/[0.05]'
+    : tone === 'red'
+      ? 'from-red-500/[0.13] via-red-500/[0.05]'
+      : 'from-violet-500/[0.13] via-fuchsia-500/[0.06]';
+  const toneBtn = tone === 'violet' ? 'bg-violet-500 hover:bg-violet-400' : tone === 'amber' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-red-500 hover:bg-red-400';
+
+  const headline = expiringSoon
+    ? `MoreTech AI expires in ${daysLeft ?? 'a few'} day${daysLeft === 1 ? '' : 's'}`
+    : expired
+      ? 'MoreTech AI has expired'
+      : 'MoreTech AI';
+  const blurb = expiringSoon
+    ? 'Renew now so your AI model keeps working without interruption.'
+    : expired
+      ? 'Your AI model will not work until you renew. Renew to restore MoreTech AI.'
+      : 'Our own managed Qwen model — unlimited tokens, private inference, no API key to manage. Subscribe once and use it as the model on any Knowledge Base.';
+  const buttonLabel = isRenew ? `Renew · ${cur}${monthly}/mo` : `Unlock from ${cur}${monthly}/mo`;
 
   const handlePurchased = async () => {
     await load();
@@ -74,32 +104,30 @@ export default function MoreTechAIPromo({
   return (
     <>
       {variant === 'banner' ? (
-        <div className="mb-6 relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/[0.13] via-fuchsia-500/[0.06] to-transparent p-5">
+        <div className={`mb-6 relative overflow-hidden rounded-2xl border ${toneRing} bg-gradient-to-br ${toneGrad} to-transparent p-5`}>
           <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
           <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
-                <Sparkles className="w-5 h-5" />
+                {isRenew ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base font-bold text-white">MoreTech AI</h3>
-                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
-                    <InfinityIcon className="w-2.5 h-2.5" /> Unlimited tokens
-                  </span>
+                  <h3 className="text-base font-bold text-white">{headline}</h3>
+                  {!isRenew && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
+                      <InfinityIcon className="w-2.5 h-2.5" /> Unlimited tokens
+                    </span>
+                  )}
                 </div>
-                <p className="text-[12px] text-slate-300 mt-1 max-w-lg">
-                  Our own managed Qwen model — <span className="text-violet-200 font-medium">unlimited tokens</span>,
-                  private inference, no API key to manage. Subscribe once and use it as
-                  the model on any Knowledge Base.
-                </p>
+                <p className="text-[12px] text-slate-300 mt-1 max-w-lg">{blurb}</p>
               </div>
             </div>
             <button
               onClick={() => setOpen(true)}
-              className="shrink-0 px-4 py-2 rounded-xl text-[13px] font-semibold bg-violet-500 text-white hover:bg-violet-400 transition-colors"
+              className={`shrink-0 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-colors ${toneBtn}`}
             >
-              Unlock from {cur}{monthly}/mo
+              {buttonLabel}
             </button>
           </div>
         </div>
