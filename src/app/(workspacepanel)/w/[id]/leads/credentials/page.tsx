@@ -151,7 +151,15 @@ function CredentialsInner({ wsId }: { wsId: string }) {
 
   if (loading || !catalog) return <PageSkeleton kind="grid" />;
 
-  const allKinds = catalog.groups.flatMap((g) => g.kinds);
+  // MoreTech AI is NOT a bring-your-own-key credential — it's a paid
+  // subscription rendered by the dedicated <MoreTechAICard/> above.
+  // Strip it from the catalog so it doesn't also appear as a generic
+  // "Connect" card (which would create an empty, keyless channel).
+  const groups = catalog.groups
+    .map((g) => ({ ...g, kinds: g.kinds.filter((k) => k.kind !== 'moretech_ai') }))
+    .filter((g) => g.kinds.length > 0);
+
+  const allKinds = groups.flatMap((g) => g.kinds);
   const connectedKinds = allKinds.filter((k) => k.connected_count > 0).length;
   const totalKinds = allKinds.length;
 
@@ -202,7 +210,7 @@ function CredentialsInner({ wsId }: { wsId: string }) {
           is also removed from its native category section below so we
           don't show the same card twice. */}
       {(() => {
-        const connectedKindsFlat = catalog.groups
+        const connectedKindsFlat = groups
           .flatMap((g) => g.kinds)
           .filter((k) => k.connected_count > 0);
         if (connectedKindsFlat.length === 0) return null;
@@ -233,7 +241,7 @@ function CredentialsInner({ wsId }: { wsId: string }) {
 
       {/* Grouped catalog — exclude already-connected kinds so they don't
           appear twice; their card lives in the Connected section above. */}
-      {catalog.groups.map((group) => {
+      {groups.map((group) => {
         const remaining = group.kinds.filter((k) => k.connected_count === 0);
         if (remaining.length === 0) return null;
         return (
