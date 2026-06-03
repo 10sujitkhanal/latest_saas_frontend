@@ -26,7 +26,7 @@ import { OrganizationService } from '@/services/organization.service';
  *     (e.g. to refetch the page so the new model becomes selectable).
  */
 
-interface Pricing { monthly: number; yearly: number; currency: string; model: string }
+interface Pricing { monthly: number; yearly: number; currency: string; model: string; enabled?: boolean }
 interface Status {
   has_access: boolean;
   is_active: boolean;
@@ -55,8 +55,12 @@ export default function MoreTechAIPromo({
 
   useEffect(() => { load(); }, [load]);
 
-  // Hide entirely while loading, on error, or once the workspace owns it.
+  // Hide entirely while loading, on error, once the workspace owns it,
+  // or when the platform/agency has switched MoreTech AI off (the
+  // ``enabled`` flag from the resolved pricing — agencies can choose not
+  // to resell it to their orgs).
   if (loading || !status || status.has_access) return null;
+  if (status.pricing?.enabled === false) return null;
 
   const cur = status.pricing?.currency === 'USD' ? '$' : (status.pricing?.currency || '$');
   const monthly = status.pricing?.monthly ?? 29;

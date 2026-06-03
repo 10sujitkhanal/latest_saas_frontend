@@ -292,10 +292,12 @@ function CredentialsInner({ wsId }: { wsId: string }) {
 interface MoreTechStatus {
   has_access: boolean;
   is_active: boolean;
-  billing_cycle: 'monthly' | 'yearly' | null;
+  included?: boolean;
+  billing_cycle: 'monthly' | 'yearly' | 'MONTHLY' | 'YEARLY' | null;
   current_period_end: string | null;
-  lifetime_spend: number;
-  pricing: { monthly: number; yearly: number; currency: string; model: string };
+  lifetime_spend?: number;
+  last_amount?: number;
+  pricing: { monthly: number; yearly: number; currency: string; model: string; offered?: boolean; included?: boolean };
 }
 
 /**
@@ -342,12 +344,15 @@ function MoreTechAICard() {
     } finally { setBusy(null); }
   };
 
-  // While loading, or before purchase, this card stays hidden: the
-  // <MoreTechAIPromo> banner above handles the "suggest to purchase"
-  // state (with the popup). This card is purely the ACTIVE/renewal view
-  // so the two never overlap.
-  if (loading || !status || !status.is_active) return null;
+  // Show this card when MoreTech AI is live for the org — either bought
+  // as a paid add-on (``is_active``) OR bundled with the plan
+  // (``included``). The <MoreTechAIPromo> banner handles the "suggest to
+  // purchase" state (paid add-on, not yet bought), so the two never
+  // overlap. Hidden otherwise.
+  const included = !!status.included;
+  if (loading || !status || (!status.is_active && !included)) return null;
 
+  const cycle = String(status.billing_cycle || '').toLowerCase();
   const renews = status.current_period_end
     ? new Date(status.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
     : null;
@@ -364,31 +369,44 @@ function MoreTechAICard() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white">MoreTech AI</h2>
-                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  <Icons.CheckCircle2 className="w-2.5 h-2.5" /> Active
-                </span>
+                {included ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
+                    <Icons.Gift className="w-2.5 h-2.5" /> Included in your plan
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                    <Icons.CheckCircle2 className="w-2.5 h-2.5" /> Active
+                  </span>
+                )}
               </div>
               <p className="text-[12px] text-slate-300 mt-1 max-w-md">
                 Our managed Qwen model — private, hosted on our own servers.
                 Select <span className="text-violet-200">MoreTech AI</span> as the model on any Knowledge Base.
               </p>
-              {renews && (
+              {!included && renews && (
                 <p className="text-[11px] text-emerald-300/80 mt-1.5">
-                  {status.billing_cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · renews {renews}
+                  {cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · renews {renews}
+                </p>
+              )}
+              {included && (
+                <p className="text-[11px] text-violet-300/80 mt-1.5">
+                  Bundled free with your subscription — no extra charge.
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => subscribe(status.billing_cycle === 'yearly' ? 'yearly' : 'monthly')}
-              disabled={busy !== null}
-              className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
-            >
-              {busy ? 'Processing…' : 'Renew / extend'}
-            </button>
-          </div>
+          {!included && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => subscribe(cycle === 'yearly' ? 'yearly' : 'monthly')}
+                disabled={busy !== null}
+                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
+              >
+                {busy ? 'Processing…' : 'Renew / extend'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
