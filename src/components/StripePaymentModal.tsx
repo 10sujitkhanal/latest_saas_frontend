@@ -38,7 +38,7 @@ export default function StripePaymentModal({
 
   useEffect(() => {
     if (isFree) return;
-    if (!publishableKey) {
+    if (!publishableKey || !publishableKey.startsWith('pk_') || publishableKey.includes('CHANGE-ME')) {
       setError('Stripe is not configured for this organization.');
       return;
     }

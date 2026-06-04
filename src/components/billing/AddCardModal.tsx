@@ -41,7 +41,14 @@ export default function AddCardModal({ onClose, onSaved }: { onClose: () => void
           return;
         }
         setClientSecret(res.data.client_secret);
-        setStripePromise(loadStripe(res.data.publishable_key));
+        // Only init Stripe with a real publishable key — loadStripe("") throws
+        // "Failed to load Stripe.js" and can wedge the router.
+        const pk = res.data.publishable_key as string | undefined;
+        if (pk && pk.startsWith('pk_') && !pk.includes('CHANGE-ME')) {
+          setStripePromise(loadStripe(pk));
+        } else {
+          setErr('Payments are not configured yet (no Stripe key).');
+        }
       } catch (e) {
         setErr((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not start card setup.');
       }
