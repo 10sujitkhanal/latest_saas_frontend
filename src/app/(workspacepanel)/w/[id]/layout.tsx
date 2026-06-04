@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/workspace/Skeleton';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 import WorkspaceSidebar from '@/components/workspace/WorkspaceSidebar';
+import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 
 /**
  * Per-workspace layout — Odoo-style two-pane split:
@@ -49,16 +50,18 @@ export default function WorkspaceLayout({
   useEffect(() => {
     let cancelled = false;
 
+    // /me/ here is for identity + owned services only. Permissions for THIS
+    // panel are workspace-scoped and come from workspaceContext below — a
+    // member can be an Accountant in one workspace and Front Desk in another,
+    // so we must not let the org-wide /me/ codes drive what they see here.
     OrganizationService.me()
       .then((res) => {
         if (cancelled || !res?.success) return;
         const me = res.data;
         setUser({ email: me.email, role: me.is_admin ? 'ADMIN' : 'MEMBER' });
-        setPermissions(Array.isArray(me.permission_codes) ? me.permission_codes : []);
         if (Array.isArray(me.services)) setServices(me.services);
       })
-      .catch(() => { /* /me/ failure doesn't block workspace access; guard will deny if needed */ })
-      .finally(() => { if (!cancelled) setHydrated(true); });
+      .catch(() => { /* /me/ failure doesn't block workspace access; guard will deny if needed */ });
 
     OrganizationService.workspaceContext(Number(id))
       .then((res) => {
@@ -67,11 +70,15 @@ export default function WorkspaceLayout({
           setErrMsg(res?.message || 'Failed to load workspace.');
           if (res?.data?.reason === 'not_a_member') setState('forbidden');
           else setState('error');
+          setHydrated(true);
           return;
         }
+        // Workspace-scoped permissions are authoritative inside /w/<id>.
+        setPermissions(Array.isArray(res.data.permission_codes) ? res.data.permission_codes : []);
         setWorkspace(res.data.workspace);
         setMyRole(res.data.my_role);
         setState('ok');
+        setHydrated(true);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -80,10 +87,11 @@ export default function WorkspaceLayout({
         if (status === 403 && data?.data?.reason === 'not_a_member') {
           setErrMsg(data.message || "You're not assigned to this workspace.");
           setState('forbidden');
-          return;
+        } else {
+          setErrMsg(data?.message ?? 'Failed to load workspace.');
+          setState('error');
         }
-        setErrMsg(data?.message ?? 'Failed to load workspace.');
-        setState('error');
+        setHydrated(true);
       });
     return () => {
       cancelled = true;
@@ -161,7 +169,7 @@ export default function WorkspaceLayout({
         {/* Top bar */}
         <header className="h-14 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
-            <h2 className="text-sm font-semibold text-white truncate">{workspace?.name}</h2>
+            <WorkspaceSwitcher currentId={id} currentName={workspace?.name ?? 'Workspace'} />
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
               {myRole ?? 'member'}
             </span>

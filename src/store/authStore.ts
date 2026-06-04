@@ -85,4 +85,4 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 export const hasPermission = (codes: string[] | undefined, code: string) =>
-  !!codes && codes.includes(code);
+  !!codes && (codes.includes('*') || codes.includes(code));
