@@ -18,6 +18,7 @@ import {
   type AssignableStaffRow,
   type CurrentSubscription,
   type RoleDef,
+  type IndustryOption,
 } from '@/services/organization.service';
 import { useAuthStore, hasPermission } from '@/store/authStore';
 
@@ -59,6 +60,7 @@ export default function WorkspacesPage() {
   const [items, setItems] = useState<Workspace[] | null>(null);
   const [subInfo, setSubInfo] = useState<CurrentSubscription | null>(null);
   const [roles, setRoles] = useState<RoleDef[]>([]);
+  const [industries, setIndustries] = useState<IndustryOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -66,15 +68,17 @@ export default function WorkspacesPage() {
   const load = async () => {
     setError(null);
     try {
-      const [wsRes, currentRes, rolesRes] = await Promise.all([
+      const [wsRes, currentRes, rolesRes, indRes] = await Promise.all([
         OrganizationService.listWorkspaces(),
         OrganizationService.currentSubscription(1, 1),
         OrganizationService.listRoles().catch(() => ({ success: false })),
+        OrganizationService.listIndustries().catch(() => ({ success: false })),
       ]);
       if (wsRes.success) setItems(wsRes.data ?? []);
       else setError(wsRes.message || 'Failed to load workspaces.');
       if (currentRes.success) setSubInfo(currentRes.data);
       if (rolesRes.success) setRoles(rolesRes.data ?? []);
+      if (indRes.success) setIndustries(indRes.data ?? []);
     } catch (err) {
       const v = err as { response?: { data?: { message?: string } } };
       setError(v.response?.data?.message ?? 'Failed to load workspaces.');
@@ -182,6 +186,11 @@ export default function WorkspacesPage() {
                   )}
                 </div>
                 <h3 className="mt-4 text-lg font-semibold text-white truncate">{w.name}</h3>
+                {w.effective_industry && (
+                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-sky-500/20 bg-sky-500/10 text-sky-300">
+                    {w.effective_industry}
+                  </span>
+                )}
                 <p className="mt-1 text-xs text-slate-500 flex items-center gap-1.5">
                   <Users className="w-3 h-3" />
                   {w.member_count} member{w.member_count === 1 ? '' : 's'}
@@ -209,6 +218,7 @@ export default function WorkspacesPage() {
 
       {showCreate && (
         <CreateWorkspaceModal
+          industries={industries}
           onClose={() => setShowCreate(false)}
           onCreated={(ws) => {
             setItems((curr) => [ws, ...(curr ?? [])]);
@@ -222,7 +232,9 @@ export default function WorkspacesPage() {
         <WorkspaceDrawer
           workspace={selected}
           roles={roles}
+          industries={industries}
           canAssign={can('staff.assign_workspaces')}
+          canEdit={can('staff.assign_workspaces')}
           onClose={() => setSelectedId(null)}
           onChanged={load}
         />
@@ -234,13 +246,16 @@ export default function WorkspacesPage() {
 // ───────────────────────────── Create modal ─────────────────────────────
 
 function CreateWorkspaceModal({
+  industries,
   onClose,
   onCreated,
 }: {
+  industries: IndustryOption[];
   onClose: () => void;
   onCreated: (w: Workspace) => void;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [industry, setIndustry] = useState('');
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<WorkspaceForm>({
     resolver: zodResolver(workspaceSchema),
   });
@@ -248,7 +263,7 @@ function CreateWorkspaceModal({
   const onSubmit = async (data: WorkspaceForm) => {
     setSubmitError(null);
     try {
-      const res = await OrganizationService.createWorkspace(data.name);
+      const res = await OrganizationService.createWorkspace(data.name, industry || undefined);
       if (res.success && res.data) onCreated(res.data as Workspace);
       else setSubmitError(res.message || 'Failed to create workspace.');
     } catch (err) {
@@ -271,6 +286,24 @@ function CreateWorkspaceModal({
           className={`w-full bg-slate-800 border ${errors.name ? 'border-red-500' : 'border-slate-700'} rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500`}
         />
         {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>}
+
+        <label className="block mt-5 text-sm font-medium text-slate-300 mb-2">Industry</label>
+        <select
+          value={industry}
+          onChange={(e) => setIndustry(e.target.value)}
+          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="">Inherit org default</option>
+          {industries.map((i) => (
+            <option key={i.industry} value={i.industry}>
+              {i.industry} ({i.mode === 'cart' ? 'online ordering' : 'bookings'})
+            </option>
+          ))}
+        </select>
+        <p className="mt-1.5 text-[12px] text-slate-500">
+          Tunes this workspace's storefront, menu and reports. Pick a different industry to run a
+          separate business line (e.g. a restaurant and a wellness store under one account).
+        </p>
         {submitError && <p className="mt-3 text-sm text-red-400">{submitError}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
@@ -289,16 +322,34 @@ function CreateWorkspaceModal({
 function WorkspaceDrawer({
   workspace,
   roles,
+  industries,
   canAssign,
+  canEdit,
   onClose,
   onChanged,
 }: {
   workspace: Workspace;
   roles: RoleDef[];
+  industries: IndustryOption[];
   canAssign: boolean;
+  canEdit: boolean;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const [industry, setIndustry] = useState<string>(workspace.industry ?? '');
+  const [savingIndustry, setSavingIndustry] = useState(false);
+
+  const saveIndustry = async () => {
+    setSavingIndustry(true);
+    try {
+      const r = await OrganizationService.updateWorkspace(workspace.id, { industry: industry || null });
+      if (r.success) { toast.success('Industry updated.'); await onChanged(); }
+      else toast.error(r.message || 'Failed to update industry.');
+    } catch (err) {
+      const v = err as { response?: { data?: { message?: string } } };
+      toast.error(v.response?.data?.message ?? 'Failed to update industry.');
+    } finally { setSavingIndustry(false); }
+  };
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [assignable, setAssignable] = useState<AssignableStaffRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -393,6 +444,43 @@ function WorkspaceDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Industry — shapes this workspace's storefront, menu & reports */}
+          <section>
+            <div className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-3 flex items-center gap-2">
+              <Folder className="w-3.5 h-3.5" /> Industry
+            </div>
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex flex-col sm:flex-row sm:items-end gap-2">
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Business type for this workspace</label>
+                <select
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  disabled={!canEdit}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
+                >
+                  <option value="">Inherit org default{workspace.effective_industry ? ` (${workspace.effective_industry})` : ''}</option>
+                  {industries.map((i) => (
+                    <option key={i.industry} value={i.industry}>
+                      {i.industry} ({i.mode === 'cart' ? 'online ordering' : 'bookings'})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Currently active: <span className="text-slate-300">{workspace.effective_industry || '—'}</span>
+                </p>
+              </div>
+              {canEdit && (
+                <button
+                  onClick={saveIndustry}
+                  disabled={savingIndustry || industry === (workspace.industry ?? '')}
+                  className="px-4 py-2 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
+                >
+                  {savingIndustry ? 'Saving…' : 'Save'}
+                </button>
+              )}
+            </div>
+          </section>
+
           {/* Assign new member */}
           {canAssign && (
             <section>

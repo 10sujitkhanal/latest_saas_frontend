@@ -65,7 +65,7 @@ export default function WorkspaceSidebar({ workspaceId, workspaceName }: { works
 
   useEffect(() => {
     let cancelled = false;
-    OrganizationService.menuTree()
+    OrganizationService.menuTree(workspaceId)
       .then((res) => {
         if (cancelled) return;
         if (res?.success) {
@@ -84,7 +84,7 @@ export default function WorkspaceSidebar({ workspaceId, workspaceName }: { works
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [workspaceId]);
 
   const prefix = `/w/${workspaceId}`;
 
