@@ -22,6 +22,14 @@ import type { NextConfig } from "next";
  * Only adds entries; does NOT change baseURL / images / anything else.
  */
 const nextConfig: NextConfig = {
+  // Tenants are served on subdomains (e.g. demo.localhost:3000). Next 16 blocks
+  // cross-origin dev assets / server actions from origins other than the one the
+  // dev server is bound to, which breaks hydration on tenant subdomains. Allow
+  // every *.localhost tenant in dev so subdomain testing works.
+  allowedDevOrigins: ['localhost', '*.localhost'],
+  // Note: this Next build does NOT run ESLint during `next build` (the `eslint`
+  // config key was removed in this version), so lint debt never blocks the build.
+  // Linting is its own CI step; TypeScript type-checking remains a build gate.
   async rewrites() {
     return [
       // Inbox -- top-level instead of /leads/inbox.

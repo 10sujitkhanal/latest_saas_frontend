@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Users, UserCircle2, BadgeCheck, ArrowRight,
   Sparkles, CheckCircle2, AlertTriangle, Plug,
+  Wallet, TrendingUp, ShoppingCart, FileSignature, Package,
 } from 'lucide-react';
 import { PageSpinner } from '@/components/StateViews';
 import { Skeleton } from '@/components/workspace/Skeleton';
@@ -84,6 +85,8 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
         <Tile label="Your role" value={ctx.my_role || '—'} />
       </section>
 
+      <BusinessHealth wsId={id} />
+
       <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-white">Lead pipeline</h2>
@@ -135,6 +138,102 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
       </section>
     </div>
   );
+}
+
+interface Health {
+  currency: string;
+  finance?: { ar_outstanding: string; overdue_outstanding: string; overdue_count: number; open_invoices: number; invoiced_mtd: string; collected_mtd: string };
+  memberships?: { active: number; mrr: string; currency: string; expiring_30d: number };
+  orders?: { count_mtd: number; revenue_mtd: string };
+  top_products?: { name: string; qty: string; revenue: string }[];
+  quotes?: { open: number };
+}
+
+function fmtMoney(v: string | number | undefined, currency: string) {
+  const n = Number(v || 0);
+  return `${currency} ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function BusinessHealth({ wsId }: { wsId: string }) {
+  const [h, setH] = useState<Health | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    OrganizationService.workspaceHealth(Number(wsId))
+      .then((r: { success: boolean; data?: Health }) => { if (alive && r.success) setH(r.data ?? null); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, [wsId]);
+
+  if (!loaded) return <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
+  if (!h) return null;
+  const cur = h.currency || 'NPR';
+  // Nothing commerce/finance-y configured yet → don't show an empty band.
+  if (!h.finance && !h.memberships && !h.orders) return null;
+  const overdue = Number(h.finance?.overdue_outstanding || 0);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-white">Business health <span className="text-[11px] font-normal text-slate-500">· this month</span></h2>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {h.finance && (
+          <HealthCard icon={<Wallet className="w-5 h-5" />} label="Collected (MTD)" value={fmtMoney(h.finance.collected_mtd, cur)} sub={`${fmtMoney(h.finance.invoiced_mtd, cur)} invoiced`} href={`/w/${wsId}/accounting/payments`} />
+        )}
+        {h.finance && (
+          <HealthCard
+            icon={<TrendingUp className="w-5 h-5" />} label="Receivable" value={fmtMoney(h.finance.ar_outstanding, cur)}
+            sub={overdue > 0 ? `${fmtMoney(overdue, cur)} overdue (${h.finance.overdue_count})` : `${h.finance.open_invoices} open`}
+            danger={overdue > 0} href={`/w/${wsId}/accounting/invoices`}
+          />
+        )}
+        {h.memberships && (
+          <HealthCard icon={<Sparkles className="w-5 h-5" />} label="MRR" value={fmtMoney(h.memberships.mrr, h.memberships.currency || cur)} sub={`${h.memberships.active} active · ${h.memberships.expiring_30d} renewing`} href={`/w/${wsId}/loyalty/insights`} />
+        )}
+        {h.orders && (
+          <HealthCard icon={<ShoppingCart className="w-5 h-5" />} label="Orders (MTD)" value={String(h.orders.count_mtd)} sub={`${fmtMoney(h.orders.revenue_mtd, cur)} revenue`} href={`/w/${wsId}/orders`} />
+        )}
+      </div>
+
+      {(h.top_products?.length || h.quotes) ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {h.top_products && h.top_products.length > 0 && (
+            <div className="lg:col-span-2 rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+              <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-white"><Package className="w-4 h-4 text-emerald-300" /> Top products this month</div>
+              <ul className="space-y-2">
+                {h.top_products.map((p) => (
+                  <li key={p.name} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-300 truncate">{p.name}</span>
+                    <span className="text-slate-400 tabular-nums">{Number(p.qty)} sold · <span className="text-white font-semibold">{fmtMoney(p.revenue, cur)}</span></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {h.quotes && (
+            <Link href={`/w/${wsId}/sales/quotes`} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors flex flex-col justify-center">
+              <div className="flex items-center gap-2 text-amber-300"><FileSignature className="w-5 h-5" /><span className="text-sm font-semibold text-white">Open quotes</span></div>
+              <div className="mt-2 text-3xl font-bold text-white">{h.quotes.open}</div>
+              <div className="mt-1 text-[11px] text-slate-500">awaiting customer response</div>
+            </Link>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function HealthCard({ icon, label, value, sub, href, danger }: { icon: React.ReactNode; label: string; value: string; sub?: string; href?: string; danger?: boolean }) {
+  const body = (
+    <div className={`h-full rounded-2xl border p-4 transition-colors ${danger ? 'border-red-500/30 bg-red-500/[0.05]' : 'border-white/5 bg-white/[0.02]'} ${href ? 'hover:bg-white/[0.05]' : ''}`}>
+      <div className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${danger ? 'text-red-300' : 'text-slate-400'}`}>{icon}{label}</div>
+      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
+      {sub && <div className={`text-[11px] mt-0.5 ${danger ? 'text-red-300' : 'text-slate-500'}`}>{sub}</div>}
+    </div>
+  );
+  return href ? <Link href={href}>{body}</Link> : body;
 }
 
 function Tile({ label, value, href }: { label: string; value: string | number; href?: string }) {
