@@ -201,6 +201,7 @@ export default function StaffPage() {
       {editing && (
         <StaffModal
           form={editing}
+          roles={roles}
           onClose={() => setEditing(null)}
           onSaved={async () => { setEditing(null); await load(); }}
         />
@@ -252,6 +253,7 @@ function StaffCard({
         <div className="flex items-center gap-2 text-slate-300"><Mail className="w-3.5 h-3.5 text-slate-500" /><span className="truncate">{s.email}</span></div>
         {s.phone && <div className="flex items-center gap-2 text-slate-400"><Phone className="w-3.5 h-3.5 text-slate-500" /><span>{s.phone}</span></div>}
         <div className="flex items-center gap-2 text-slate-400"><Briefcase className="w-3.5 h-3.5 text-slate-500" /><span>{EMPLOYMENT_LABELS[s.employment_type]}</span></div>
+        <div className="flex items-center gap-2 text-slate-400"><ShieldCheck className="w-3.5 h-3.5 text-slate-500" /><span>{s.role_name || (s.role === 'ADMIN' ? 'Admin' : 'Member')}</span></div>
         <div className="flex items-center gap-2 text-slate-400"><Users className="w-3.5 h-3.5 text-slate-500" /><span>{s.workspace_count} workspace{s.workspace_count === 1 ? '' : 's'}</span></div>
       </div>
 
@@ -274,14 +276,15 @@ function StaffCard({
 // ───────────────────────────── Create/Edit modal ─────────────────────────────
 
 function StaffModal({
-  form: initial, onClose, onSaved,
+  form: initial, roles, onClose, onSaved,
 }: {
-  form: StaffForm; onClose: () => void; onSaved: () => Promise<void>;
+  form: StaffForm; roles: RoleDef[]; onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [form, setForm] = useState<StaffForm>(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isEditing = !!form.id;
+  const selectedRole = roles.find((r) => r.id === form.role_obj_id);
 
   const set = <K extends keyof StaffForm>(k: K, v: StaffForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -331,11 +334,25 @@ function StaffModal({
               </Field>
               <Field label="First name"><input value={form.first_name ?? ''} onChange={(e) => set('first_name', e.target.value)} className={inputCls} /></Field>
               <Field label="Last name"><input value={form.last_name ?? ''} onChange={(e) => set('last_name', e.target.value)} className={inputCls} /></Field>
-              <Field label="Panel access role">
-                <select value={form.role ?? 'MEMBER'} onChange={(e) => set('role', e.target.value as 'ADMIN' | 'MEMBER')} className={inputCls}>
-                  <option value="MEMBER">Member</option>
-                  <option value="ADMIN">Admin</option>
+              <Field label="Role">
+                <select
+                  value={form.role_obj_id ?? ''}
+                  onChange={(e) => set('role_obj_id', e.target.value ? Number(e.target.value) : null)}
+                  className={inputCls}
+                >
+                  <option value="">Default (Member)</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}{r.is_system ? '' : ' (custom)'}
+                    </option>
+                  ))}
                 </select>
+                {selectedRole && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {selectedRole.description || `${selectedRole.permission_codes.length} permission${selectedRole.permission_codes.length === 1 ? '' : 's'}`}
+                    {(selectedRole.code === 'owner' || selectedRole.code === 'admin') && ' · full panel access'}
+                  </p>
+                )}
               </Field>
               <Field label="Active">
                 <select value={form.is_active === false ? 'false' : 'true'} onChange={(e) => set('is_active', e.target.value === 'true')} className={inputCls}>
@@ -507,7 +524,7 @@ function OverviewTab({ s }: { s: StaffMember }) {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3">
         <Tile icon={<Briefcase className="w-4 h-4" />} label="Employment" value={EMPLOYMENT_LABELS[s.employment_type] || s.employment_type} />
-        <Tile icon={<ShieldCheck className="w-4 h-4" />} label="Panel role" value={s.role} />
+        <Tile icon={<ShieldCheck className="w-4 h-4" />} label="Role" value={s.role_name || (s.role === 'ADMIN' ? 'Admin' : 'Member')} />
         <Tile icon={<Banknote className="w-4 h-4" />} label="Salary" value={`${s.salary_currency} ${Number(s.salary || 0).toFixed(2)} / ${s.pay_frequency}`} />
         <Tile icon={<CalendarCheck className="w-4 h-4" />} label="Hired" value={s.hire_date ?? '—'} />
       </div>

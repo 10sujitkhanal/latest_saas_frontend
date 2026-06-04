@@ -54,20 +54,26 @@ export const OrganizationService = {
     return data;
   },
 
+  // Industry options (shared with the public signup picker)
+  listIndustries: async () => {
+    const { data } = await apiClient.get('/public/industries/');
+    return data;
+  },
+
   // Workspaces
   listWorkspaces: async () => {
     const { data } = await apiClient.get('/organization/workspaces/');
     return data;
   },
-  createWorkspace: async (name: string) => {
-    const { data } = await apiClient.post('/organization/workspaces/', { name });
+  createWorkspace: async (name: string, industry?: string) => {
+    const { data } = await apiClient.post('/organization/workspaces/', { name, industry });
     return data;
   },
   getWorkspace: async (id: number) => {
     const { data } = await apiClient.get(`/organization/workspaces/${id}/`);
     return data;
   },
-  updateWorkspace: async (id: number, payload: { name?: string }) => {
+  updateWorkspace: async (id: number, payload: { name?: string; industry?: string | null }) => {
     const { data } = await apiClient.patch(`/organization/workspaces/${id}/`, payload);
     return data;
   },
@@ -327,8 +333,10 @@ export const OrganizationService = {
   },
 
   // ---------- Menu tree ----------
-  menuTree: async () => {
-    const { data } = await apiClient.get('/organization/menu/tree/');
+  menuTree: async (workspaceId?: string | number) => {
+    const { data } = await apiClient.get('/organization/menu/tree/', {
+      params: workspaceId ? { workspace: workspaceId } : undefined,
+    });
     return data;
   },
 
@@ -1338,9 +1346,20 @@ export interface CurrentSubscription {
   };
 }
 
+export interface IndustryOption {
+  industry: string;
+  mode: 'cart' | 'booking';
+  booking_type: string;
+  membership: boolean;
+}
+
 export interface Workspace {
   id: number;
   name: string;
+  /** Per-workspace industry override (null = inherit org industry). */
+  industry: string | null;
+  /** Resolved industry actually in effect (own override or org's). */
+  effective_industry: string | null;
   created_at: string;
   role: 'owner' | 'admin' | 'manager' | 'sales' | 'viewer' | null;
   member_count: number;
@@ -1444,6 +1463,10 @@ export interface StaffMember {
   full_name: string;
   is_active: boolean;
   role: 'ADMIN' | 'MEMBER';
+  /** Granular RBAC role (drives sidebar/feature permissions). */
+  role_obj_id: number | null;
+  role_name: string | null;
+  role_code: string | null;
   employee_id: string;
   designation: string;
   department: string;
