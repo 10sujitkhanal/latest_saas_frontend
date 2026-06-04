@@ -5,8 +5,6 @@ import Link from 'next/link';
 import Topbar from '@/components/Topbar';
 import { PageSpinner, PageError, EmptyState } from '@/components/StateViews';
 import { OrganizationService, type CurrentSubscription } from '@/services/organization.service';
-import { useAuthStore } from '@/store/authStore';
-import PaymentMethods from '@/components/billing/PaymentMethods';
 
 const statusClass: Record<string, string> = {
   PAID: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
@@ -21,7 +19,6 @@ const money = (a: string | number) => {
 };
 
 export default function BillingPage() {
-  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
   const [data, setData] = useState<CurrentSubscription | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -70,9 +67,6 @@ export default function BillingPage() {
       <main className="flex-1 px-6 lg:px-10 py-8 overflow-y-auto">
         {loading && !data && <PageSpinner />}
         {error && <PageError message={error} onRetry={() => load(page)} />}
-
-        {/* Saved payment cards — admin only (backend also enforces). */}
-        {isAdmin && <PaymentMethods />}
 
         {data && (
           <>

@@ -21,6 +21,7 @@ import { OrganizationService } from '@/services/organization.service';
 
 interface Card {
   id: number;
+  cardholder_name?: string;
   brand: string;
   last4: string;
   exp_month: number | null;
@@ -113,6 +114,7 @@ export default function PaymentMethods() {
                     )}
                   </div>
                   <div className="text-[11px] text-slate-500">
+                    {c.cardholder_name ? `${c.cardholder_name} · ` : ''}
                     Expires {String(c.exp_month).padStart(2, '0')}/{c.exp_year}
                   </div>
                 </div>
@@ -198,20 +200,64 @@ function AddCardModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   );
 }
 
+const COUNTRIES = [
+  ['US', 'United States'], ['GB', 'United Kingdom'], ['CA', 'Canada'], ['AU', 'Australia'],
+  ['NP', 'Nepal'], ['IN', 'India'], ['DE', 'Germany'], ['FR', 'France'], ['AE', 'UAE'],
+  ['SG', 'Singapore'], ['JP', 'Japan'], ['NZ', 'New Zealand'],
+] as const;
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-[11px] font-medium text-slate-400">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const inputCls =
+  'mt-1 w-full px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50';
+
 function CardForm({ clientSecret, onSaved }: { clientSecret: string; onSaved: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
 
+  // Cardholder + billing address — sent to Stripe as billing_details.
+  const [name, setName] = useState('');
+  const [line1, setLine1] = useState('');
+  const [line2, setLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [postal, setPostal] = useState('');
+  const [country, setCountry] = useState('US');
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (!name.trim()) {
+      toast.error('Enter the cardholder name.');
+      return;
+    }
     const cardEl = elements.getElement(CardElement);
     if (!cardEl) return;
     setBusy(true);
     try {
       const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: { card: cardEl },
+        payment_method: {
+          card: cardEl,
+          billing_details: {
+            name: name.trim(),
+            address: {
+              line1: line1.trim() || undefined,
+              line2: line2.trim() || undefined,
+              city: city.trim() || undefined,
+              state: state.trim() || undefined,
+              postal_code: postal.trim() || undefined,
+              country: country || undefined,
+            },
+          },
+        },
       });
       if (error) {
         toast.error(error.message || 'Card could not be verified.');
@@ -237,21 +283,55 @@ function CardForm({ clientSecret, onSaved }: { clientSecret: string; onSaved: ()
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
-        <CardElement
-          options={{
-            style: {
-              base: { color: '#e2e8f0', fontSize: '15px', '::placeholder': { color: '#64748b' } },
-              invalid: { color: '#f87171' },
-            },
-          }}
-        />
+    <form onSubmit={submit} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+      <Field label="Cardholder name">
+        <input className={inputCls} placeholder="Jane Doe" value={name} onChange={(e) => setName(e.target.value)} required />
+      </Field>
+
+      <Field label="Card details">
+        <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
+          <CardElement
+            options={{
+              style: {
+                base: { color: '#e2e8f0', fontSize: '15px', '::placeholder': { color: '#64748b' } },
+                invalid: { color: '#f87171' },
+              },
+            }}
+          />
+        </div>
+      </Field>
+
+      <Field label="Billing address">
+        <input className={inputCls} placeholder="Address line 1" value={line1} onChange={(e) => setLine1(e.target.value)} />
+      </Field>
+      <input className={inputCls} placeholder="Address line 2 (optional)" value={line2} onChange={(e) => setLine2(e.target.value)} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="City">
+          <input className={inputCls} placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
+        </Field>
+        <Field label="State / Province">
+          <input className={inputCls} placeholder="State" value={state} onChange={(e) => setState(e.target.value)} />
+        </Field>
       </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Postal code">
+          <input className={inputCls} placeholder="ZIP / Postal" value={postal} onChange={(e) => setPostal(e.target.value)} />
+        </Field>
+        <Field label="Country">
+          <select className={inputCls + ' cursor-pointer'} value={country} onChange={(e) => setCountry(e.target.value)}>
+            {COUNTRIES.map(([code, label]) => (
+              <option key={code} value={code}>{label}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
       <button
         type="submit"
         disabled={!stripe || busy}
-        className="w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+        className="w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 mt-1"
       >
         {busy && <Loader2 className="w-4 h-4 animate-spin" />}
         {busy ? 'Saving…' : 'Save card'}
