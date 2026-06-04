@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { PageSpinner } from '@/components/StateViews';
 import { Skeleton } from '@/components/workspace/Skeleton';
+import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
 
 interface Ctx {
@@ -78,6 +79,10 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
           Shows only the items that still need attention; collapses to a
           subtle confetti tile once everything is done. */}
       <SetupBlock setup={setup} workspaceId={id} />
+
+      {/* MoreTech AI promo — only shows when not yet purchased. Pitches
+          unlimited tokens and opens a purchase popup right here. */}
+      <MoreTechAIPromo variant="banner" />
 
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Tile label="Members" value={ctx.stats.member_count} href={`/w/${id}/members`} />

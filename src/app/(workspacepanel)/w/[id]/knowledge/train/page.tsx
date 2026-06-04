@@ -38,6 +38,7 @@ type QAPair = { questions: string; answer: string };
 const LLM_OPTIONS: Array<{
   id: string; name: string; hint: string; provider: string;
 }> = [
+  { id: 'moretech_ai',             name: 'MoreTech AI',        hint: 'Managed Qwen · private',     provider: 'moretech_ai' },
   { id: 'gpt-4o-mini',             name: 'GPT-4o mini',        hint: 'Fast + cheap (recommended)', provider: 'openai' },
   { id: 'gpt-4o',                  name: 'GPT-4o',             hint: 'Best quality, slower',       provider: 'openai' },
   { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',      hint: 'Nuanced, long context',      provider: 'anthropic' },
@@ -75,17 +76,20 @@ export default function KBTrainPage({ params }: { params: Promise<{ id: string }
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
 
   useEffect(() => {
-    OrganizationService.listChannels().then((res) => {
-      if (res?.success && Array.isArray(res.data)) {
-        const kinds = new Set<string>();
-        for (const ch of res.data as Array<{ kind: string; is_active: boolean; is_connected: boolean }>) {
-          if (ch.is_active !== false && ch.is_connected !== false) {
-            kinds.add(ch.kind);
-          }
+    Promise.all([
+      OrganizationService.listChannels().catch(() => null),
+      OrganizationService.moretechAIStatus().catch(() => null),
+    ]).then(([chRes, mtRes]) => {
+      const kinds = new Set<string>();
+      if (chRes?.success && Array.isArray(chRes.data)) {
+        for (const ch of chRes.data as Array<{ kind: string; is_active: boolean; is_connected: boolean }>) {
+          if (ch.is_active !== false && ch.is_connected !== false) kinds.add(ch.kind);
         }
-        setConnectedProviders(Array.from(kinds));
       }
-    }).catch(() => { /* offline -- picker falls back to defaults */ });
+      // MoreTech AI -- subscription-gated, not a Channel.
+      if (mtRes?.success && mtRes.data?.has_access) kinds.add('moretech_ai');
+      setConnectedProviders(Array.from(kinds));
+    });
   }, []);
 
   // Models that actually work (their provider Channel is connected).
@@ -211,28 +215,39 @@ final sale and not eligible for return.`);
     } finally { setSaving(false); }
   };
 
-  // Mode list. Q&A is intentionally HIDDEN when ``presetKbId`` is
-  // set (the "Add more data" flow from a doc detail page):
-  //   * Q&A pairs are workspace-wide, not per-KB. Letting users pick
-  //     "Q&A" from inside a specific KB's add-more flow implies the
-  //     pair would be scoped to that KB -- which would be misleading.
-  //   * Q&A pairs are managed on the dedicated /knowledge/qa page;
-  //     this flow is for adding documents into the selected KB.
+  // Mode list -- filtered by the entry point:
+  //   * ``?mode=qa``      -> Q&A only (hides doc modes)
+  //   * ``?kb=<id>``      -> doc modes only (hides Q&A; KB-scoped)
+  //   * neither           -> all 4 modes (creating new KB or Q&A)
+  // The forced-Q&A entry comes from the main page's "Train Q&A"
+  // button so users can't accidentally pick a doc mode in the
+  // workspace-wide Q&A flow.
+  // Q&A is a SEPARATE flow reached only via the "Train Q&A" button
+  // (which sets ``?mode=qa``). Everywhere else -- "Train new KB" and
+  // "Add more data" -- only the document modes show, because:
+  //   * Q&A pairs are workspace-wide, not part of any KB.
+  //   * A KB is built from documents (text / file / URL) only.
+  const forcedQAOnly = modeParam === 'qa';
   const allModes: { id: TrainMode; label: string; tagline: string; icon: typeof TypeIcon }[] = [
     { id: 'qa',   label: 'Q&A pairs',  tagline: 'Greetings, FAQs, fixed replies',   icon: Sparkles },
     { id: 'text', label: 'Paste text', tagline: 'Handbook, policies, brand voice',  icon: TypeIcon },
     { id: 'file', label: 'Upload file', tagline: 'PDF, DOCX, TXT, Markdown',        icon: FileUp },
     { id: 'url',  label: 'Crawl URL',  tagline: 'Public page or knowledge article', icon: Globe },
   ];
-  const modes = presetKbId
-    ? allModes.filter((m) => m.id !== 'qa')
-    : allModes;
-  // When Q&A is hidden but the user landed in QA mode (initial state
-  // defaults to 'qa'), bump them to 'text' so the form actually
-  // renders something useful.
+  // Default: document modes only (no Q&A). Q&A appears ONLY when the
+  // user explicitly came from "Train Q&A" (``?mode=qa``).
+  const modes = forcedQAOnly
+    ? allModes.filter((m) => m.id === 'qa')
+    : allModes.filter((m) => m.id !== 'qa');
+  // Keep the active ``mode`` valid for the current filter. When Q&A
+  // isn't an offered mode (any doc-only flow) but the state still
+  // holds the 'qa' default, switch to 'text' so the form renders a
+  // real document input instead of a hidden Q&A editor.
   useEffect(() => {
-    if (presetKbId && mode === 'qa') setMode('text');
-  }, [presetKbId, mode]);
+    const ids = modes.map((m) => m.id);
+    if (!ids.includes(mode)) setMode(ids[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedQAOnly, presetKbId]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -271,7 +286,13 @@ final sale and not eligible for return.`);
 
       {/* Mode picker -- 3 columns when Q&A is hidden (add-more flow),
           4 columns otherwise. Keeps cards equal width regardless. */}
-      <div className={`grid grid-cols-2 ${presetKbId ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-3 mb-6`}>
+      {/* Column count follows how many modes are actually shown:
+          1 (Q&A-only) · 3 (doc-only) · 4 (legacy all). */}
+      <div className={`grid grid-cols-2 ${
+        modes.length === 1 ? 'md:grid-cols-1'
+        : modes.length === 3 ? 'md:grid-cols-3'
+        : 'md:grid-cols-4'
+      } gap-3 mb-6`}>
         {modes.map((m) => {
           const active = mode === m.id;
           const Icon = m.icon;
@@ -376,16 +397,21 @@ final sale and not eligible for return.`);
                   Load sample
                 </button>
               </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
-                  Title <span className="text-slate-500">(optional)</span>
-                </label>
-                <input
-                  value={title} onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Return policy, Q1 product launch FAQ"
-                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
-                />
-              </div>
+              {/* Title field hidden when adding to an existing KB --
+                  the KB already has a name, this new content just
+                  joins it. Shown only for brand-new KB creation. */}
+              {!presetKbId && (
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
+                    Title <span className="text-slate-500">(optional)</span>
+                  </label>
+                  <input
+                    value={title} onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Return policy, Q1 product launch FAQ"
+                    className="w-full rounded-xl bg-white/[0.02] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
                   Content

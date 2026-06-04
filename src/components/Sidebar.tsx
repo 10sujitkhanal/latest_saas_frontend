@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Folders, Bell, CreditCard, Sparkles, ShieldCheck, Boxes, UserCog, LogOut, Lock } from 'lucide-react';
+import { LayoutGrid, Folders, Bell, CreditCard, Sparkles, ShieldCheck, Boxes, UserCog, LogOut, Lock, Wallet } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationsStore } from '@/store/notificationsStore';
 import { useSubscriptionStatusStore } from '@/store/subscriptionStatusStore';
@@ -18,6 +18,7 @@ const navItems = [
   { href: '/services', label: 'Services', Icon: Boxes },
   { href: '/notifications', label: 'Notifications', Icon: Bell, badgeKey: 'unread' as const },
   { href: '/billing', label: 'Billing', Icon: CreditCard },
+  { href: '/payment-methods', label: 'Payment Methods', Icon: Wallet },
   { href: '/subscription', label: 'Subscription', Icon: Sparkles },
 ];
 

@@ -504,11 +504,61 @@ export const OrganizationService = {
     );
     return data;
   },
+  // MoreTech AI -- the platform's managed Qwen. Status returns the
+  // entitlement + pricing so the model picker can offer it (when
+  // unlocked) and the credentials card can show Subscribe / Active.
+  moretechAIStatus: async () => {
+    const { data } = await apiClient.get(
+      '/organization/leads/knowledge/moretech-ai/',
+    );
+    return data;
+  },
+  moretechAISubscribe: async (cycle: 'monthly' | 'yearly') => {
+    const { data } = await apiClient.post(
+      '/organization/leads/knowledge/moretech-ai/subscribe/',
+      { cycle },
+    );
+    return data;
+  },
+
+  // ── Saved payment cards (Stripe) — admin only ──────────────────────
+  billingListCards: async () => {
+    const { data } = await apiClient.get('/organization/billing/cards/');
+    return data;
+  },
+  billingSetupIntent: async () => {
+    const { data } = await apiClient.post('/organization/billing/cards/setup-intent/', {});
+    return data;
+  },
+  billingSaveCard: async (paymentMethodId: string) => {
+    const { data } = await apiClient.post('/organization/billing/cards/', {
+      payment_method_id: paymentMethodId,
+    });
+    return data;
+  },
+  billingSetDefaultCard: async (cardId: number) => {
+    const { data } = await apiClient.post(`/organization/billing/cards/${cardId}/default/`, {});
+    return data;
+  },
+  billingDeleteCard: async (cardId: number) => {
+    const { data } = await apiClient.delete(`/organization/billing/cards/${cardId}/`);
+    return data;
+  },
   // Fetch a single KnowledgeBase row -- used by the doc detail page
   // to read the currently-selected ``model`` so the LLM picker can
   // highlight it as the active choice.
   kbGetBase: async (kbId: number) => {
     const { data } = await apiClient.get(
+      `/organization/leads/knowledge/bases/${kbId}/`,
+    );
+    return data;
+  },
+  // Delete an entire KnowledgeBase + all its documents, chunks, and
+  // Q&A pairs. Cascading delete on the FK chain handles the cleanup.
+  // Used by the trash button on each KB card (except the workspace
+  // Q&A pool which is intentionally protected on the frontend).
+  kbDeleteBase: async (kbId: number) => {
+    const { data } = await apiClient.delete(
       `/organization/leads/knowledge/bases/${kbId}/`,
     );
     return data;

@@ -7,7 +7,10 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import QuotaChip from '@/components/workspace/QuotaChip';
 import QuotaBadge from '@/components/QuotaBadge';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
+import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
+import OneClickSubscribeModal from '@/components/billing/OneClickSubscribeModal';
 import { OrganizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * Credentials page — catalog-driven.
@@ -151,7 +154,15 @@ function CredentialsInner({ wsId }: { wsId: string }) {
 
   if (loading || !catalog) return <PageSkeleton kind="grid" />;
 
-  const allKinds = catalog.groups.flatMap((g) => g.kinds);
+  // MoreTech AI is NOT a bring-your-own-key credential — it's a paid
+  // subscription rendered by the dedicated <MoreTechAICard/> above.
+  // Strip it from the catalog so it doesn't also appear as a generic
+  // "Connect" card (which would create an empty, keyless channel).
+  const groups = catalog.groups
+    .map((g) => ({ ...g, kinds: g.kinds.filter((k) => k.kind !== 'moretech_ai') }))
+    .filter((g) => g.kinds.length > 0);
+
+  const allKinds = groups.flatMap((g) => g.kinds);
   const connectedKinds = allKinds.filter((k) => k.connected_count > 0).length;
   const totalKinds = allKinds.length;
 
@@ -176,6 +187,16 @@ function CredentialsInner({ wsId }: { wsId: string }) {
         </div>
       </div>
 
+      {/* MoreTech AI — our managed Qwen LLM. Not a bring-your-own
+          credential: tenants subscribe (monthly/yearly) to unlock it.
+          Two complementary pieces, only one shows at a time:
+            * Not purchased → <MoreTechAIPromo> suggests the upgrade and
+              opens the purchase popup (same UX as Documents/Overview).
+            * Active        → <MoreTechAICard> shows the live entitlement
+              (renewal date + Renew/extend). */}
+      <MoreTechAIPromo variant="banner" />
+      <MoreTechAICard />
+
       {/* Plan-quota banner — explains why a Connect button could fail */}
       {!catalog.quota.unlimited && catalog.quota.used >= catalog.quota.cap && (
         <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/5 p-4 flex items-start gap-3">
@@ -197,7 +218,7 @@ function CredentialsInner({ wsId }: { wsId: string }) {
           is also removed from its native category section below so we
           don't show the same card twice. */}
       {(() => {
-        const connectedKindsFlat = catalog.groups
+        const connectedKindsFlat = groups
           .flatMap((g) => g.kinds)
           .filter((k) => k.connected_count > 0);
         if (connectedKindsFlat.length === 0) return null;
@@ -228,7 +249,7 @@ function CredentialsInner({ wsId }: { wsId: string }) {
 
       {/* Grouped catalog — exclude already-connected kinds so they don't
           appear twice; their card lives in the Connected section above. */}
-      {catalog.groups.map((group) => {
+      {groups.map((group) => {
         const remaining = group.kinds.filter((k) => k.connected_count === 0);
         if (remaining.length === 0) return null;
         return (
@@ -267,6 +288,140 @@ function CredentialsInner({ wsId }: { wsId: string }) {
         />
       )}
     </div>
+  );
+}
+
+interface MoreTechStatus {
+  has_access: boolean;
+  is_active: boolean;
+  included?: boolean;
+  billing_cycle: 'monthly' | 'yearly' | 'MONTHLY' | 'YEARLY' | null;
+  current_period_end: string | null;
+  lifetime_spend?: number;
+  last_amount?: number;
+  pricing: { monthly: number; yearly: number; currency: string; model: string; offered?: boolean; included?: boolean };
+}
+
+/**
+ * MoreTech AI subscription card.
+ *
+ * Unlike the catalog cards (which connect a bring-your-own provider via
+ * an API key), MoreTech AI is the platform's OWN hosted Qwen model.
+ * There's no key to paste — the tenant SUBSCRIBES (monthly or yearly)
+ * and the backend proxies every call with a server-side shared secret.
+ *
+ * States:
+ *   - **Active** — green, shows renewal date + a "Renew / extend" action.
+ *   - **Locked** — shows the two price buttons (monthly / yearly).
+ *
+ * On subscribe the backend issues an Invoice routed to the org's agency
+ * (commission) or straight to the platform (direct orgs).
+ */
+function MoreTechAICard() {
+  const [status, setStatus] = useState<MoreTechStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [renewOpen, setRenewOpen] = useState(false);
+  // Renew / extend is an admin-only billing action.
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
+
+  const load = useCallback(async () => {
+    try {
+      const res = await OrganizationService.moretechAIStatus();
+      if (res?.success) setStatus(res.data);
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Show this card when MoreTech AI is live for the org — either bought
+  // as a paid add-on (``is_active``) OR bundled with the plan
+  // (``included``). The <MoreTechAIPromo> banner handles the "suggest to
+  // purchase" state (paid add-on, not yet bought), so the two never
+  // overlap. Hidden otherwise.
+  if (loading || !status) return null;
+  const included = !!status.included;
+  if (!status.is_active && !included) return null;
+
+  const cycle = String(status.billing_cycle || '').toLowerCase();
+  const renews = status.current_period_end
+    ? new Date(status.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : null;
+
+  const renewPrice = cycle === 'yearly' ? (status.pricing?.yearly ?? 0) : (status.pricing?.monthly ?? 0);
+
+  return (
+    <>
+    <section className="mb-7">
+      <div className="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/[0.12] via-fuchsia-500/[0.06] to-transparent p-5">
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
+              <Icons.Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-white">MoreTech AI</h2>
+                {included ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
+                    <Icons.Gift className="w-2.5 h-2.5" /> Included in your plan
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                    <Icons.CheckCircle2 className="w-2.5 h-2.5" /> Active
+                  </span>
+                )}
+              </div>
+              <p className="text-[12px] text-slate-300 mt-1 max-w-md">
+                Our managed Qwen model — private, hosted on our own servers.
+                Select <span className="text-violet-200">MoreTech AI</span> as the model on any Knowledge Base.
+              </p>
+              {!included && renews && (
+                <p className="text-[11px] text-emerald-300/80 mt-1.5">
+                  {cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · renews {renews}
+                </p>
+              )}
+              {included && (
+                <p className="text-[11px] text-violet-300/80 mt-1.5">
+                  Bundled free with your subscription — no extra charge.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {!included && isAdmin && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setRenewOpen(true)}
+                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1]"
+              >
+                Renew / extend
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+
+      {renewOpen && (
+        <OneClickSubscribeModal
+          planName="MoreTech AI"
+          price={renewPrice}
+          cycle={cycle === 'yearly' ? 'YEARLY' : 'MONTHLY'}
+          isFree={false}
+          title="Renew MoreTech AI"
+          confirmLabel={`Pay $${renewPrice.toFixed(2)} & renew`}
+          onClose={() => setRenewOpen(false)}
+          onConfirm={async () => {
+            const res = await OrganizationService.moretechAISubscribe(cycle === 'yearly' ? 'yearly' : 'monthly');
+            if (!res?.success) throw new Error(res?.message || 'Renew failed.');
+            toast.success(res.message || 'MoreTech AI renewed.');
+            setRenewOpen(false);
+            await load();
+          }}
+        />
+      )}
+    </>
   );
 }
 

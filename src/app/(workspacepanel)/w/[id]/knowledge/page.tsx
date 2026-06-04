@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import QuotaBadge from '@/components/QuotaBadge';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
+import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
 
 /**
@@ -129,6 +130,28 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
     if (res?.success) { toast.success('Deleted'); load(); }
   };
 
+  /**
+   * Delete a whole KnowledgeBase (and all its docs / chunks / Q&A).
+   * Optimistic: drops the card from local state immediately on
+   * success so the UI feels instant; a full re-load happens too
+   * in case the backend cascade changed other counts.
+   */
+  const removeBase = async (kbId: number) => {
+    try {
+      const res = await OrganizationService.kbDeleteBase(kbId);
+      if (res?.success) {
+        setBases((bs) => bs.filter((b) => b.id !== kbId));
+        toast.success('Knowledge base deleted.');
+        load();
+      } else {
+        toast.error(res?.message || 'Delete failed.');
+      }
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Delete failed.');
+    }
+  };
+
   const retrain = async (d: KBDoc) => {
     toast.loading('Re-embedding…', { id: `retrain-${d.id}` });
     const res = await OrganizationService.kbRetrainDocument(d.id);
@@ -156,23 +179,44 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
               The old global chat button used to send queries across
               ALL workspace docs which leaked context between KBs.
               Now clicking a KB card opens its scoped chat tab. */}
-          {/* Train new -- now navigates to the full-page training
-              experience (was a popup modal). The page route shows
-              live samples for each mode + the LLM picker without
-              fighting for vertical space inside a modal. */}
+          {/* Two distinct training buttons:
+                1. "Train Q&A"  -- one workspace-wide Q&A pool, fires
+                                   on every chat regardless of KB.
+                2. "Train new KB" -- creates a fresh KB with docs /
+                                   text / URL content. Each KB owns
+                                   its own chat scope.
+              Splitting them visually stops users from accidentally
+              dumping Q&A into a doc KB or vice-versa. */}
+          <Link
+            href={`/w/${wsId}/knowledge/train?mode=qa`}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.08] hover:bg-emerald-500/[0.16] text-emerald-200 text-sm font-semibold ${
+              (status !== null && !status.ready) ? 'opacity-50 pointer-events-none' : ''
+            }`}
+            title="Add Q&A pairs to the workspace-wide pool. Fires on every chat."
+            aria-disabled={status !== null && !status.ready}
+          >
+            <Sparkles className="w-4 h-4" />
+            Train Q&A
+          </Link>
           <Link
             href={`/w/${wsId}/knowledge/train`}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-500/20 ${
               (status !== null && !status.ready) ? 'opacity-50 pointer-events-none' : ''
             }`}
-            title={status && !status.ready ? status.message : undefined}
+            title={status && !status.ready ? status.message : 'Create a new knowledge base with documents, text or URLs.'}
             aria-disabled={status !== null && !status.ready}
           >
             <Plus className="w-4 h-4" />
-            Train new
+            Train new KB
           </Link>
         </div>
       </div>
+
+      {/* MoreTech AI promo — only renders when the workspace hasn't
+          bought it yet. Pitches "unlimited tokens" + opens a purchase
+          popup. ``load`` refetches the KB status after a purchase so
+          the new model is immediately usable. */}
+      <MoreTechAIPromo variant="banner" onPurchased={load} />
 
       {/* Readiness strip — three states:
           1. ``ready``    → green. Provider connected and at least one
@@ -281,9 +325,15 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
             );
             return (
               <>
+                {/* Q&A pool card -- onDelete is NOT passed so the
+                    component renders without the trash icon (the pool
+                    is universal and shouldn't be deleted accidentally). */}
                 {qaPoolKb && <QACollectionCard key={`qa-${qaPoolKb.id}`} kb={qaPoolKb} wsId={wsId} />}
+                {/* All other KBs are deletable -- pass onDelete so
+                    the component renders the trash icon next to the
+                    "Active" badge. */}
                 {otherKbs.map((kb) => (
-                  <QACollectionCard key={`kb-${kb.id}`} kb={kb} wsId={wsId} />
+                  <QACollectionCard key={`kb-${kb.id}`} kb={kb} wsId={wsId} onDelete={removeBase} />
                 ))}
                 {orphanDocs.map((d) => (
                   <DocCard key={d.id} doc={d} wsId={wsId}
@@ -426,13 +476,71 @@ function DocCard({ doc, wsId, onDelete, onRetrain }: {
  * collections aren't buried -- they're the most accurate training
  * type and operators edit them most often.
  */
-function QACollectionCard({ kb, wsId }: { kb: KBBase; wsId: string }) {
-  // Card → KB detail page (NOT the train page) so the click reveals
-  // the FULL contents of the KB (docs + Q&A + chat + delete controls).
-  // Only the explicit "+ Add more" pill inside the card jumps to the
-  // train flow with the right KB pre-selected.
+function QACollectionCard({ kb, wsId, onDelete }: {
+  kb: KBBase;
+  wsId: string;
+  onDelete?: (kbId: number) => void;
+}) {
+  // The workspace Q&A pool is the one container that should ALWAYS
+  // exist -- it holds the universal Q&A pairs that fire on every
+  // chat. Protect it from accidental deletion by hiding the trash
+  // icon on this specific card. Detection by name ("Default" is the
+  // legacy auto-created pool; "Workspace Q&A Pool" is the new one).
+  const isProtectedPool = kb.name === 'Workspace Q&A Pool' || kb.name === 'Default';
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docCount = kb.document_count || 0;
+    const chunkCount = kb.chunk_count || 0;
+    const qaCount = kb.qa_count || 0;
+    const summary = [
+      docCount && `${docCount} document${docCount === 1 ? '' : 's'}`,
+      chunkCount && `${chunkCount} chunk${chunkCount === 1 ? '' : 's'}`,
+      qaCount && `${qaCount} Q&A pair${qaCount === 1 ? '' : 's'}`,
+    ].filter(Boolean).join(', ') || '(empty)';
+    if (!window.confirm(
+      `Delete "${kb.name}" and all its training data?\n\nThis will permanently remove ${summary}.`
+    )) return;
+    onDelete?.(kb.id);
+  };
+
+  // Two distinct card identities:
+  //   * Q&A pool  -> emerald theme, Sparkles icon, ONLY the Q&A count,
+  //                  "Add more" jumps to the Q&A train flow.
+  //   * Doc KB    -> cyan theme, Database icon, Documents + Chunks
+  //                  stats (Q&A hidden -- it lives in the pool),
+  //                  "Add more" jumps to the doc train flow.
+  const isQAPool = isProtectedPool;
+  const theme = isQAPool
+    ? {
+        border: 'border-emerald-500/30 hover:border-emerald-400/60',
+        bg: 'from-emerald-500/[0.07] to-emerald-500/[0.01] hover:from-emerald-500/[0.12]',
+        iconBg: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300',
+        title: 'group-hover:text-emerald-200',
+        accent: 'text-emerald-300 hover:text-emerald-200',
+        divider: 'border-emerald-500/20',
+        Icon: Sparkles,
+        suffix: 'Q&A pool',
+        tagline: 'Instant replies · fires on every chat · 100% confidence',
+        addMode: 'qa' as const,
+      }
+    : {
+        border: 'border-cyan-500/25 hover:border-cyan-400/60',
+        bg: 'from-cyan-500/[0.06] to-cyan-500/[0.01] hover:from-cyan-500/[0.11]',
+        iconBg: 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300',
+        title: 'group-hover:text-cyan-200',
+        accent: 'text-cyan-300 hover:text-cyan-200',
+        divider: 'border-cyan-500/15',
+        Icon: Database,
+        suffix: 'Knowledge base',
+        tagline: 'Documents · semantic search · grounded answers',
+        addMode: 'text' as const,
+      };
+  const CardIcon = theme.Icon;
+
   return (
-    <article className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.01] p-5 hover:border-emerald-400/60 hover:from-emerald-500/[0.10] transition-colors cursor-pointer group"
+    <article
+      className={`group relative rounded-2xl border ${theme.border} bg-gradient-to-br ${theme.bg} p-5 transition-all cursor-pointer hover:shadow-lg hover:shadow-black/20`}
       onClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button, a, [data-stop-nav]')) return;
@@ -441,43 +549,78 @@ function QACollectionCard({ kb, wsId }: { kb: KBBase; wsId: string }) {
         }
       }}
     >
+      {/* Header row */}
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0">
-          <Sparkles className="w-4 h-4" />
+        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${theme.iconBg}`}>
+          <CardIcon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-white truncate group-hover:text-emerald-200">
-            {kb.name} · Q&A pairs
+          <h3 className={`text-[15px] font-bold text-white truncate ${theme.title}`}>
+            {kb.name}
           </h3>
-          <div className="text-[11px] text-slate-400 mt-0.5">
-            Instant replies · no LLM call · 100% confidence
+          <div className="text-[10.5px] text-slate-400 mt-0.5 truncate">
+            {theme.suffix} · {theme.tagline}
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-200 border border-emerald-500/40">
-          <CheckCircle2 className="w-3 h-3" />
-          Active
-        </span>
+        {/* Delete -- never on the Q&A pool. */}
+        {!isProtectedPool && onDelete && (
+          <button
+            onClick={handleDelete}
+            data-stop-nav
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 shrink-0"
+            title={`Delete "${kb.name}"`}
+            aria-label="Delete knowledge base"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Q&A pairs" value={kb.qa_count} />
-        <Stat label="Documents" value={kb.document_count} />
-        <Stat label="Chunks" value={kb.chunk_count} />
+      {/* Stats -- ADAPT to card type. Q&A pool shows only its pair
+          count (docs/chunks are always 0 there); doc KBs show
+          Documents + Chunks (qa_count is always 0 there). */}
+      <div className={`mt-4 grid ${isQAPool ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+        {isQAPool ? (
+          <BigStat label="Q&A pairs" value={kb.qa_count} accent="#10b981" />
+        ) : (
+          <>
+            <BigStat label="Documents" value={kb.document_count} accent="#06b6d4" />
+            <BigStat label="Chunks" value={kb.chunk_count} accent="#06b6d4" />
+          </>
+        )}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-emerald-500/20 flex items-center justify-between">
-        <span className="text-[11px] italic text-slate-400 truncate" title={`Replies via ${kb.model}`}>
-          {kb.model}
-        </span>
+      {/* Footer */}
+      <div className={`mt-4 pt-3 border-t ${theme.divider} flex items-center justify-between`}>
+        {isQAPool ? (
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-emerald-300/80">
+            <CheckCircle2 className="w-3 h-3" /> No model needed
+          </span>
+        ) : (
+          <span className="text-[11px] italic text-slate-400 truncate" title={`Replies via ${kb.model}`}>
+            {kb.model}
+          </span>
+        )}
         <Link
-          href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=qa`}
+          href={`/w/${wsId}/knowledge/train?kb=${kb.id}&mode=${theme.addMode}`}
           data-stop-nav
-          className="text-[11px] text-emerald-300 hover:text-emerald-200 inline-flex items-center gap-1"
+          className={`text-[11px] font-semibold inline-flex items-center gap-1 ${theme.accent}`}
         >
           <Plus className="w-3 h-3" /> Add more
         </Link>
       </div>
     </article>
+  );
+}
+
+
+/** Larger stat tile for the redesigned KB cards. */
+function BigStat({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+  return (
+    <div className="rounded-xl bg-black/20 border border-white/5 px-3 py-2.5">
+      <div className="text-[9.5px] uppercase tracking-wider text-slate-500 font-semibold">{label}</div>
+      <div className="text-lg font-bold mt-0.5" style={{ color: accent }}>{value}</div>
+    </div>
   );
 }
 
