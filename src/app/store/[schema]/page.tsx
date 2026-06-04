@@ -179,7 +179,11 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
   useEffect(() => {
     let alive = true;
     (async () => {
-      const r = await publicFetch(`/public/storefront/${encodeURIComponent(schema)}/`);
+      // Forward an owner ?preview=<token> so a draft/closed store renders.
+      const previewToken = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('preview') : null;
+      const qs = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
+      const r = await publicFetch(`/public/storefront/${encodeURIComponent(schema)}/${qs}`);
       if (!alive) return;
       if (r.ok && r.success && r.data) {
         const d = r.data as {

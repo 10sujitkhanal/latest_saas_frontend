@@ -162,6 +162,7 @@ export const MarketplaceService = {
   getStorefront: (workspaceId: Id) => httpGet<StorefrontSettingsRow>(`${base(workspaceId)}/storefront/`),
   updateStorefront: (workspaceId: Id, payload: Payload) => httpPatch<StorefrontSettingsRow>(`${base(workspaceId)}/storefront/`, payload),
   storefrontQr: (workspaceId: Id, url: string) => httpGet<{ qr_data_url: string; url: string }>(`${base(workspaceId)}/storefront/qr/`, { url }),
+  storefrontPreviewToken: (workspaceId: Id) => httpGet<{ token: string }>(`${base(workspaceId)}/storefront/preview-token/`),
   bookings: (workspaceId: Id, params?: Params) => httpGet<StorefrontBookingRow[]>(`${base(workspaceId)}/bookings/`, params),
   bookingStatus: (workspaceId: Id, id: Id, status: string) => httpPost<StorefrontBookingRow>(`${base(workspaceId)}/bookings/${id}/status/`, { status }),
   events: {

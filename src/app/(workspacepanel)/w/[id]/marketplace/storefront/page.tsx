@@ -69,12 +69,32 @@ function Inner({ wsId }: { wsId: string }) {
     finally { setSaving(false); }
   };
 
+  const [previewing, setPreviewing] = useState(false);
+
   const storeHref = (() => {
     if (typeof window === 'undefined') return null;
     const label = window.location.hostname.split('.')[0];
     if (!label || ['localhost', 'www', 'app', '127'].includes(label) || /^\d+$/.test(label)) return null;
     return `${window.location.origin}/store/${label}`;
   })();
+
+  // Open the public store. When it's live (is_open) just open it; when it's a
+  // draft, mint a short-lived signed preview token so the owner can see the
+  // closed/draft store (only this workspace, public-safe fields only).
+  const openPreview = async () => {
+    if (!storeHref) return;
+    if (s?.is_open) { window.open(storeHref, '_blank', 'noopener'); return; }
+    setPreviewing(true);
+    try {
+      const r = await MarketplaceService.storefrontPreviewToken(wsId);
+      if (r.success && r.data?.token) {
+        window.open(`${storeHref}?preview=${encodeURIComponent(r.data.token)}`, '_blank', 'noopener');
+      } else {
+        alert(r.message || 'Could not start preview.');
+      }
+    } catch (e) { alert(apiError(e, 'Could not start preview.')); }
+    finally { setPreviewing(false); }
+  };
 
   const toggle = (key: keyof StorefrontSettingsRow, label: string, hint: string, recommended?: boolean) => (
     <label className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-3 cursor-pointer hover:bg-white/[0.04]">
@@ -93,7 +113,11 @@ function Inner({ wsId }: { wsId: string }) {
       <PageHeader
         title="Storefront setup"
         subtitle="Your public store, tailored to your industry."
-        action={storeHref && s?.is_open ? <a href={storeHref} target="_blank" rel="noreferrer" className="rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-500">Preview store ↗</a> : undefined}
+        action={storeHref ? (
+          <button onClick={openPreview} disabled={previewing} className="rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-500 disabled:opacity-50">
+            {previewing ? 'Opening…' : s?.is_open ? 'Preview store ↗' : 'Preview draft ↗'}
+          </button>
+        ) : undefined}
       />
       <MarketplaceTabs wsId={wsId} />
 
