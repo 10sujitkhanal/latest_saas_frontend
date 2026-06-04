@@ -5,7 +5,7 @@ import Topbar from '@/components/Topbar';
 import { Check, X, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageSpinner, PageError } from '@/components/StateViews';
-import StripePaymentModal from '@/components/StripePaymentModal';
+import OneClickSubscribeModal from '@/components/billing/OneClickSubscribeModal';
 import { useBranding } from '@/lib/branding';
 import { useSubscriptionStatusStore } from '@/store/subscriptionStatusStore';
 import {
@@ -26,7 +26,6 @@ export default function SubscriptionPage() {
   const subscriptionStatus = useSubscriptionStatusStore((s) => s.status);
   const markSubscriptionActive = useSubscriptionStatusStore((s) => s.markActive);
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [publishableKey, setPublishableKey] = useState<string | null>(null);
   const [stripeConfigured, setStripeConfigured] = useState(true);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [current, setCurrent] = useState<CurrentSubscription | null>(null);
@@ -46,7 +45,6 @@ export default function SubscriptionPage() {
       ]);
       if (plansRes.success && plansRes.data) {
         setPlans(plansRes.data.plans ?? []);
-        setPublishableKey(plansRes.data.stripe_publishable_key ?? null);
         setStripeConfigured(plansRes.data.stripe_configured ?? true);
         setStripeError(plansRes.data.stripe_error ?? null);
       }
@@ -209,10 +207,10 @@ export default function SubscriptionPage() {
       </main>
 
       {pending && pending.kind === 'subscribe' && (
-        <StripePaymentModal
-          plan={{ id: pending.plan.id, name: pending.plan.name }}
-          billingCycle={pending.cycle}
-          publishableKey={publishableKey}
+        <OneClickSubscribeModal
+          planName={pending.plan.name}
+          price={parseFloat(pending.cycle === 'YEARLY' ? pending.plan.yearly_price : pending.plan.monthly_price) || 0}
+          cycle={pending.cycle}
           isFree={parseFloat(pending.cycle === 'YEARLY' ? pending.plan.yearly_price : pending.plan.monthly_price) <= 0}
           onClose={() => setPending(null)}
           onConfirm={subscribeConfirmed}
