@@ -202,6 +202,7 @@ export default function StaffPage() {
         <StaffModal
           form={editing}
           roles={roles}
+          workspaces={workspaces}
           onClose={() => setEditing(null)}
           onSaved={async () => { setEditing(null); await load(); }}
         />
@@ -276,15 +277,29 @@ function StaffCard({
 // ───────────────────────────── Create/Edit modal ─────────────────────────────
 
 function StaffModal({
-  form: initial, roles, onClose, onSaved,
+  form: initial, roles, workspaces, onClose, onSaved,
 }: {
-  form: StaffForm; roles: RoleDef[]; onClose: () => void; onSaved: () => Promise<void>;
+  form: StaffForm; roles: RoleDef[]; workspaces: Workspace[]; onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [form, setForm] = useState<StaffForm>(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isEditing = !!form.id;
   const selectedRole = roles.find((r) => r.id === form.role_obj_id);
+
+  // Workspace assignments to apply on save. On edit, the ones already assigned
+  // are shown as locked (manage/remove them in the detail drawer); here you can
+  // only add. role '' = inherit the member's base role.
+  const alreadyIn = new Set((initial.workspaces ?? []).map((m) => m.workspace.id));
+  const [wsRows, setWsRows] = useState<{ workspace_id: number; role: string }[]>([]);
+  const wsPickable = workspaces.filter(
+    (w) => !alreadyIn.has(w.id) && !wsRows.some((r) => r.workspace_id === w.id),
+  );
+  const addWsRow = (id: number) => setWsRows((r) => [...r, { workspace_id: id, role: '' }]);
+  const removeWsRow = (id: number) => setWsRows((r) => r.filter((x) => x.workspace_id !== id));
+  const setWsRole = (id: number, role: string) =>
+    setWsRows((r) => r.map((x) => (x.workspace_id === id ? { ...x, role } : x)));
+  const wsName = (id: number) => workspaces.find((w) => w.id === id)?.name ?? `#${id}`;
 
   const set = <K extends keyof StaffForm>(k: K, v: StaffForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -295,10 +310,17 @@ function StaffModal({
     if (!isEditing && !form.password?.trim()) return setError('Password is required for new members.');
     setBusy(true);
     try {
-      const payload = { ...form };
+      const payload: Record<string, unknown> = { ...form };
       // Don't send empty strings for nullable date fields
       if (!payload.hire_date) delete payload.hire_date;
       if (!payload.termination_date) delete payload.termination_date;
+      // Workspace assignments to apply on save (role '' → backend uses base role)
+      if (wsRows.length) {
+        payload.workspace_assignments = wsRows.map((r) => ({
+          workspace_id: r.workspace_id,
+          ...(r.role ? { role: r.role } : {}),
+        }));
+      }
       const res = isEditing
         ? await OrganizationService.updateStaff(form.id!, payload)
         : await OrganizationService.createStaff(payload);
@@ -407,6 +429,52 @@ function StaffModal({
               <Field label="Emergency phone"><input value={form.emergency_contact_phone ?? ''} onChange={(e) => set('emergency_contact_phone', e.target.value)} className={inputCls} /></Field>
               <Field label="Address"><textarea rows={2} value={form.address ?? ''} onChange={(e) => set('address', e.target.value)} className={`${inputCls} resize-none`} /></Field>
             </Grid>
+          </Section>
+
+          <Section title="Workspace access">
+            <p className="text-[12px] text-slate-500 mb-2 -mt-1">
+              Assign this person to one or more workspaces. Their role there defaults to the
+              base role above — pick a different one to make them, e.g., Accountant in one
+              workspace and Front Desk in another.
+            </p>
+
+            {isEditing && (initial.workspaces ?? []).length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {(initial.workspaces ?? []).map((m) => (
+                  <span key={m.workspace.id} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-slate-300">
+                    {m.workspace.name}
+                    <span className="text-slate-500">· {m.role}</span>
+                  </span>
+                ))}
+                <span className="text-[11px] text-slate-500 self-center">— manage/remove in the staff detail drawer</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {wsRows.map((r) => (
+                <div key={r.workspace_id} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm text-white px-3 py-2 rounded-lg bg-white/[0.03] border border-white/10 truncate">{wsName(r.workspace_id)}</span>
+                  <select value={r.role} onChange={(e) => setWsRole(r.workspace_id, e.target.value)} className={`${inputCls} max-w-[200px]`}>
+                    <option value="">Inherit base role</option>
+                    {roles.map((rd) => <option key={rd.id} value={rd.code}>{rd.name}{rd.is_system ? '' : ' (custom)'}</option>)}
+                  </select>
+                  <button type="button" onClick={() => removeWsRow(r.workspace_id)} className="p-2 rounded-lg text-slate-500 hover:text-red-300 hover:bg-red-500/10"><X className="w-4 h-4" /></button>
+                </div>
+              ))}
+
+              {wsPickable.length > 0 ? (
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) addWsRow(Number(e.target.value)); }}
+                  className={inputCls}
+                >
+                  <option value="">+ Add a workspace…</option>
+                  {wsPickable.map((w) => <option key={w.id} value={w.id}>{w.name}{w.effective_industry ? ` · ${w.effective_industry}` : ''}</option>)}
+                </select>
+              ) : (
+                workspaces.length === 0 && <p className="text-[12px] text-slate-500">No workspaces yet. Create one under Workspaces first.</p>
+              )}
+            </div>
           </Section>
 
           <Section title="Notes">
