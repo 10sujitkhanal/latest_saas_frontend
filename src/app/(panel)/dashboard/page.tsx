@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useNotificationsStore } from '@/store/notificationsStore';
 import { OrganizationService, type CurrentSubscription, type NotificationItem } from '@/services/organization.service';
 import { Sparkles } from 'lucide-react';
+import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 
 const accentMap = {
   emerald: 'from-emerald-500/20 to-emerald-500/0 text-emerald-300',
@@ -70,6 +71,10 @@ export default function DashboardPage() {
       <main className="flex-1 px-6 lg:px-10 py-8 overflow-y-auto">
         {loading && <PageSpinner />}
         {!loading && error && <PageError message={error} onRetry={load} />}
+        {/* MoreTech AI — admins only can purchase/renew. The promo shows
+            the purchase / renew / expiry-warning states; it self-hides
+            when active & healthy or when the org isn't entitled to buy. */}
+        {!loading && !error && user?.role === 'ADMIN' && <MoreTechAIPromo variant="banner" onPurchased={load} />}
         {!loading && !error && data && <DashboardBody data={data} unread={unread} recent={notifications.slice(0, 5)} />}
       </main>
     </>

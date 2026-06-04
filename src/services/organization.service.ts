@@ -516,6 +516,30 @@ export const OrganizationService = {
     );
     return data;
   },
+
+  // ── Saved payment cards (Stripe) — admin only ──────────────────────
+  billingListCards: async () => {
+    const { data } = await apiClient.get('/organization/billing/cards/');
+    return data;
+  },
+  billingSetupIntent: async () => {
+    const { data } = await apiClient.post('/organization/billing/cards/setup-intent/', {});
+    return data;
+  },
+  billingSaveCard: async (paymentMethodId: string) => {
+    const { data } = await apiClient.post('/organization/billing/cards/', {
+      payment_method_id: paymentMethodId,
+    });
+    return data;
+  },
+  billingSetDefaultCard: async (cardId: number) => {
+    const { data } = await apiClient.post(`/organization/billing/cards/${cardId}/default/`, {});
+    return data;
+  },
+  billingDeleteCard: async (cardId: number) => {
+    const { data } = await apiClient.delete(`/organization/billing/cards/${cardId}/`);
+    return data;
+  },
   // Fetch a single KnowledgeBase row -- used by the doc detail page
   // to read the currently-selected ``model`` so the LLM picker can
   // highlight it as the active choice.
