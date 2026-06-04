@@ -1,22 +1,21 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { loadStripe, type Stripe } from '@stripe/stripe-js';
-import { Elements, CardElement, AddressElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { CreditCard, Plus, Trash2, Star, Loader2, X } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
+import AddCardModal from '@/components/billing/AddCardModal';
 
 /**
  * Saved payment cards (Stripe) for the org.
  *
- * Cards are tokenised in the browser by Stripe.js — raw card data never
+ * Cards are tokenised in the browser by Stripe.js â€” raw card data never
  * hits our backend; we send only the resulting PaymentMethod id, which
  * the backend attaches to the org's Stripe customer and stores
  * (encrypted). The default card is reused everywhere for one-click
  * charges (MoreTech AI, plan invoices).
  *
- * Admin-only — the backend enforces it; render this only for admins.
+ * Admin-only â€” the backend enforces it; render this only for admins.
  */
 
 interface Card {
@@ -75,7 +74,7 @@ export default function PaymentMethods() {
         <div>
           <h2 className="text-lg font-semibold text-white">Payment methods</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Your saved card is used for one-click payments — MoreTech AI and plan invoices.
+            Your saved card is used for one-click payments â€” MoreTech AI and plan invoices.
           </p>
         </div>
         <button
@@ -106,7 +105,7 @@ export default function PaymentMethods() {
                 </div>
                 <div>
                   <div className="text-sm text-white font-medium flex items-center gap-2">
-                    {brandLabel(c.brand)} •••• {c.last4}
+                    {brandLabel(c.brand)} â€¢â€¢â€¢â€¢ {c.last4}
                     {c.is_default && (
                       <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                         <Star className="w-2.5 h-2.5" /> Default
@@ -114,7 +113,7 @@ export default function PaymentMethods() {
                     )}
                   </div>
                   <div className="text-[11px] text-slate-500">
-                    {c.cardholder_name ? `${c.cardholder_name} · ` : ''}
+                    {c.cardholder_name ? `${c.cardholder_name} Â· ` : ''}
                     Expires {String(c.exp_month).padStart(2, '0')}/{c.exp_year}
                   </div>
                 </div>
@@ -151,151 +150,5 @@ export default function PaymentMethods() {
         />
       )}
     </section>
-  );
-}
-
-function AddCardModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await OrganizationService.billingSetupIntent();
-        if (!res?.success) {
-          setErr(res?.message || 'Could not start card setup.');
-          return;
-        }
-        setClientSecret(res.data.client_secret);
-        setStripePromise(loadStripe(res.data.publishable_key));
-      } catch (e) {
-        setErr((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not start card setup.');
-      }
-    })();
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0f1a] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute right-4 top-4 text-slate-400 hover:text-white" aria-label="Close">
-          <X className="w-5 h-5" />
-        </button>
-        <h3 className="text-lg font-bold text-white mb-1">Add a card</h3>
-        <p className="text-[12px] text-slate-400 mb-5">Securely stored by Stripe. We never see your full card number.</p>
-
-        {err ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">{err}</div>
-        ) : !stripePromise || !clientSecret ? (
-          <div className="flex items-center gap-2 text-slate-400 text-sm py-6 justify-center">
-            <Loader2 className="w-4 h-4 animate-spin" /> Preparing secure form…
-          </div>
-        ) : (
-          <Elements stripe={stripePromise} options={{ appearance: STRIPE_APPEARANCE }}>
-            <CardForm clientSecret={clientSecret} onSaved={onSaved} />
-          </Elements>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const STRIPE_APPEARANCE = {
-  theme: 'night' as const,
-  variables: {
-    colorPrimary: '#10b981',
-    colorBackground: '#0b0f1a',
-    colorText: '#e2e8f0',
-    colorTextPlaceholder: '#64748b',
-    borderRadius: '10px',
-  },
-};
-
-function CardForm({ clientSecret, onSaved }: { clientSecret: string; onSaved: () => void }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    const cardEl = elements.getElement(CardElement);
-    const addrEl = elements.getElement('address');
-    if (!cardEl) return;
-    setBusy(true);
-    try {
-      // Pull name + billing address (full Stripe country list) from the
-      // AddressElement.
-      let billing: { name?: string; address?: Record<string, string | undefined> } = {};
-      if (addrEl) {
-        const { complete, value } = await addrEl.getValue();
-        if (!complete) {
-          toast.error('Please complete the billing name and address.');
-          setBusy(false);
-          return;
-        }
-        billing = { name: value.name, address: value.address as Record<string, string | undefined> };
-      }
-
-      const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: { card: cardEl, billing_details: billing },
-      });
-      if (error) {
-        toast.error(error.message || 'Card could not be verified.');
-        return;
-      }
-      const pmId = setupIntent?.payment_method as string | undefined;
-      if (!pmId) {
-        toast.error('No payment method returned.');
-        return;
-      }
-      const res = await OrganizationService.billingSaveCard(pmId);
-      if (res?.success) {
-        toast.success('Card saved.');
-        onSaved();
-      } else {
-        toast.error(res?.message || 'Could not save the card.');
-      }
-    } catch (e) {
-      toast.error((e as Error)?.message || 'Could not save the card.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-      <div>
-        <span className="text-[11px] font-medium text-slate-400">Card details</span>
-        <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
-          <CardElement
-            options={{
-              style: {
-                base: { color: '#e2e8f0', fontSize: '15px', '::placeholder': { color: '#64748b' } },
-                invalid: { color: '#f87171' },
-              },
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Stripe's AddressElement — full country list + name + address,
-          maintained by Stripe so we never hand-curate countries. */}
-      <div>
-        <span className="text-[11px] font-medium text-slate-400">Billing name &amp; address</span>
-        <div className="mt-1">
-          <AddressElement options={{ mode: 'billing' }} />
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={!stripe || busy}
-        className="w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 mt-1"
-      >
-        {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-        {busy ? 'Saving…' : 'Save card'}
-      </button>
-    </form>
   );
 }

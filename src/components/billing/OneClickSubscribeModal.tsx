@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { CreditCard, Loader2, X, ShieldCheck, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
+import AddCardModal from '@/components/billing/AddCardModal';
 
 /**
  * One-click plan checkout.
@@ -34,6 +34,8 @@ export default function OneClickSubscribeModal({
   isFree,
   onClose,
   onConfirm,
+  title = 'Confirm subscription',
+  confirmLabel,
 }: {
   planName: string;
   price: number;
@@ -41,20 +43,23 @@ export default function OneClickSubscribeModal({
   isFree: boolean;
   onClose: () => void;
   onConfirm: () => Promise<void>;
+  title?: string;
+  confirmLabel?: string;
 }) {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await OrganizationService.billingListCards();
-        setCards(res?.success ? res.data.cards || [] : []);
-      } catch {
-        setCards([]);
-      }
-    })();
+  const loadCards = useCallback(async () => {
+    try {
+      const res = await OrganizationService.billingListCards();
+      setCards(res?.success ? res.data.cards || [] : []);
+    } catch {
+      setCards([]);
+    }
   }, []);
+
+  useEffect(() => { loadCards(); }, [loadCards]);
 
   const defaultCard = cards?.find((c) => c.is_default) || cards?.[0] || null;
   const needsCard = !isFree && cards !== null && !defaultCard;
@@ -77,7 +82,7 @@ export default function OneClickSubscribeModal({
           <X className="w-5 h-5" />
         </button>
 
-        <h3 className="text-lg font-bold text-white">Confirm subscription</h3>
+        <h3 className="text-lg font-bold text-white">{title}</h3>
         <p className="text-[13px] text-slate-300 mt-1">
           {isFree ? (
             <>Switch to <span className="font-semibold text-white">{planName}</span> — no charge.</>
@@ -100,12 +105,12 @@ export default function OneClickSubscribeModal({
               <p className="text-[12px] text-slate-300 mt-1">
                 Add a payment card once, then subscribe in one click.
               </p>
-              <Link
-                href="/payment-methods"
+              <button
+                onClick={() => setAddOpen(true)}
                 className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[12px] font-semibold"
               >
                 <CreditCard className="w-3.5 h-3.5" /> Add a card
-              </Link>
+              </button>
             </div>
           ) : (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 flex items-center gap-3">
@@ -127,7 +132,7 @@ export default function OneClickSubscribeModal({
             className="mt-5 w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-            {busy ? 'Processing…' : isFree ? `Switch to ${planName}` : `Pay $${price.toFixed(2)} & subscribe`}
+            {busy ? 'Processing…' : isFree ? `Switch to ${planName}` : (confirmLabel || `Pay $${price.toFixed(2)} & subscribe`)}
           </button>
         )}
 
@@ -135,6 +140,16 @@ export default function OneClickSubscribeModal({
           <ShieldCheck className="w-3 h-3 text-emerald-400" />
           Secure — charged to your saved card via Stripe. No card details entered here.
         </p>
+
+        {addOpen && (
+          <AddCardModal
+            onClose={() => setAddOpen(false)}
+            onSaved={() => {
+              setAddOpen(false);
+              loadCards();
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Sparkles, Infinity as InfinityIcon, ShieldCheck, Zap, X, CheckCircle2, AlertTriangle, CreditCard, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
+import AddCardModal from '@/components/billing/AddCardModal';
 
 /**
  * MoreTech AI promo + purchase popup.
@@ -187,18 +187,19 @@ function PurchaseModal({
 }) {
   const [busy, setBusy] = useState<'monthly' | 'yearly' | null>(null);
   const [cards, setCards] = useState<Array<{ brand: string; last4: string; is_default: boolean }> | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const yearlySavingPct = monthly > 0
     ? Math.max(0, Math.round((1 - yearly / (monthly * 12)) * 100))
     : 0;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await OrganizationService.billingListCards();
-        setCards(res?.success ? res.data.cards || [] : []);
-      } catch { setCards([]); }
-    })();
+  const loadCards = useCallback(async () => {
+    try {
+      const res = await OrganizationService.billingListCards();
+      setCards(res?.success ? res.data.cards || [] : []);
+    } catch { setCards([]); }
   }, []);
+
+  useEffect(() => { loadCards(); }, [loadCards]);
 
   const defaultCard = cards?.find((c) => c.is_default) || cards?.[0] || null;
 
@@ -311,9 +312,12 @@ function PurchaseModal({
               <Wallet className="w-3.5 h-3.5" /> No saved card
             </div>
             <p className="text-[11px] text-slate-300 mt-0.5">Add a card once for one-click billing.</p>
-            <Link href="/payment-methods" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">
-              <CreditCard className="w-3 h-3" /> Add a card →
-            </Link>
+            <button
+              onClick={() => setAddOpen(true)}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold"
+            >
+              <CreditCard className="w-3 h-3" /> Add a card
+            </button>
           </div>
         ) : null}
 
@@ -321,6 +325,16 @@ function PurchaseModal({
           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
           Billed through your account · invoice issued automatically.
         </p>
+
+        {addOpen && (
+          <AddCardModal
+            onClose={() => setAddOpen(false)}
+            onSaved={() => {
+              setAddOpen(false);
+              loadCards();
+            }}
+          />
+        )}
       </div>
     </div>
   );

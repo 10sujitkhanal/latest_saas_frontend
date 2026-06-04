@@ -8,6 +8,7 @@ import QuotaChip from '@/components/workspace/QuotaChip';
 import QuotaBadge from '@/components/QuotaBadge';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
+import OneClickSubscribeModal from '@/components/billing/OneClickSubscribeModal';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 
@@ -319,7 +320,7 @@ interface MoreTechStatus {
 function MoreTechAICard() {
   const [status, setStatus] = useState<MoreTechStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<'monthly' | 'yearly' | null>(null);
+  const [renewOpen, setRenewOpen] = useState(false);
   // Renew / extend is an admin-only billing action.
   const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
 
@@ -331,21 +332,6 @@ function MoreTechAICard() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  const subscribe = async (cycle: 'monthly' | 'yearly') => {
-    setBusy(cycle);
-    try {
-      const res = await OrganizationService.moretechAISubscribe(cycle);
-      if (res?.success) {
-        toast.success(res.message || `MoreTech AI unlocked (${cycle}).`);
-        await load();
-      } else {
-        toast.error(res?.message || 'Could not complete the subscription.');
-      }
-    } catch (e) {
-      toast.error((e as Error)?.message || 'Subscription failed.');
-    } finally { setBusy(null); }
-  };
 
   // Show this card when MoreTech AI is live for the org — either bought
   // as a paid add-on (``is_active``) OR bundled with the plan
@@ -361,7 +347,10 @@ function MoreTechAICard() {
     ? new Date(status.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
     : null;
 
+  const renewPrice = cycle === 'yearly' ? (status.pricing?.yearly ?? 0) : (status.pricing?.monthly ?? 0);
+
   return (
+    <>
     <section className="mb-7">
       <div className="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/[0.12] via-fuchsia-500/[0.06] to-transparent p-5">
         <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
@@ -403,17 +392,36 @@ function MoreTechAICard() {
           {!included && isAdmin && (
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => subscribe(cycle === 'yearly' ? 'yearly' : 'monthly')}
-                disabled={busy !== null}
-                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1] disabled:opacity-50"
+                onClick={() => setRenewOpen(true)}
+                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1]"
               >
-                {busy ? 'Processing…' : 'Renew / extend'}
+                Renew / extend
               </button>
             </div>
           )}
         </div>
       </div>
     </section>
+
+      {renewOpen && (
+        <OneClickSubscribeModal
+          planName="MoreTech AI"
+          price={renewPrice}
+          cycle={cycle === 'yearly' ? 'YEARLY' : 'MONTHLY'}
+          isFree={false}
+          title="Renew MoreTech AI"
+          confirmLabel={`Pay $${renewPrice.toFixed(2)} & renew`}
+          onClose={() => setRenewOpen(false)}
+          onConfirm={async () => {
+            const res = await OrganizationService.moretechAISubscribe(cycle === 'yearly' ? 'yearly' : 'monthly');
+            if (!res?.success) throw new Error(res?.message || 'Renew failed.');
+            toast.success(res.message || 'MoreTech AI renewed.');
+            setRenewOpen(false);
+            await load();
+          }}
+        />
+      )}
+    </>
   );
 }
 
