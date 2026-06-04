@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Sparkles, Infinity as InfinityIcon, ShieldCheck, Zap, X, CheckCircle2, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles, Infinity as InfinityIcon, ShieldCheck, Zap, X, CheckCircle2, AlertTriangle, CreditCard, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * MoreTech AI promo + purchase popup.
@@ -46,6 +48,8 @@ export default function MoreTechAIPromo({
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  // Only org admins can buy/renew the MoreTech AI subscription.
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +65,9 @@ export default function MoreTechAIPromo({
   // Hide while loading/on error, or when MoreTech AI is switched off.
   if (loading || !status) return null;
   if (status.pricing?.enabled === false) return null;
+  // Buying / renewing is an admin-only billing action — don't show the
+  // purchase/renew promo to non-admins.
+  if (!isAdmin) return null;
 
   const expiringSoon = !!status.expiring_soon;   // active AND within 5 days
   const expired = !!status.expired;
@@ -179,9 +186,21 @@ function PurchaseModal({
   onPurchased: () => void;
 }) {
   const [busy, setBusy] = useState<'monthly' | 'yearly' | null>(null);
+  const [cards, setCards] = useState<Array<{ brand: string; last4: string; is_default: boolean }> | null>(null);
   const yearlySavingPct = monthly > 0
     ? Math.max(0, Math.round((1 - yearly / (monthly * 12)) * 100))
     : 0;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await OrganizationService.billingListCards();
+        setCards(res?.success ? res.data.cards || [] : []);
+      } catch { setCards([]); }
+    })();
+  }, []);
+
+  const defaultCard = cards?.find((c) => c.is_default) || cards?.[0] || null;
 
   const buy = async (cycle: 'monthly' | 'yearly') => {
     setBusy(cycle);
@@ -274,7 +293,31 @@ function PurchaseModal({
           </button>
         </div>
 
-        <p className="mt-4 flex items-center gap-1.5 text-[11px] text-slate-500">
+        {/* Saved payment method — the charge is one-click against this
+            card (Stripe customer id), no card entry here. */}
+        {defaultCard ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 flex items-center justify-center text-slate-200">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div className="text-[12px] text-white">
+              {(defaultCard.brand ? defaultCard.brand[0].toUpperCase() + defaultCard.brand.slice(1) : 'Card')} •••• {defaultCard.last4}
+              <div className="text-[10px] text-slate-500">Charged instantly · one-click</div>
+            </div>
+          </div>
+        ) : cards !== null ? (
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+            <div className="flex items-center gap-2 text-amber-200 text-[12px] font-semibold">
+              <Wallet className="w-3.5 h-3.5" /> No saved card
+            </div>
+            <p className="text-[11px] text-slate-300 mt-0.5">Add a card once for one-click billing.</p>
+            <Link href="/payment-methods" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">
+              <CreditCard className="w-3 h-3" /> Add a card →
+            </Link>
+          </div>
+        ) : null}
+
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
           Billed through your account · invoice issued automatically.
         </p>

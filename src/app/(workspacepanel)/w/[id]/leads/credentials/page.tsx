@@ -9,6 +9,7 @@ import QuotaBadge from '@/components/QuotaBadge';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * Credentials page — catalog-driven.
@@ -319,6 +320,8 @@ function MoreTechAICard() {
   const [status, setStatus] = useState<MoreTechStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'monthly' | 'yearly' | null>(null);
+  // Renew / extend is an admin-only billing action.
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
 
   const load = useCallback(async () => {
     try {
@@ -397,7 +400,7 @@ function MoreTechAICard() {
             </div>
           </div>
 
-          {!included && (
+          {!included && isAdmin && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => subscribe(cycle === 'yearly' ? 'yearly' : 'monthly')}
