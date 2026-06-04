@@ -2,8 +2,9 @@
 
 import { useEffect, useState, use as reactUse } from 'react';
 import Link from 'next/link';
+import * as LucideIcons from 'lucide-react';
 import {
-  Users, UserCircle2, BadgeCheck, ArrowRight,
+  BadgeCheck, ArrowRight,
   Sparkles, CheckCircle2, AlertTriangle, Plug,
   Wallet, TrendingUp, ShoppingCart, FileSignature, Package,
 } from 'lucide-react';
@@ -11,9 +12,12 @@ import { PageSpinner } from '@/components/StateViews';
 import { Skeleton } from '@/components/workspace/Skeleton';
 import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
+import { useAuthStore, hasPermission } from '@/store/authStore';
+import { industryProfile, type WsCapabilities, type QuickAction } from '@/lib/workspaceIndustry';
 
 interface Ctx {
-  workspace: { id: number; name: string; created_at: string };
+  workspace: { id: number; name: string; created_at: string; industry: string | null; effective_industry: string | null };
+  capabilities?: WsCapabilities;
   my_role: string | null;
   is_admin_override: boolean;
   members: Array<{ id: number; user_id: number; email: string; full_name: string; designation: string; role: string; joined_at: string }>;
@@ -22,6 +26,12 @@ interface Ctx {
     lead_count: number;
     pipeline: Array<{ status: string; count: number }>;
   };
+}
+
+// Resolve a lucide icon by name (falls back to a circle).
+function Icon({ name, className }: { name: string; className?: string }) {
+  const C = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[name] ?? LucideIcons.Circle;
+  return <C className={className} />;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -64,8 +74,29 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
 
   if (!ctx) return <PageSpinner />;
 
+  const profile = industryProfile(ctx.capabilities, ctx.workspace.effective_industry);
+
   return (
     <div className="space-y-6">
+      {/* Industry header — makes the workspace feel like its vertical. */}
+      <section className={`rounded-2xl border border-white/5 bg-gradient-to-br ${profile.accent} to-transparent p-5`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-white shrink-0">
+              <Icon name={profile.icon} className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">{ctx.workspace.name}</h1>
+              <p className="text-[12px] text-slate-300">
+                {profile.label} · {profile.tagline}
+                <span className="text-slate-500"> · you're {ctx.my_role || 'a member'}</span>
+              </p>
+            </div>
+          </div>
+          <QuickActions actions={profile.quickActions} workspaceId={id} />
+        </div>
+      </section>
+
       {ctx.is_admin_override && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-200 flex items-start gap-2">
           <BadgeCheck className="w-4 h-4 mt-0.5 shrink-0" />
@@ -84,33 +115,37 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
           unlimited tokens and opens a purchase popup right here. */}
       <MoreTechAIPromo variant="banner" />
 
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Tile label="Members" value={ctx.stats.member_count} href={`/w/${id}/members`} />
-        <Tile label="Leads" value={ctx.stats.lead_count} href={`/w/${id}/leads`} />
-        <Tile label="Your role" value={ctx.my_role || '—'} />
-      </section>
-
+      {/* Money view leads for commerce/booking verticals. */}
       <BusinessHealth wsId={id} />
 
-      <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-white">Lead pipeline</h2>
-          <Link href={`/w/${id}/leads`} className="text-xs text-emerald-300 hover:text-emerald-200 font-semibold">
-            View all →
-          </Link>
-        </div>
-        {ctx.stats.pipeline.length === 0 ? (
-          <p className="text-sm text-slate-500">No leads yet.</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {ctx.stats.pipeline.map((p) => (
-              <div key={p.status} className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">{STATUS_LABELS[p.status] || p.status}</div>
-                <div className="mt-1 text-2xl font-bold text-white">{p.count}</div>
-              </div>
-            ))}
+      {/* Lead pipeline — headline for service/CRM verticals, a quieter strip
+          otherwise (every business still tracks leads). */}
+      {(profile.leadsPrimary || ctx.stats.pipeline.length > 0) && (
+        <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-white">Lead pipeline</h2>
+            <Link href={`/w/${id}/leads`} className="text-xs text-emerald-300 hover:text-emerald-200 font-semibold">
+              View all →
+            </Link>
           </div>
-        )}
+          {ctx.stats.pipeline.length === 0 ? (
+            <p className="text-sm text-slate-500">No leads yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {ctx.stats.pipeline.map((p) => (
+                <div key={p.status} className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500">{STATUS_LABELS[p.status] || p.status}</div>
+                  <div className="mt-1 text-2xl font-bold text-white">{p.count}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Tile label="Members" value={ctx.stats.member_count} href={`/w/${id}/members`} />
+        <Tile label="Leads" value={ctx.stats.lead_count} href={`/w/${id}/leads`} />
       </section>
 
       <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
@@ -227,6 +262,27 @@ function BusinessHealth({ wsId }: { wsId: string }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function QuickActions({ actions, workspaceId }: { actions: QuickAction[]; workspaceId: string }) {
+  const permissionCodes = useAuthStore((s) => s.permissionCodes);
+  // Only surface actions the user can actually perform here (per-workspace).
+  const visible = actions.filter((a) => !a.code || hasPermission(permissionCodes, a.code));
+  if (visible.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {visible.map((a) => (
+        <Link
+          key={a.label}
+          href={`/w/${workspaceId}${a.path}`}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-sm font-medium text-white transition-colors"
+        >
+          <Icon name={a.icon} className="w-4 h-4 text-emerald-300" />
+          {a.label}
+        </Link>
+      ))}
+    </div>
   );
 }
 
