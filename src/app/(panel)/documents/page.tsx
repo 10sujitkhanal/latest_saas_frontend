@@ -69,8 +69,8 @@ function CreateTab({ onCreated }: { onCreated: () => void }) {
   const submit = async (send: boolean) => {
     if (!workspaceId) { toast.error('Pick a business'); return; }
     if (!title.trim()) { toast.error('Add a title'); return; }
-    const valid = signers.filter((s) => s.name && s.email);
-    if (valid.length === 0) { toast.error('Add at least one signer'); return; }
+    const valid = signers.filter((s) => s.email.trim()).map((s) => ({ ...s, name: s.name.trim() || s.email.trim() }));
+    if (valid.length === 0) { toast.error('Each signer needs an email address (that’s where the signing link goes).'); return; }
     if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return; }
     setBusy(true);
     try {
@@ -134,8 +134,8 @@ function CreateTab({ onCreated }: { onCreated: () => void }) {
           <div className="space-y-2">
             {signers.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input className={`${inp} flex-1`} placeholder="Name" value={s.name} onChange={(e) => upRow(i, { name: e.target.value })} />
-                <input className={`${inp} flex-1`} placeholder="Email" value={s.email} onChange={(e) => upRow(i, { email: e.target.value })} />
+                <input className={`${inp} flex-1`} placeholder="Full name" value={s.name} onChange={(e) => upRow(i, { name: e.target.value })} />
+                <input className={`${inp} flex-1`} placeholder="Email (required)" value={s.email} onChange={(e) => upRow(i, { email: e.target.value })} />
                 <select className={`${inp} w-28`} value={s.partySide} onChange={(e) => upRow(i, { partySide: e.target.value as any })}>
                   <option value="external" className="bg-slate-900">External</option>
                   <option value="internal" className="bg-slate-900">Internal</option>
@@ -144,6 +144,7 @@ function CreateTab({ onCreated }: { onCreated: () => void }) {
               </div>
             ))}
           </div>
+          <p className="text-[10px] text-slate-600 mt-1.5">Each signer gets a unique signing link by email. Internal parties counter-sign first; external parties sign after.</p>
         </div>
         <label className="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-white/10 bg-white/[0.02] p-3">
           <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} className="w-4 h-4 mt-0.5 accent-emerald-600" />

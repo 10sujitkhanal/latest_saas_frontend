@@ -108,8 +108,8 @@ function CreateModal({ workspaceId, onClose, onCreated }: { workspaceId: string;
 
   const submit = async () => {
     if (!title.trim()) { toast.error('Add a title'); return; }
-    const valid = signers.filter((s) => s.name && s.email);
-    if (valid.length === 0) { toast.error('Add at least one signer with name + email'); return; }
+    const valid = signers.filter((s) => s.email.trim()).map((s) => ({ ...s, name: s.name.trim() || s.email.trim() }));
+    if (valid.length === 0) { toast.error('Each signer needs an email address (that’s where the signing link goes).'); return; }
     if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return; }
     setSubmitting(true);
     try {
@@ -169,8 +169,8 @@ function CreateModal({ workspaceId, onClose, onCreated }: { workspaceId: string;
             <div className="space-y-2">
               {signers.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input className={`${inp} flex-1`} placeholder="Name" value={s.name} onChange={(e) => upRow(i, { name: e.target.value })} />
-                  <input className={`${inp} flex-1`} placeholder="Email" value={s.email} onChange={(e) => upRow(i, { email: e.target.value })} />
+                  <input className={`${inp} flex-1`} placeholder="Full name" value={s.name} onChange={(e) => upRow(i, { name: e.target.value })} />
+                  <input className={`${inp} flex-1`} placeholder="Email (required)" value={s.email} onChange={(e) => upRow(i, { email: e.target.value })} />
                   <select className={`${inp} w-28`} value={s.partySide} onChange={(e) => upRow(i, { partySide: e.target.value as any })}>
                     <option value="external" className="bg-slate-900">External</option>
                     <option value="internal" className="bg-slate-900">Internal</option>
