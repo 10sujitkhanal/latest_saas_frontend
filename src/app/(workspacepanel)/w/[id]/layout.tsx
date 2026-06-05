@@ -171,22 +171,19 @@ export default function WorkspaceLayout({
         {/* Top bar — business profile (brand) on the left, then workspace + role */}
         <header className="h-14 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
-            {business?.name && (
-              <>
-                <div className="flex items-center gap-2 min-w-0">
-                  {business.logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={business.logo} alt={business.name} className="w-7 h-7 rounded-lg object-cover border border-white/10" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: business.brand_color || '#10b981' }}>
-                      {business.name[0]?.toUpperCase() || 'B'}
-                    </div>
-                  )}
-                  <span className="text-sm font-bold text-white truncate max-w-[200px]">{business.name}</span>
+            {/* Business profile (the brand) — always the primary header element. */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              {business?.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={business.logo} alt={business.name} className="w-8 h-8 rounded-lg object-cover border border-white/10" />
+              ) : (
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-black" style={{ background: business?.brand_color || '#10b981' }}>
+                  {(business?.name || 'B')[0]?.toUpperCase()}
                 </div>
-                <span className="h-5 w-px bg-white/10" />
-              </>
-            )}
+              )}
+              <span className="text-[15px] font-extrabold text-white truncate max-w-[220px]">{business?.name || 'Loading…'}</span>
+            </div>
+            <span className="h-5 w-px bg-white/10" />
             <WorkspaceSwitcher currentId={id} currentName={workspace?.name ?? 'Workspace'} />
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
               {myRole ?? 'member'}
