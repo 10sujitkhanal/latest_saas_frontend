@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import Topbar from '@/components/Topbar';
 import { PageSpinner } from '@/components/StateViews';
 import { useAuthStore } from '@/store/authStore';
@@ -9,8 +11,14 @@ import { OrganizationService } from '@/services/organization.service';
 import {
   TrendingUp, TrendingDown, Wallet, DollarSign, AlertTriangle, FileWarning,
   Package, FileText, ArrowUpRight, Plus, Check, X, StickyNote, ListTodo,
-  CircleDot, Activity, ChevronRight, Building2,
+  CircleDot, Activity, ChevronRight, Building2, Bell, Loader2, ExternalLink,
 } from 'lucide-react';
+
+interface OverdueInv {
+  id: number; invoice_no: string; workspace_id: number; workspace_name: string;
+  customer: string; amount: number; currency: string; due_date: string | null;
+  days_overdue: number; last_reminded_at: string | null; link: string;
+}
 
 interface WsRow {
   id: number; name: string; industry: string; revenue: number; prev_revenue: number;
@@ -79,6 +87,7 @@ export default function DashboardPage() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Item[]>([]);
+  const [overdueOpen, setOverdueOpen] = useState(false);
 
   const loadOverview = useCallback(async (p: string) => {
     setLoading(true);
@@ -183,18 +192,31 @@ export default function DashboardPage() {
                 <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-amber-400" /> Needs attention</h2>
                 <div className="space-y-2">
                   {ov.alerts.length === 0 && <EmptyCard text="All clear — nothing needs you right now. 🎉" />}
-                  {ov.alerts.map((a, i) => (
-                    <div key={i} className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5 flex items-start gap-3">
-                      <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                        a.severity === 'high' ? 'bg-rose-500/10 text-rose-400' : a.severity === 'medium' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400'}`}>
-                        {a.type === 'low_stock' ? <Package className="w-4 h-4" /> : a.type === 'draft_invoices' ? <FileText className="w-4 h-4" /> : <FileWarning className="w-4 h-4" />}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-slate-200">{a.title}</div>
-                        <div className="text-[11px] text-slate-500">{a.detail}</div>
-                      </div>
-                    </div>
-                  ))}
+                  {ov.alerts.map((a, i) => {
+                    const AlIcon = a.type === 'low_stock' ? Package : a.type === 'draft_invoices' ? FileText : FileWarning;
+                    const actionable = (a as any).action === 'overdue';
+                    const inner = (
+                      <>
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          a.severity === 'high' ? 'bg-rose-500/10 text-rose-400' : a.severity === 'medium' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                          <AlIcon className="w-4 h-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-semibold text-slate-200">{a.title}</div>
+                          <div className="text-[11px] text-slate-500">{a.detail}</div>
+                        </div>
+                        {actionable && <span className="text-[11px] font-semibold text-rose-300 shrink-0 flex items-center gap-1">Take action <ChevronRight className="w-3.5 h-3.5" /></span>}
+                      </>
+                    );
+                    return actionable ? (
+                      <button key={i} onClick={() => setOverdueOpen(true)}
+                        className="w-full rounded-xl bg-white/[0.02] border border-rose-500/20 hover:border-rose-500/40 hover:bg-rose-500/[0.04] p-3.5 flex items-center gap-3 text-left transition-colors">
+                        {inner}
+                      </button>
+                    ) : (
+                      <div key={i} className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5 flex items-center gap-3">{inner}</div>
+                    );
+                  })}
                 </div>
               </section>
             </div>
@@ -225,7 +247,72 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {overdueOpen && <OverduePanel onClose={() => setOverdueOpen(false)} onChanged={() => loadOverview(period)} />}
     </>
+  );
+}
+
+function OverduePanel({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const router = useRouter();
+  const [items, setItems] = useState<OverdueInv[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await OrganizationService.getOverdueInvoices();
+      if (res?.success) setItems(res.data.items || []);
+    } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const remind = async (it: OverdueInv) => {
+    setBusy(it.id);
+    try {
+      const res = await OrganizationService.remindInvoice(it.workspace_id, it.id);
+      if (res?.success) { toast.success(res.message || 'Reminder sent.'); load(); onChanged(); }
+      else toast.error(res?.message || 'Could not send reminder.');
+    } catch (e: any) { toast.error(e?.response?.data?.message || 'Could not send reminder.'); }
+    finally { setBusy(null); }
+  };
+
+  const totalDue = items.reduce((s, i) => s + i.amount, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] px-4 bg-black/60 backdrop-blur-sm" onMouseDown={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0a1120] shadow-2xl overflow-hidden flex flex-col max-h-[82vh]" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <div>
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2"><FileWarning className="w-4 h-4 text-rose-400" /> Overdue invoices</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{items.length} past due · {totalDue.toLocaleString(undefined, { style: 'currency', currency: 'USD' })} outstanding</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-slate-400"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="overflow-y-auto divide-y divide-white/5">
+          {loading && <div className="p-8 text-center text-slate-500 text-sm flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>}
+          {!loading && items.length === 0 && <div className="p-10 text-center text-sm text-slate-500">No overdue invoices. 🎉</div>}
+          {items.map((it) => (
+            <div key={`${it.workspace_id}-${it.id}`} className="flex items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-slate-200 font-medium truncate">{it.customer} · <span className="text-slate-400 font-normal">{it.invoice_no}</span></div>
+                <div className="text-[11px] text-slate-500">{it.workspace_name} · {it.days_overdue}d overdue{it.last_reminded_at ? ' · reminded' : ''}</div>
+              </div>
+              <div className="text-sm font-bold text-rose-300 shrink-0">{it.amount.toLocaleString(undefined, { style: 'currency', currency: it.currency || 'USD' })}</div>
+              <button onClick={() => remind(it)} disabled={busy === it.id}
+                className="px-2.5 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] font-semibold disabled:opacity-50 shrink-0">
+                {busy === it.id ? '…' : 'Remind'}
+              </button>
+              <button onClick={() => { onClose(); router.push(it.link); }}
+                className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white flex items-center justify-center shrink-0" title="Open in workspace">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

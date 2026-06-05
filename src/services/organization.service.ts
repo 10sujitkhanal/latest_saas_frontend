@@ -29,6 +29,14 @@ export const OrganizationService = {
     const { data } = await apiClient.get('/organization/overview/', { params: { period } });
     return data;
   },
+  getOverdueInvoices: async () => {
+    const { data } = await apiClient.get('/organization/overview/overdue/');
+    return data;
+  },
+  remindInvoice: async (workspaceId: number, invoiceId: number) => {
+    const { data } = await apiClient.post(`/accounting/workspaces/${workspaceId}/invoices/${invoiceId}/remind/`);
+    return data;
+  },
   getDashboardItems: async () => {
     const { data } = await apiClient.get('/organization/dashboard-items/');
     return data;
