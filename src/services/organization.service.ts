@@ -39,6 +39,10 @@ export const OrganizationService = {
     });
     return data;
   },
+  getDocuments: async (status?: string) => {
+    const { data } = await apiClient.get('/organization/documents/', { params: status ? { status } : undefined });
+    return data;
+  },
   remindInvoice: async (workspaceId: number, invoiceId: number) => {
     const { data } = await apiClient.post(`/accounting/workspaces/${workspaceId}/invoices/${invoiceId}/remind/`);
     return data;

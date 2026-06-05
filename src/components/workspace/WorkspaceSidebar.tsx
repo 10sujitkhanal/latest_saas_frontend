@@ -24,7 +24,7 @@ type MenuTree = { services: MenuService[]; group_order?: string[]; is_admin: boo
 
 const GROUP_ICON: Record<string, string> = {
   Home: 'House', CRM: 'Users', Store: 'ShoppingBag', Finance: 'Wallet',
-  Ops: 'Zap', People: 'UserCog', Settings: 'Settings', More: 'LayoutGrid',
+  Documents: 'FileSignature', Ops: 'Zap', People: 'UserCog', Settings: 'Settings', More: 'LayoutGrid',
 };
 
 function Icon({ name, className }: { name: string; className?: string }) {

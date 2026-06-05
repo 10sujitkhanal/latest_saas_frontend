@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Folders, Bell, CreditCard, Sparkles, ShieldCheck, Boxes, UserCog, LogOut, Lock, Wallet, Settings, CalendarDays } from 'lucide-react';
+import { LayoutGrid, Folders, Bell, CreditCard, Sparkles, ShieldCheck, Boxes, UserCog, LogOut, Lock, Wallet, Settings, CalendarDays, FileSignature } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationsStore } from '@/store/notificationsStore';
 import { useSubscriptionStatusStore } from '@/store/subscriptionStatusStore';
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutGrid },
   { href: '/workspaces', label: 'Workspaces', Icon: Folders },
   { href: '/calendar', label: 'Calendar', Icon: CalendarDays },
+  { href: '/documents', label: 'Documents', Icon: FileSignature },
   { href: '/w', label: 'Workspace panel', Icon: Folders },
   { href: '/staff', label: 'Staff', Icon: UserCog },
   { href: '/roles', label: 'Roles', Icon: ShieldCheck },
