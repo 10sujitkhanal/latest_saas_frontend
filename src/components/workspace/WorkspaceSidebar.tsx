@@ -48,6 +48,10 @@ export default function WorkspaceSidebar({
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [query, setQuery] = useState('');
   const switcherRef = useRef<HTMLDivElement>(null);
+  // Global command palette (Ctrl/⌘-K) — jump to any page in any module.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState('');
+  const [paletteIdx, setPaletteIdx] = useState(0);
 
   const prefix = `/w/${workspaceId}`;
 
@@ -74,6 +78,25 @@ export default function WorkspaceSidebar({
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  // Global command palette: Ctrl/⌘-K toggles, Esc closes.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      } else if (e.key === 'Escape') {
+        setPaletteOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Reset palette state each time it opens.
+  useEffect(() => {
+    if (paletteOpen) { setPaletteQuery(''); setPaletteIdx(0); }
+  }, [paletteOpen]);
 
   const groups = useMemo(() => {
     if (!tree) return [];
@@ -109,6 +132,27 @@ export default function WorkspaceSidebar({
   const pickGroup = (g: string) => { setActiveGroup(g); setSwitcherOpen(false); setQuery(''); };
   const goPage = (path: string) => { setSwitcherOpen(false); setQuery(''); router.push(prefix + path); };
 
+  // Command-palette results: every page across modules, filtered by query.
+  const pq = paletteQuery.trim().toLowerCase();
+  const paletteResults = useMemo(() => {
+    const list = pq
+      ? allPages.filter((p) => p.label.toLowerCase().includes(pq) || p.service.toLowerCase().includes(pq) || p.group.toLowerCase().includes(pq))
+      : allPages;
+    return list.slice(0, 40);
+  }, [allPages, pq]);
+
+  const goPalette = (p: { path: string; group?: string }) => {
+    setPaletteOpen(false);
+    if (p.group) setActiveGroup(p.group);
+    router.push(prefix + p.path);
+  };
+
+  const onPaletteKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setPaletteIdx((i) => Math.min(i + 1, paletteResults.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setPaletteIdx((i) => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); const p = paletteResults[paletteIdx]; if (p) goPalette(p); }
+  };
+
   return (
     <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col border-r border-white/5 bg-[#080e1c] h-screen sticky top-0">
       {/* Sidebar header — just the back link; workspace identity lives in the
@@ -117,6 +161,18 @@ export default function WorkspaceSidebar({
         <Link href="/w" className="text-[11px] uppercase tracking-wider text-slate-400 hover:text-slate-200 inline-flex items-center gap-1.5">
           <Icons.ArrowLeft className="w-3.5 h-3.5" /> All workspaces
         </Link>
+      </div>
+
+      {/* Command palette launcher */}
+      <div className="px-3 pt-3">
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <Icons.Search className="w-3.5 h-3.5 shrink-0" />
+          <span className="flex-1 text-left text-[13px]">Search…</span>
+          <kbd className="text-[10px] font-sans font-semibold text-slate-500 bg-white/[0.06] border border-white/10 rounded px-1.5 py-0.5">⌘K</kbd>
+        </button>
       </div>
 
       {/* Pinned: Overview + Members */}
@@ -134,11 +190,16 @@ export default function WorkspaceSidebar({
         <div className="px-3 pt-3 pb-1 relative" ref={switcherRef}>
           <button
             onClick={() => setSwitcherOpen((o) => !o)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 text-sm font-semibold text-white"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 text-white"
           >
-            <Icon name={GROUP_ICON[activeGroup || ''] || 'LayoutGrid'} className="w-4 h-4 text-emerald-300" />
-            <span className="flex-1 text-left truncate">{activeGroup || 'Modules'}</span>
-            <Icons.ChevronsUpDown className="w-3.5 h-3.5 text-slate-500" />
+            <span className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Icon name={GROUP_ICON[activeGroup || ''] || 'LayoutGrid'} className="w-4 h-4 text-emerald-300" />
+            </span>
+            <span className="flex-1 min-w-0 text-left">
+              <span className="block text-[9px] uppercase tracking-[0.14em] text-slate-500 font-bold leading-none mb-1">Module</span>
+              <span className="block text-sm font-semibold truncate leading-none">{activeGroup || 'Select module'}</span>
+            </span>
+            <Icons.ChevronsUpDown className="w-4 h-4 text-slate-500 shrink-0" />
           </button>
 
           {switcherOpen && (
@@ -243,6 +304,56 @@ export default function WorkspaceSidebar({
       <div className="border-t border-white/5 px-3 py-3 text-[10px] uppercase tracking-wider text-slate-600">
         {tree?.is_admin ? 'Admin view' : 'Member view'}
       </div>
+
+      {/* ── Command palette (Ctrl/⌘-K) ───────────────────────────────── */}
+      {paletteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 bg-black/60 backdrop-blur-sm"
+          onMouseDown={() => setPaletteOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 shadow-2xl overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2.5 px-4 border-b border-white/10">
+              <Icons.Search className="w-4 h-4 text-slate-500 shrink-0" />
+              <input
+                autoFocus
+                value={paletteQuery}
+                onChange={(e) => { setPaletteQuery(e.target.value); setPaletteIdx(0); }}
+                onKeyDown={onPaletteKey}
+                placeholder="Jump to any page…"
+                className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+              />
+              <kbd className="text-[10px] font-sans font-semibold text-slate-500 bg-white/[0.06] border border-white/10 rounded px-1.5 py-0.5">esc</kbd>
+            </div>
+            <div className="max-h-[55vh] overflow-y-auto py-1.5">
+              {paletteResults.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-slate-500">No pages match “{paletteQuery}”.</div>
+              )}
+              {paletteResults.map((p, i) => {
+                const on = i === paletteIdx;
+                return (
+                  <button
+                    key={p.key}
+                    onMouseEnter={() => setPaletteIdx(i)}
+                    onClick={() => goPalette(p)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left ${on ? 'bg-emerald-500/15' : 'hover:bg-white/[0.04]'}`}
+                  >
+                    <Icon name={p.icon} className={`w-4 h-4 shrink-0 ${on ? 'text-emerald-300' : 'text-slate-500'}`} />
+                    <span className={`flex-1 min-w-0 text-sm truncate ${on ? 'text-white' : 'text-slate-200'}`}>{p.label}</span>
+                    <span className="text-[11px] text-slate-500 shrink-0">{p.service}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-600 shrink-0">{p.group}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-3 px-4 py-2 border-t border-white/10 text-[10px] text-slate-500">
+              <span>↑↓ navigate</span><span>↵ open</span><span>esc close</span>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
