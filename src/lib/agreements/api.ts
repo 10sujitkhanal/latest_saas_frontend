@@ -30,6 +30,13 @@ export const agreementsApi = {
     const { data } = await apiClient.post(`${BASE}/upload/`, { workspace_id: workspaceId, ...payload });
     return data;
   },
+  uploadFile: async (workspaceId: string | number, id: string, file: File): Promise<Agreement> => {
+    const fd = new FormData();
+    fd.append('workspace_id', String(workspaceId));
+    fd.append('file', file);
+    const { data } = await apiClient.post(`${BASE}/${id}/file/`, fd);
+    return data;
+  },
   send: async (workspaceId: string | number, id: string): Promise<Agreement> => {
     const { data } = await apiClient.post(`${BASE}/${id}/send/`, { workspace_id: workspaceId });
     return data;

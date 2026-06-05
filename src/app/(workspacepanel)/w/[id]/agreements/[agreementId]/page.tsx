@@ -74,6 +74,16 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
+      {ag.originalPdfUrl && (
+        <div className="mb-6 rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300 flex items-center gap-2"><FileSignature className="w-3.5 h-3.5 text-emerald-400" /> Document</span>
+            <a href={ag.originalPdfUrl} target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">Open ↗</a>
+          </div>
+          <iframe src={ag.originalPdfUrl} className="w-full h-[60vh] bg-white" title="Agreement document" />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Signers */}
         <div className="lg:col-span-2 space-y-3">

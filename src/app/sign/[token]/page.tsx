@@ -88,6 +88,11 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-4">
           <h1 className="text-xl font-black text-slate-900">{ag!.title}</h1>
           <p className="text-sm text-slate-500 mt-1 capitalize">{ag!.type} agreement{ag!.expiryDate ? ` · expires ${ag!.expiryDate}` : ''}</p>
+          {ag!.originalPdfUrl && (
+            <div className="mt-4 rounded-xl overflow-hidden border border-slate-200">
+              <iframe src={ag!.originalPdfUrl} className="w-full h-[55vh] bg-white" title="Document to sign" />
+            </div>
+          )}
           <div className="mt-4 border-t border-slate-100 pt-4">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Parties</span>
             <div className="mt-2 space-y-1.5">

@@ -63,6 +63,10 @@ export default function AgreementCreateForm({
       const ag = source === 'template'
         ? await agreementsApi.createTemplate(workspaceId, common)
         : await agreementsApi.uploadPdf(workspaceId, { ...common, fileName: file!.name, fileSize: file!.size, mimeType: file!.type || 'application/pdf' });
+      // Store the actual PDF bytes so it can be viewed/signed for real.
+      if (source === 'pdf_upload' && file) {
+        try { await agreementsApi.uploadFile(workspaceId, ag.id, file); } catch { /* metadata saved; file optional */ }
+      }
       if (send) { await agreementsApi.send(workspaceId, ag.id); toast.success('Created & sent for signature'); }
       else toast.success('Draft created');
       onCreated?.();
