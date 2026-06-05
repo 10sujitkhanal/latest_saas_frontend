@@ -49,6 +49,17 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         setPermissions(Array.isArray(me.permission_codes) ? me.permission_codes : []);
         setServices(Array.isArray(me.services) ? me.services : []);
         setBusiness(me.business || null);
+        // Apply the org's OWN favicon + tab title (the public branding endpoint
+        // only carries the white-label favicon, which is null for non-white-
+        // label tenants — so the business's own favicon must come from here).
+        try {
+          if (me.business?.favicon) {
+            let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+            link.href = me.business.favicon;
+          }
+          if (me.business?.name) document.title = me.business.name;
+        } catch { /* non-critical */ }
         setSubscriptionStatus({
           active: !!me.subscription_active,
           status: me.subscription?.status ?? null,
