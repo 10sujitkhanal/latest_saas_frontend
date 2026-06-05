@@ -24,6 +24,28 @@ export const OrganizationService = {
     return data;
   },
 
+  // ── CEO dashboard: overview + pinned tasks/notes ──
+  getOverview: async (period = '30d') => {
+    const { data } = await apiClient.get('/organization/overview/', { params: { period } });
+    return data;
+  },
+  getDashboardItems: async () => {
+    const { data } = await apiClient.get('/organization/dashboard-items/');
+    return data;
+  },
+  createDashboardItem: async (payload: { kind: 'task' | 'note'; title?: string; content?: string; color?: string; due_date?: string }) => {
+    const { data } = await apiClient.post('/organization/dashboard-items/', payload);
+    return data;
+  },
+  updateDashboardItem: async (id: number, payload: Record<string, unknown>) => {
+    const { data } = await apiClient.patch(`/organization/dashboard-items/${id}/`, payload);
+    return data;
+  },
+  deleteDashboardItem: async (id: number) => {
+    const { data } = await apiClient.delete(`/organization/dashboard-items/${id}/`);
+    return data;
+  },
+
   // ── Organization settings (profile/branding, password, activity) ──
   getOrgProfile: async () => {
     const { data } = await apiClient.get('/organization/settings/profile/');
