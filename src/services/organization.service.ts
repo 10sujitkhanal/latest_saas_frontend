@@ -45,6 +45,10 @@ export const OrganizationService = {
     const { data } = await apiClient.delete(`/organization/dashboard-items/${id}/`);
     return data;
   },
+  clearCompletedTasks: async () => {
+    const { data } = await apiClient.delete('/organization/dashboard-items/');
+    return data;
+  },
 
   // ── Organization settings (profile/branding, password, activity) ──
   getOrgProfile: async () => {

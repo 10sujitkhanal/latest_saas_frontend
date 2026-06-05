@@ -261,6 +261,8 @@ function DeskPanel({ items, reload }: { items: Item[]; reload: () => void }) {
   };
   const toggle = async (i: Item) => { await OrganizationService.updateDashboardItem(i.id, { done: !i.done }); reload(); };
   const remove = async (i: Item) => { await OrganizationService.deleteDashboardItem(i.id); reload(); };
+  const clearDone = async () => { await OrganizationService.clearCompletedTasks(); reload(); };
+  const doneCount = tasks.filter((t) => t.done).length;
 
   return (
     <div>
@@ -268,9 +270,14 @@ function DeskPanel({ items, reload }: { items: Item[]; reload: () => void }) {
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
           {tab === 'task' ? <ListTodo className="w-4 h-4 text-emerald-400" /> : <StickyNote className="w-4 h-4 text-amber-400" />} My desk
         </h2>
-        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/10 rounded-lg p-0.5">
-          <button onClick={() => setTab('task')} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${tab === 'task' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Tasks</button>
-          <button onClick={() => setTab('note')} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${tab === 'note' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Notes</button>
+        <div className="flex items-center gap-2">
+          {tab === 'task' && doneCount > 0 && (
+            <button onClick={clearDone} className="text-[11px] font-semibold text-slate-500 hover:text-rose-300">Clear done ({doneCount})</button>
+          )}
+          <div className="flex items-center gap-1 bg-white/[0.03] border border-white/10 rounded-lg p-0.5">
+            <button onClick={() => setTab('task')} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${tab === 'task' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Tasks</button>
+            <button onClick={() => setTab('note')} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${tab === 'note' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Notes</button>
+          </div>
         </div>
       </div>
 
