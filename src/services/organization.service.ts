@@ -43,6 +43,18 @@ export const OrganizationService = {
     const { data } = await apiClient.get('/organization/documents/', { params: status ? { status } : undefined });
     return data;
   },
+  getStaffDocuments: async (staffId?: number) => {
+    const { data } = await apiClient.get('/organization/staff-documents/', { params: staffId ? { staff_id: staffId } : undefined });
+    return data;
+  },
+  uploadStaffDocument: async (form: FormData) => {
+    const { data } = await apiClient.post('/organization/staff-documents/', form);
+    return data;
+  },
+  deleteStaffDocument: async (id: number) => {
+    const { data } = await apiClient.delete(`/organization/staff-documents/${id}/`);
+    return data;
+  },
   remindInvoice: async (workspaceId: number, invoiceId: number) => {
     const { data } = await apiClient.post(`/accounting/workspaces/${workspaceId}/invoices/${invoiceId}/remind/`);
     return data;
