@@ -8,28 +8,155 @@ import { PageSpinner } from '@/components/StateViews';
 import { OrganizationService } from '@/services/organization.service';
 import {
   FileSignature, FileCheck, Clock, PencilLine, ChevronRight, Download, Lock,
-  Users, Plus, X, Trash2, Loader2, UploadCloud,
+  Users, Plus, X, Trash2, Loader2, UploadCloud, Send, LayoutTemplate, FileUp,
 } from 'lucide-react';
+import { agreementsApi } from '@/lib/agreements/api';
+import type { SignerInput } from '@/lib/agreements/types';
 
-type Tab = 'agreements' | 'staff';
+type Tab = 'agreements' | 'create' | 'staff';
 
 export default function DocumentsPage() {
   const [tab, setTab] = useState<Tab>('agreements');
   return (
     <>
-      <Topbar title="Documents" subtitle="Agreements & staff documents across your businesses." />
+      <Topbar title="Documents" subtitle="Create, send, sign & store documents across your businesses." />
       <main className="flex-1 px-6 lg:px-10 py-8 overflow-y-auto">
         <div className="flex gap-1 mb-6 border-b border-white/5">
-          {([['agreements', 'Agreements', FileSignature], ['staff', 'Staff documents', Users]] as const).map(([id, label, Icon]) => (
+          {([['agreements', 'Agreements', FileSignature], ['create', 'Create & send', Plus], ['staff', 'Staff documents', Users]] as const).map(([id, label, Icon]) => (
             <button key={id} onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === id ? 'border-emerald-500 text-emerald-300' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
               <Icon className="w-4 h-4" /> {label}
             </button>
           ))}
         </div>
-        {tab === 'agreements' ? <AgreementsTab /> : <StaffDocsTab />}
+        {tab === 'agreements' && <AgreementsTab />}
+        {tab === 'create' && <CreateTab onCreated={() => setTab('agreements')} />}
+        {tab === 'staff' && <StaffDocsTab />}
       </main>
     </>
+  );
+}
+
+// ── Create & send an agreement (owner picks the business) ────────────────────
+const TYPES = ['service', 'sales', 'nda', 'employment', 'partnership', 'custom'];
+function CreateTab({ onCreated }: { onCreated: () => void }) {
+  const router = useRouter();
+  const [workspaces, setWorkspaces] = useState<{ id: number; name: string }[]>([]);
+  const [workspaceId, setWorkspaceId] = useState('');
+  const [source, setSource] = useState<'template' | 'pdf_upload'>('template');
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('service');
+  const [signingOrder, setSigningOrder] = useState<'parallel' | 'sequential'>('parallel');
+  const [expiry, setExpiry] = useState('');
+  const [confidential, setConfidential] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [signers, setSigners] = useState<SignerInput[]>([{ role: 'customer', name: '', email: '', partySide: 'external', orderIndex: 0, authMethod: 'typed' }]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    OrganizationService.listWorkspaces().then((res: any) => {
+      const arr = Array.isArray(res?.data) ? res.data : (res?.data?.items || res?.data?.results || []);
+      const ws = arr.map((w: any) => ({ id: w.id, name: w.name }));
+      setWorkspaces(ws);
+      if (ws.length && !workspaceId) setWorkspaceId(String(ws[0].id));
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const upRow = (i: number, p: Partial<SignerInput>) => setSigners((prev) => prev.map((s, idx) => idx === i ? { ...s, ...p } : s));
+  const addRow = () => setSigners((p) => [...p, { role: 'customer', name: '', email: '', partySide: 'external', orderIndex: p.length, authMethod: 'typed' }]);
+  const rmRow = (i: number) => setSigners((p) => p.filter((_, idx) => idx !== i));
+
+  const submit = async (send: boolean) => {
+    if (!workspaceId) { toast.error('Pick a business'); return; }
+    if (!title.trim()) { toast.error('Add a title'); return; }
+    const valid = signers.filter((s) => s.name && s.email);
+    if (valid.length === 0) { toast.error('Add at least one signer'); return; }
+    if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return; }
+    setBusy(true);
+    try {
+      const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, visibility: confidential ? 'private' : 'team', signers: valid.map((s, i) => ({ ...s, orderIndex: i })) };
+      const ag = source === 'template'
+        ? await agreementsApi.createTemplate(workspaceId, common)
+        : await agreementsApi.uploadPdf(workspaceId, { ...common, fileName: file!.name, fileSize: file!.size, mimeType: file!.type || 'application/pdf' });
+      if (send) { await agreementsApi.send(workspaceId, ag.id); toast.success('Created & sent for signature'); }
+      else toast.success('Draft created');
+      router.push(`/w/${workspaceId}/agreements/${ag.id}`);
+      onCreated();
+    } catch (e: any) { toast.error(e?.response?.data?.error || e?.message || 'Failed'); }
+    finally { setBusy(false); }
+  };
+
+  const inp = 'h-10 w-full rounded-lg bg-white/[0.03] border border-white/10 px-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50';
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-6 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Business</label>
+            <select className={`${inp} mt-1.5`} value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
+              <option value="" className="bg-slate-900">Select business…</option>
+              {workspaces.map((w) => <option key={w.id} value={w.id} className="bg-slate-900">{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Type</label>
+            <select className={`${inp} mt-1.5`} value={type} onChange={(e) => setType(e.target.value)}>
+              {TYPES.map((t) => <option key={t} value={t} className="bg-slate-900 capitalize">{t}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {([['template', 'From template', LayoutTemplate], ['pdf_upload', 'Upload PDF', FileUp]] as const).map(([v, label, Icon]) => (
+            <button key={v} onClick={() => setSource(v)} className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium ${source === v ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
+              <Icon className="w-4 h-4" /> {label}
+            </button>
+          ))}
+        </div>
+        <input className={inp} placeholder="Agreement title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        {source === 'pdf_upload' && (
+          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/15 text-sm text-slate-400 cursor-pointer hover:border-emerald-500/40">
+            <FileUp className="w-4 h-4" /> {file ? file.name : 'Choose PDF…'}
+            <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </label>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <select className={inp} value={signingOrder} onChange={(e) => setSigningOrder(e.target.value as any)}>
+            <option value="parallel" className="bg-slate-900">Parallel (any order)</option>
+            <option value="sequential" className="bg-slate-900">Sequential (in order)</option>
+          </select>
+          <input className={inp} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Signers</span>
+            <button onClick={addRow} className="text-[11px] font-semibold text-emerald-300 flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Add</button>
+          </div>
+          <div className="space-y-2">
+            {signers.map((s, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input className={`${inp} flex-1`} placeholder="Name" value={s.name} onChange={(e) => upRow(i, { name: e.target.value })} />
+                <input className={`${inp} flex-1`} placeholder="Email" value={s.email} onChange={(e) => upRow(i, { email: e.target.value })} />
+                <select className={`${inp} w-28`} value={s.partySide} onChange={(e) => upRow(i, { partySide: e.target.value as any })}>
+                  <option value="external" className="bg-slate-900">External</option>
+                  <option value="internal" className="bg-slate-900">Internal</option>
+                </select>
+                <button onClick={() => rmRow(i)} disabled={signers.length === 1} className="w-9 h-9 rounded-lg bg-white/[0.03] text-slate-500 hover:text-rose-400 flex items-center justify-center disabled:opacity-30 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <label className="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-white/10 bg-white/[0.02] p-3">
+          <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} className="w-4 h-4 mt-0.5 accent-emerald-600" />
+          <span className="text-xs text-slate-300">Confidential — only owners/admins (and signers) can see this.</span>
+        </label>
+        <div className="flex items-center gap-3 pt-1">
+          <button onClick={() => submit(false)} disabled={busy} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03] disabled:opacity-50">Save draft</button>
+          <button onClick={() => submit(true)} disabled={busy} className="h-10 flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Create & send
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
