@@ -48,6 +48,17 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
         }
         const m = res.data;
         setMe({ email: m.email, is_admin: !!m.is_admin, subscription_active: !!m.subscription_active, business: m.business });
+        // Apply the business's own favicon + tab title in the workspace panel too
+        // (same as the admin panel — the public branding endpoint doesn't carry
+        // the tenant's own favicon for non-white-label orgs).
+        try {
+          if (m.business?.favicon) {
+            let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+            link.href = m.business.favicon;
+          }
+          if (m.business?.name) document.title = m.business.name;
+        } catch { /* non-critical */ }
         if (!m.subscription_active) {
           setState(m.is_admin ? 'sub_admin' : 'sub_member');
           return;
