@@ -11,7 +11,7 @@ import { OrganizationService } from '@/services/organization.service';
 import {
   TrendingUp, TrendingDown, Wallet, DollarSign, AlertTriangle, FileWarning,
   Package, FileText, ArrowUpRight, Plus, Check, X, StickyNote, ListTodo,
-  CircleDot, Activity, ChevronRight, Building2, Bell, Loader2, ExternalLink,
+  CircleDot, Activity, ChevronRight, Building2, Bell, Loader2, ExternalLink, CalendarDays,
 } from 'lucide-react';
 
 interface OverdueInv {
@@ -221,6 +221,8 @@ export default function DashboardPage() {
               </section>
             </div>
 
+            <UpcomingWidget />
+
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               {/* ── Pinned Notes & Tasks ──────────────────────────── */}
               <section className="xl:col-span-2">
@@ -313,6 +315,46 @@ function OverduePanel({ onClose, onChanged }: { onClose: () => void; onChanged: 
         </div>
       </div>
     </div>
+  );
+}
+
+interface CalEvt { id: string; type: string; title: string; workspace_name: string; starts_at: string; all_day?: boolean; location?: string; link: string; }
+
+function UpcomingWidget() {
+  const router = useRouter();
+  const [events, setEvents] = useState<CalEvt[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    const today = new Date();
+    const to = new Date(); to.setDate(to.getDate() + 14);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    OrganizationService.getCalendar({ from: fmt(today), to: fmt(to) })
+      .then((res) => { if (res?.success) setEvents((res.data.events || []).slice(0, 6)); })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  if (loaded && events.length === 0) return null;
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-white flex items-center gap-2"><CalendarDays className="w-4 h-4 text-emerald-400" /> Upcoming</h2>
+        <Link href="/calendar" className="text-xs text-emerald-300 hover:text-emerald-200">Open calendar →</Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {events.map((e) => (
+          <button key={e.id} onClick={() => router.push(e.link)}
+            className="text-left rounded-xl bg-white/[0.02] border border-white/5 hover:border-emerald-500/30 hover:bg-white/[0.04] p-3.5 transition-colors">
+            <div className="text-[11px] font-semibold text-emerald-300">
+              {new Date(e.starts_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+              {!e.all_day ? ` · ${new Date(e.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}
+            </div>
+            <div className="text-sm font-semibold text-white truncate mt-1">{e.title}</div>
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{e.workspace_name}{e.location ? ` · ${e.location}` : ''}</div>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

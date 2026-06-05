@@ -33,6 +33,12 @@ export const OrganizationService = {
     const { data } = await apiClient.get('/organization/overview/overdue/');
     return data;
   },
+  getCalendar: async (params?: { from?: string; to?: string; mine?: boolean }) => {
+    const { data } = await apiClient.get('/organization/calendar/', {
+      params: { from: params?.from, to: params?.to, mine: params?.mine ? 1 : undefined },
+    });
+    return data;
+  },
   remindInvoice: async (workspaceId: number, invoiceId: number) => {
     const { data } = await apiClient.post(`/accounting/workspaces/${workspaceId}/invoices/${invoiceId}/remind/`);
     return data;
