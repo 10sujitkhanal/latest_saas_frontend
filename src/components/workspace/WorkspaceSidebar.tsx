@@ -34,12 +34,10 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 export default function WorkspaceSidebar({
-  workspaceId, workspaceName, businessName, businessLogo,
+  workspaceId, workspaceName,
 }: {
   workspaceId: string | number;
   workspaceName: string;
-  businessName?: string | null;
-  businessLogo?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -52,7 +50,6 @@ export default function WorkspaceSidebar({
   const switcherRef = useRef<HTMLDivElement>(null);
 
   const prefix = `/w/${workspaceId}`;
-  const brand = businessName || workspaceName || 'Workspace';
 
   useEffect(() => {
     let cancelled = false;
@@ -114,23 +111,18 @@ export default function WorkspaceSidebar({
 
   return (
     <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col border-r border-white/5 bg-[#080e1c] h-screen sticky top-0">
-      {/* Business profile header */}
+      {/* Workspace header */}
       <div className="px-4 py-4 border-b border-white/5">
         <Link href="/w" className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300 inline-flex items-center gap-1">
           <Icons.ArrowLeft className="w-3 h-3" /> All workspaces
         </Link>
         <div className="mt-3 flex items-center gap-3">
-          {businessLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={businessLogo} alt={brand} className="w-10 h-10 rounded-xl object-cover border border-white/10" />
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center text-white font-bold">
-              {brand[0]?.toUpperCase() || 'B'}
-            </div>
-          )}
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center text-white font-bold">
+            {workspaceName?.[0]?.toUpperCase() || 'W'}
+          </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold text-white truncate">{brand}</div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 truncate">{workspaceName}</div>
+            <div className="text-sm font-semibold text-white truncate">{workspaceName}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">Workspace</div>
           </div>
         </div>
       </div>

@@ -166,11 +166,27 @@ export default function WorkspaceLayout({
 
   return (
     <div className="flex min-h-screen bg-[#030712] text-slate-50">
-      <WorkspaceSidebar workspaceId={id} workspaceName={workspace?.name ?? 'Workspace'} businessName={business?.name ?? null} businessLogo={business?.logo ?? null} />
+      <WorkspaceSidebar workspaceId={id} workspaceName={workspace?.name ?? 'Workspace'} />
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Top bar */}
+        {/* Top bar — business profile (brand) on the left, then workspace + role */}
         <header className="h-14 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
+            {business?.name && (
+              <>
+                <div className="flex items-center gap-2 min-w-0">
+                  {business.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={business.logo} alt={business.name} className="w-7 h-7 rounded-lg object-cover border border-white/10" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: business.brand_color || '#10b981' }}>
+                      {business.name[0]?.toUpperCase() || 'B'}
+                    </div>
+                  )}
+                  <span className="text-sm font-bold text-white truncate max-w-[200px]">{business.name}</span>
+                </div>
+                <span className="h-5 w-px bg-white/10" />
+              </>
+            )}
             <WorkspaceSwitcher currentId={id} currentName={workspace?.name ?? 'Workspace'} />
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
               {myRole ?? 'member'}
