@@ -92,12 +92,13 @@ export default function KBTrainPage({ params }: { params: Promise<{ id: string }
     });
   }, []);
 
-  // Models that actually work (their provider Channel is connected).
-  // When NOTHING is connected we still show OpenAI + Ollama so the
-  // user can pick one + go connect it -- gentler than an empty list.
-  const availableModels = connectedProviders.length === 0
-    ? LLM_OPTIONS.filter((m) => m.provider === 'openai' || m.provider === 'ollama')
-    : LLM_OPTIONS.filter((m) => connectedProviders.includes(m.provider));
+  // Models that actually work: their provider is connected. MoreTech AI counts
+  // when subscribed (provider 'moretech_ai'). No misleading fallback — when
+  // nothing's connected we show a connect-prompt instead of dead options.
+  const availableModels = LLM_OPTIONS.filter((m) => connectedProviders.includes(m.provider));
+  // AI (embedding) training needs at least one of: MoreTech AI OR a connected
+  // provider credential. QA pairs are direct-match and never need a model.
+  const hasAI = availableModels.length > 0;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
@@ -106,6 +107,15 @@ export default function KBTrainPage({ params }: { params: Promise<{ id: string }
   const [llmModel, setLlmModel] = useState('gpt-4o-mini');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Default to the first available model (MoreTech AI first when subscribed)
+  // once providers load, so we never default to a model the tenant can't run.
+  useEffect(() => {
+    if (availableModels.length && !availableModels.some((m) => m.id === llmModel)) {
+      setLlmModel(availableModels[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedProviders]);
 
   const addQA = () => setQaPairs((rs) => [...rs, { questions: '', answer: '' }]);
   const updateQA = (i: number, patch: Partial<QAPair>) =>
@@ -509,12 +519,25 @@ final sale and not eligible for return.`);
               Filtered to providers the tenant has connected so users
               can't pick a model they can't run. */}
           {mode !== 'qa' && !presetKbId && (
-            <LLMSearchSelect
-              value={llmModel}
-              onChange={setLlmModel}
-              options={availableModels}
-              connectedCount={connectedProviders.length}
-            />
+            hasAI ? (
+              <LLMSearchSelect
+                value={llmModel}
+                onChange={setLlmModel}
+                options={availableModels}
+                connectedCount={connectedProviders.length}
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
+                <div className="text-sm font-semibold text-amber-200">No AI model connected</div>
+                <p className="text-[12px] text-amber-100/80 mt-1">
+                  Embedding documents/text/URLs needs an AI model. Enable <strong>MoreTech AI</strong> (managed — no API key) or connect an AI provider in Credentials. Q&amp;A pairs still work without one.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={() => router.push(`/w/${wsId}/knowledge`)} className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold">Enable MoreTech AI</button>
+                  <button onClick={() => router.push(`/w/${wsId}/leads/credentials`)} className="px-3 py-1.5 rounded-lg border border-amber-500/40 text-amber-200 text-xs font-bold hover:bg-amber-500/10">Connect a provider</button>
+                </div>
+              </div>
+            )
           )}
 
           {/* ── Footer actions ── */}
@@ -533,8 +556,9 @@ final sale and not eligible for return.`);
               </button>
               <button
                 onClick={submit}
-                disabled={saving}
-                className="px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                disabled={saving || (mode !== 'qa' && !hasAI)}
+                title={mode !== 'qa' && !hasAI ? 'Enable MoreTech AI or connect an AI provider to train on documents.' : undefined}
+                className="px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 shadow-lg shadow-emerald-500/20"
               >
                 {saving ? (
                   <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
