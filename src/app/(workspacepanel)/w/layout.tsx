@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowRight, Lock, ShieldAlert } from 'lucide-react';
 import { getAuthToken, removeAuthTokens } from '@/lib/storage';
 import { OrganizationService } from '@/services/organization.service';
@@ -23,9 +23,8 @@ type GateState = 'checking' | 'ok' | 'unauth' | 'sub_admin' | 'sub_member' | 'er
 
 export default function WorkspacePanelLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [state, setState] = useState<GateState>('checking');
-  const [me, setMe] = useState<{ email: string; is_admin: boolean; subscription_active: boolean } | null>(null);
+  const [me, setMe] = useState<{ email: string; is_admin: boolean; subscription_active: boolean; business?: { name: string; logo: string | null } } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -46,7 +45,7 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
           return;
         }
         const m = res.data;
-        setMe({ email: m.email, is_admin: !!m.is_admin, subscription_active: !!m.subscription_active });
+        setMe({ email: m.email, is_admin: !!m.is_admin, subscription_active: !!m.subscription_active, business: m.business });
         if (!m.subscription_active) {
           setState(m.is_admin ? 'sub_admin' : 'sub_member');
           return;
@@ -141,23 +140,30 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
   // ok
   return (
     <div className="min-h-screen flex flex-col bg-[#030712] text-slate-50">
-      <WorkspaceHeader email={me?.email} isAdmin={!!me?.is_admin} pathname={pathname} />
+      <WorkspaceHeader email={me?.email} isAdmin={!!me?.is_admin} business={me?.business} />
       <div className="flex-1">{children}</div>
     </div>
   );
 }
 
-function WorkspaceHeader({ email, isAdmin, pathname }: { email?: string; isAdmin: boolean; pathname: string | null }) {
+function WorkspaceHeader({ email, isAdmin, business }: { email?: string; isAdmin: boolean; business?: { name: string; logo: string | null } }) {
   const router = useRouter();
+  const name = business?.name || 'Workspace';
   return (
     <header className="sticky top-0 z-20 backdrop-blur-xl bg-[#030712]/70 border-b border-white/5">
       <div className="px-6 lg:px-10 h-14 flex items-center gap-4">
-        <Link href="/w" className="flex items-center gap-2 text-sm font-bold text-white">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-sky-600 flex items-center justify-center font-bold text-white text-xs">W</div>
-          Workspace
+        {/* Client (business) brand: logo + name */}
+        <Link href="/w" className="flex items-center gap-2.5 min-w-0" title="All workspaces">
+          {business?.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={business.logo} alt={name} className="w-8 h-8 rounded-lg object-cover border border-white/10 shrink-0" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-sky-600 flex items-center justify-center font-black text-white text-sm shrink-0">
+              {name[0]?.toUpperCase() || 'B'}
+            </div>
+          )}
+          <span className="text-[15px] font-extrabold text-white truncate max-w-[240px]">{name}</span>
         </Link>
-        <span className="text-slate-600 text-xs">·</span>
-        <span className="text-xs text-slate-400 truncate">{pathname}</span>
 
         <div className="flex-1" />
 

@@ -39,7 +39,6 @@ export default function WorkspaceLayout({
   const setHydrated = useAuthStore((s) => s.setHydrated);
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading');
   const [workspace, setWorkspace] = useState<{ id: number; name: string } | null>(null);
-  const [business, setBusiness] = useState<{ name: string; logo: string | null; brand_color?: string } | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState('');
 
@@ -77,7 +76,6 @@ export default function WorkspaceLayout({
         // Workspace-scoped permissions are authoritative inside /w/<id>.
         setPermissions(Array.isArray(res.data.permission_codes) ? res.data.permission_codes : []);
         setWorkspace(res.data.workspace);
-        setBusiness(res.data.business ?? null);
         setMyRole(res.data.my_role);
         setState('ok');
         setHydrated(true);
@@ -168,22 +166,10 @@ export default function WorkspaceLayout({
     <div className="flex min-h-screen bg-[#030712] text-slate-50">
       <WorkspaceSidebar workspaceId={id} workspaceName={workspace?.name ?? 'Workspace'} />
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Top bar — business profile (brand) on the left, then workspace + role */}
-        <header className="h-14 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
+        {/* Workspace context bar — switcher + your role (the client brand lives
+            in the parent /w header). */}
+        <header className="h-12 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Business profile (the brand) — always the primary header element. */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              {business?.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={business.logo} alt={business.name} className="w-8 h-8 rounded-lg object-cover border border-white/10" />
-              ) : (
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-black" style={{ background: business?.brand_color || '#10b981' }}>
-                  {(business?.name || 'B')[0]?.toUpperCase()}
-                </div>
-              )}
-              <span className="text-[15px] font-extrabold text-white truncate max-w-[220px]">{business?.name || 'Loading…'}</span>
-            </div>
-            <span className="h-5 w-px bg-white/10" />
             <WorkspaceSwitcher currentId={id} currentName={workspace?.name ?? 'Workspace'} />
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
               {myRole ?? 'member'}
