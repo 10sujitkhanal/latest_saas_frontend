@@ -39,6 +39,7 @@ export default function WorkspaceLayout({
   const setHydrated = useAuthStore((s) => s.setHydrated);
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading');
   const [workspace, setWorkspace] = useState<{ id: number; name: string } | null>(null);
+  const [business, setBusiness] = useState<{ name: string; logo: string | null; brand_color?: string } | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState('');
 
@@ -76,6 +77,7 @@ export default function WorkspaceLayout({
         // Workspace-scoped permissions are authoritative inside /w/<id>.
         setPermissions(Array.isArray(res.data.permission_codes) ? res.data.permission_codes : []);
         setWorkspace(res.data.workspace);
+        setBusiness(res.data.business ?? null);
         setMyRole(res.data.my_role);
         setState('ok');
         setHydrated(true);
@@ -164,7 +166,7 @@ export default function WorkspaceLayout({
 
   return (
     <div className="flex min-h-screen bg-[#030712] text-slate-50">
-      <WorkspaceSidebar workspaceId={id} workspaceName={workspace?.name ?? 'Workspace'} />
+      <WorkspaceSidebar workspaceId={id} workspaceName={workspace?.name ?? 'Workspace'} businessName={business?.name ?? null} businessLogo={business?.logo ?? null} />
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Top bar */}
         <header className="h-14 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
