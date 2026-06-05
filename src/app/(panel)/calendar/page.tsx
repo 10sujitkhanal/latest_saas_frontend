@@ -8,7 +8,7 @@ import { OrganizationService } from '@/services/organization.service';
 import { ChevronLeft, ChevronRight, CalendarDays, MapPin, DollarSign } from 'lucide-react';
 
 interface CalEvent {
-  id: string; type: 'appointment' | 'invoice_due'; title: string;
+  id: string; type: 'appointment' | 'invoice_due' | 'agreement_due'; title: string;
   workspace_id: number; workspace_name: string;
   starts_at: string; ends_at: string | null; status: string;
   location?: string; amount?: number; currency?: string; all_day?: boolean; link: string;
@@ -58,6 +58,9 @@ export default function CalendarPage() {
     events.forEach((e) => { const k = ymd(new Date(e.starts_at)); (m[k] ||= []).push(e); });
     return m;
   }, [events]);
+
+  const eventColor = (e: CalEvent) =>
+    e.type === 'invoice_due' ? '#fb7185' : e.type === 'agreement_due' ? '#a78bfa' : (wsColor[e.workspace_id] || '#34d399');
 
   const todayKey = ymd(new Date());
   const monthLabel = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -109,7 +112,7 @@ export default function CalendarPage() {
                         {dayEvents.slice(0, 3).map((e) => (
                           <button key={e.id} onClick={() => router.push(e.link)}
                             className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate hover:opacity-80"
-                            style={{ backgroundColor: `${(e.type === 'invoice_due' ? '#fb7185' : wsColor[e.workspace_id] || '#34d399')}22`, color: e.type === 'invoice_due' ? '#fda4af' : wsColor[e.workspace_id] || '#34d399' }}
+                            style={{ backgroundColor: `${eventColor(e)}22`, color: eventColor(e) }}
                             title={`${e.title} · ${e.workspace_name}`}>
                             {e.type === 'appointment' && !e.all_day ? new Date(e.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' ' : ''}{e.title}
                           </button>
@@ -129,7 +132,7 @@ export default function CalendarPage() {
                 {upcoming.length === 0 && <div className="p-6 text-center text-xs text-slate-500">Nothing scheduled.</div>}
                 {upcoming.map((e) => (
                   <button key={e.id} onClick={() => router.push(e.link)} className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-white/[0.03]">
-                    <span className="w-1.5 self-stretch rounded-full shrink-0" style={{ backgroundColor: e.type === 'invoice_due' ? '#fb7185' : wsColor[e.workspace_id] || '#34d399' }} />
+                    <span className="w-1.5 self-stretch rounded-full shrink-0" style={{ backgroundColor: eventColor(e) }} />
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-semibold text-slate-200 truncate">{e.title}</div>
                       <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
