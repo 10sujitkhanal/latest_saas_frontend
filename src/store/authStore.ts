@@ -50,11 +50,15 @@ interface AuthState {
   permissionCodes: string[];
   services: ServiceSummary[];
   hydrated: boolean;
+  // Current workspace context (set inside /w/<id>), so the top banner can show
+  // the workspace name + the user's role for it. Null on the /w list.
+  workspaceMeta: { id: number; name: string; role: string } | null;
   login: (access: string, refresh: string, email: string) => void;
   setUser: (user: OrgUser | null) => void;
   setPermissions: (codes: string[]) => void;
   setServices: (services: ServiceSummary[]) => void;
   setHydrated: (v: boolean) => void;
+  setWorkspaceMeta: (m: { id: number; name: string; role: string } | null) => void;
   logout: () => void;
 }
 
@@ -66,6 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   permissionCodes: [],
   services: [],
   hydrated: false,
+  workspaceMeta: null,
   login: (access, refresh, email) => {
     TokenManager.setTokens(access, refresh);
     TokenManager.setEmail(email);
@@ -75,12 +80,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   setPermissions: (codes) => set({ permissionCodes: codes }),
   setServices: (services) => set({ services }),
   setHydrated: (v) => set({ hydrated: v }),
+  setWorkspaceMeta: (m) => set({ workspaceMeta: m }),
   logout: () => {
     TokenManager.clearTokens();
     // Reset ``hydrated`` so the next login waits for /me/ before the
     // <PermissionGuard> components decide anything — prevents a stale
     // wildcard from the previous session leaking through.
-    set({ isAuthenticated: false, user: null, permissionCodes: [], services: [], hydrated: false });
+    set({ isAuthenticated: false, user: null, permissionCodes: [], services: [], hydrated: false, workspaceMeta: null });
   },
 }));
 

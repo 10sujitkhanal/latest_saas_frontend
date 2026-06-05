@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowRight, Lock, ShieldAlert } from 'lucide-react';
 import { getAuthToken, removeAuthTokens } from '@/lib/storage';
 import { OrganizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/store/authStore';
+import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 
 /**
  * Layout for the workspace panel (/w/...).
@@ -148,10 +150,11 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
 
 function WorkspaceHeader({ email, isAdmin, business }: { email?: string; isAdmin: boolean; business?: { name: string; logo: string | null } }) {
   const router = useRouter();
+  const ws = useAuthStore((s) => s.workspaceMeta);
   const name = business?.name || 'Workspace';
   return (
     <header className="sticky top-0 z-20 backdrop-blur-xl bg-[#030712]/70 border-b border-white/5">
-      <div className="px-6 lg:px-10 h-14 flex items-center gap-4">
+      <div className="px-6 lg:px-10 h-14 flex items-center gap-3">
         {/* Client (business) brand: logo + name */}
         <Link href="/w" className="flex items-center gap-2.5 min-w-0" title="All workspaces">
           {business?.logo ? (
@@ -162,8 +165,19 @@ function WorkspaceHeader({ email, isAdmin, business }: { email?: string; isAdmin
               {name[0]?.toUpperCase() || 'B'}
             </div>
           )}
-          <span className="text-[15px] font-extrabold text-white truncate max-w-[240px]">{name}</span>
+          <span className="text-[15px] font-extrabold text-white truncate max-w-[200px]">{name}</span>
         </Link>
+
+        {/* Current workspace + role (when inside a workspace) — same banner */}
+        {ws && (
+          <>
+            <span className="h-5 w-px bg-white/10" />
+            <WorkspaceSwitcher currentId={ws.id} currentName={ws.name} />
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+              {ws.role}
+            </span>
+          </>
+        )}
 
         <div className="flex-1" />
 

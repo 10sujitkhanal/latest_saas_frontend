@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/workspace/Skeleton';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 import WorkspaceSidebar from '@/components/workspace/WorkspaceSidebar';
-import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 
 /**
  * Per-workspace layout — Odoo-style two-pane split:
@@ -37,6 +36,7 @@ export default function WorkspaceLayout({
   const setPermissions = useAuthStore((s) => s.setPermissions);
   const setServices = useAuthStore((s) => s.setServices);
   const setHydrated = useAuthStore((s) => s.setHydrated);
+  const setWorkspaceMeta = useAuthStore((s) => s.setWorkspaceMeta);
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading');
   const [workspace, setWorkspace] = useState<{ id: number; name: string } | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
@@ -77,6 +77,7 @@ export default function WorkspaceLayout({
         setPermissions(Array.isArray(res.data.permission_codes) ? res.data.permission_codes : []);
         setWorkspace(res.data.workspace);
         setMyRole(res.data.my_role);
+        setWorkspaceMeta({ id: res.data.workspace.id, name: res.data.workspace.name, role: res.data.my_role || 'member' });
         setState('ok');
         setHydrated(true);
       })
@@ -95,8 +96,9 @@ export default function WorkspaceLayout({
       });
     return () => {
       cancelled = true;
+      setWorkspaceMeta(null);
     };
-  }, [id, setUser, setPermissions, setServices, setHydrated]);
+  }, [id, setUser, setPermissions, setServices, setHydrated, setWorkspaceMeta]);
 
   if (state === 'loading') {
     // Polished split-pane shell so a refresh doesn't show a bare spinner.
@@ -166,16 +168,8 @@ export default function WorkspaceLayout({
     <div className="flex min-h-screen bg-[#030712] text-slate-50">
       <WorkspaceSidebar workspaceId={id} workspaceName={workspace?.name ?? 'Workspace'} />
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Workspace context bar — switcher + your role (the client brand lives
-            in the parent /w header). */}
-        <header className="h-12 border-b border-white/5 bg-[#080e1c]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-3 min-w-0">
-            <WorkspaceSwitcher currentId={id} currentName={workspace?.name ?? 'Workspace'} />
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-              {myRole ?? 'member'}
-            </span>
-          </div>
-        </header>
+        {/* No header bar here — the client brand + workspace switcher + role all
+            live in the single top banner (parent /w layout). */}
         <div className="flex-1 px-6 lg:px-10 py-6">{children}</div>
       </div>
     </div>
