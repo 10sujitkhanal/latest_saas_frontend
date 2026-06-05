@@ -37,6 +37,12 @@ apiClient.interceptors.request.use((config) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // File uploads: the instance default forces application/json, which sends
+  // FormData with no multipart boundary so Django never receives the file.
+  // Drop it for FormData bodies so the browser sets multipart + boundary.
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+    delete (config.headers as Record<string, unknown>)['Content-Type'];
+  }
   return config;
 });
 

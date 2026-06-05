@@ -53,12 +53,15 @@ interface AuthState {
   // Current workspace context (set inside /w/<id>), so the top banner can show
   // the workspace name + the user's role for it. Null on the /w list.
   workspaceMeta: { id: number; name: string; role: string } | null;
+  // The org's OWN business identity (OrganizationProfile) for the sidebar brand.
+  business: { name: string; logo: string | null } | null;
   login: (access: string, refresh: string, email: string) => void;
   setUser: (user: OrgUser | null) => void;
   setPermissions: (codes: string[]) => void;
   setServices: (services: ServiceSummary[]) => void;
   setHydrated: (v: boolean) => void;
   setWorkspaceMeta: (m: { id: number; name: string; role: string } | null) => void;
+  setBusiness: (b: { name: string; logo: string | null } | null) => void;
   logout: () => void;
 }
 
@@ -71,6 +74,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   services: [],
   hydrated: false,
   workspaceMeta: null,
+  business: null,
   login: (access, refresh, email) => {
     TokenManager.setTokens(access, refresh);
     TokenManager.setEmail(email);
@@ -81,12 +85,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   setServices: (services) => set({ services }),
   setHydrated: (v) => set({ hydrated: v }),
   setWorkspaceMeta: (m) => set({ workspaceMeta: m }),
+  setBusiness: (b) => set({ business: b }),
   logout: () => {
     TokenManager.clearTokens();
     // Reset ``hydrated`` so the next login waits for /me/ before the
     // <PermissionGuard> components decide anything — prevents a stale
     // wildcard from the previous session leaking through.
-    set({ isAuthenticated: false, user: null, permissionCodes: [], services: [], hydrated: false, workspaceMeta: null });
+    set({ isAuthenticated: false, user: null, permissionCodes: [], services: [], hydrated: false, workspaceMeta: null, business: null });
   },
 }));
 

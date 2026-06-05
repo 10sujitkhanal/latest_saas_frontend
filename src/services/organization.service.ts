@@ -24,6 +24,26 @@ export const OrganizationService = {
     return data;
   },
 
+  // ── Organization settings (profile/branding, password, activity) ──
+  getOrgProfile: async () => {
+    const { data } = await apiClient.get('/organization/settings/profile/');
+    return data;
+  },
+  updateOrgProfile: async (payload: FormData | Record<string, unknown>) => {
+    const { data } = await apiClient.patch('/organization/settings/profile/', payload);
+    return data;
+  },
+  changePassword: async (current_password: string, new_password: string) => {
+    const { data } = await apiClient.post('/organization/settings/password/', {
+      current_password, new_password,
+    });
+    return data;
+  },
+  getActivity: async (limit = 50) => {
+    const { data } = await apiClient.get('/organization/settings/activity/', { params: { limit } });
+    return data;
+  },
+
   // Plans + subscription
   listPlans: async () => {
     const { data } = await apiClient.get('/organization/plans/');

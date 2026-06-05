@@ -20,6 +20,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const setPermissions = useAuthStore((s) => s.setPermissions);
   const setServices = useAuthStore((s) => s.setServices);
   const setHydrated = useAuthStore((s) => s.setHydrated);
+  const setBusiness = useAuthStore((s) => s.setBusiness);
   const setSubscriptionStatus = useSubscriptionStatusStore((s) => s.set);
   const subscriptionActive = useSubscriptionStatusStore((s) => s.active);
   const [state, setState] = useState<GateState>('checking');
@@ -47,6 +48,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         setUser({ email: me.email, role: me.is_admin ? 'ADMIN' : 'MEMBER' });
         setPermissions(Array.isArray(me.permission_codes) ? me.permission_codes : []);
         setServices(Array.isArray(me.services) ? me.services : []);
+        setBusiness(me.business || null);
         setSubscriptionStatus({
           active: !!me.subscription_active,
           status: me.subscription?.status ?? null,
@@ -76,7 +78,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
     return () => {
       cancelled = true;
     };
-  }, [router, setUser, setPermissions, setServices, setSubscriptionStatus, setHydrated]);
+  }, [router, setUser, setPermissions, setServices, setSubscriptionStatus, setHydrated, setBusiness]);
 
   // Lock locked-out admins to /subscription. Any navigation to other panel
   // routes is redirected. The subscription page itself stays accessible so

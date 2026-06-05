@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Folders, Bell, CreditCard, Sparkles, ShieldCheck, Boxes, UserCog, LogOut, Lock, Wallet } from 'lucide-react';
+import { LayoutGrid, Folders, Bell, CreditCard, Sparkles, ShieldCheck, Boxes, UserCog, LogOut, Lock, Wallet, Settings } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationsStore } from '@/store/notificationsStore';
 import { useSubscriptionStatusStore } from '@/store/subscriptionStatusStore';
@@ -20,6 +20,7 @@ const navItems = [
   { href: '/billing', label: 'Billing', Icon: CreditCard },
   { href: '/payment-methods', label: 'Payment Methods', Icon: Wallet },
   { href: '/subscription', label: 'Subscription', Icon: Sparkles },
+  { href: '/settings', label: 'Settings', Icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -30,7 +31,17 @@ export default function Sidebar() {
   const unread = useNotificationsStore((s) => s.unread);
   const fetchNotifications = useNotificationsStore((s) => s.fetch);
   const branding = useBranding();
+  const business = useAuthStore((s) => s.business);
   const subscriptionActive = useSubscriptionStatusStore((s) => s.active);
+
+  // The sidebar shows the ORG's OWN identity (business profile) at the top, not
+  // the white-label platform brand. The footer credits the platform provider:
+  // `branding.name` already encodes the white-label rule — it's the agency's
+  // brand when the agency has a white-label plan, else "Merkoll". So a non-
+  // white-label agency (e.g. Moretech on Starter) correctly shows "Merkoll".
+  const orgName = business?.name || branding.tenant_name || 'Organization';
+  const orgLogo = business?.logo || null;
+  const providerLine = `Powered by ${branding.name || 'Merkoll'}`;
 
   useEffect(() => {
     fetchNotifications();
@@ -48,11 +59,11 @@ export default function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col border-r border-white/5 bg-[#080e1c] h-screen sticky top-0">
       <div className="px-6 py-6 flex items-center gap-3 border-b border-white/5">
-        {branding.logo ? (
+        {orgLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={branding.logo}
-            alt={branding.name}
+            src={orgLogo}
+            alt={orgName}
             className="w-9 h-9 rounded-lg object-cover border border-white/10 shadow-lg shadow-black/20"
           />
         ) : (
@@ -64,15 +75,15 @@ export default function Sidebar() {
                 : 'linear-gradient(135deg, #10b981, #0ea5e9)',
             }}
           >
-            {(branding.name || 'M')[0].toUpperCase()}
+            {(orgName || 'M')[0].toUpperCase()}
           </div>
         )}
         <div className="leading-tight min-w-0">
-          <div className="text-sm font-semibold text-white truncate" title={branding.name}>
-            {branding.name}
+          <div className="text-sm font-semibold text-white truncate" title={orgName}>
+            {orgName}
           </div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">
-            {branding.is_agency ? 'Powered by your agency' : 'Organization'}
+          <div className="text-[11px] uppercase tracking-wider text-slate-500 truncate" title={providerLine}>
+            {providerLine}
           </div>
         </div>
       </div>
