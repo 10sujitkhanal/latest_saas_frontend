@@ -26,8 +26,9 @@ function fmt(n: number, currency = "SEK") {
   return formatCurrencyMarket(n, currency);
 }
 
-function getAttr(item: PublicItem, key: string) {
-  return (item as unknown as Record<string, unknown>).attributes?.[key as keyof typeof item.attributes] ?? "";
+function getAttr(item: PublicItem, key: string): any {
+  const attrs = (item as unknown as { attributes?: Record<string, unknown> }).attributes;
+  return attrs?.[key] ?? "";
 }
 
 // Common hotel amenity icons

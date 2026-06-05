@@ -28,7 +28,7 @@ function fmt(n: number, currency = "SEK") {
   return formatCurrencyMarket(n, currency);
 }
 
-function getAttr(item: PublicItem, key: string): unknown {
+function getAttr(item: PublicItem, key: string): any {
   return (item as unknown as { attributes?: Record<string, unknown> }).attributes?.[key] ?? "";
 }
 
@@ -153,7 +153,7 @@ export function RestaurantStorefrontClient({ storefront, items, offers }: Props)
     setLoading(false);
   };
 
-  const swishLink = storefront.swishNumber ? buildSwishLink(storefront.swishNumber, totalAmt, `Order at ${storefront.name}`) : null;
+  const swishLink = storefront.swishNumber ? buildSwishLink({ payeeNumber: storefront.swishNumber, amount: totalAmt, message: `Order at ${storefront.name}` }) : null;
 
   return (
     <div className="min-h-screen bg-stone-50">

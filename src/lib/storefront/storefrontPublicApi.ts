@@ -154,11 +154,11 @@ export type DeliveryMethod = "delivery" | "pickup" | "dine_in" | "inquiry" | "ap
 export type PaymentMethod = "cash" | "card" | "online" | "later";
 
 export interface PublicStorefront {
-  id: string;
+  id?: string;
   slug: string;
   name: string;
   industry: string;
-  currency: string;
+  currency?: string;
   swishNumber?: string | null;
   announcement?: string;
   announcementVisible?: boolean;
@@ -262,21 +262,22 @@ export interface OrderLineItem {
 
 export interface CreateOrderPayload {
   items: OrderLineItem[];
-  deliveryMethod: DeliveryMethod;
+  deliveryMethod?: DeliveryMethod;
   deliveryAddress?: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
   notes?: string;
   preferredTime?: string;
-  subtotal: number;
-  deliveryFee: number;
-  discount: number;
-  tax: number;
-  total: number;
-  paymentMethod: PaymentMethod;
+  subtotal?: number;
+  deliveryFee?: number;
+  discount?: number;
+  tax?: number;
+  total?: number;
+  paymentMethod?: PaymentMethod;
   couponCode?: string;
-  orderSource: "storefront" | "moredealsx";
+  orderSource?: "storefront" | "moredealsx";
+  orderType?: string;
 }
 
 export interface CreateBookingPayload {
@@ -289,9 +290,10 @@ export interface CreateBookingPayload {
   requestedTime?: string;
   startDatetime?: string;
   endDatetime?: string;
-  quantity: number;
+  quantity?: number;
+  guests?: number;
   notes?: string;
-  source: "storefront" | "moredealsx";
+  source?: "storefront" | "moredealsx";
 }
 
 export interface OrderConfirmation {

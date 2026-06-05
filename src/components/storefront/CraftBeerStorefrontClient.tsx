@@ -94,7 +94,7 @@ function fmt(n: number, currency = "SEK") {
   return formatCurrencyMarket(n, currency);
 }
 
-function getAttr(item: PublicItem, key: string): unknown {
+function getAttr(item: PublicItem, key: string): any {
   return (item as unknown as { attributes: Record<string, unknown> }).attributes?.[key];
 }
 

@@ -82,6 +82,7 @@ function Landing() {
         </div>
         <nav className="flex items-center gap-5 text-sm">
           <Link href="/deals" className="text-slate-300 hover:text-white transition-colors">Browse deals</Link>
+          <Link href="/payroll" className="text-slate-300 hover:text-white transition-colors hidden sm:inline">Payroll &amp; HR</Link>
           <a href={AGENCY_SIGNUP_URL} className="text-slate-300 hover:text-white transition-colors hidden sm:inline">Partners</a>
           <a href="/auth/login" className="text-slate-300 hover:text-white transition-colors">Sign in</a>
           <Link href="/signup" className="rounded-lg border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/10 font-semibold px-4 py-2 transition-colors">Start free</Link>
