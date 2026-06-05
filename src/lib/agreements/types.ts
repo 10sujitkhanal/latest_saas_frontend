@@ -76,6 +76,7 @@ export interface Agreement {
   type: AgreementType;
   status: AgreementStatus;
   signingOrder: AgreementSigningOrder;
+  visibility: 'team' | 'private';
   sourceType: AgreementSourceType;
   templateId: string | null;
   originalPdfUrl: string | null;

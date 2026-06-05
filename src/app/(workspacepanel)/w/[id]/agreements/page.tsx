@@ -4,7 +4,7 @@ import { use as reactUse, useCallback, useEffect, useMemo, useState } from 'reac
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
-  FileSignature, Plus, X, Trash2, Loader2, FileUp, LayoutTemplate, ChevronRight,
+  FileSignature, Plus, X, Trash2, Loader2, FileUp, LayoutTemplate, ChevronRight, Lock,
 } from 'lucide-react';
 import { agreementsApi } from '@/lib/agreements/api';
 import { STATUS_LABEL, type Agreement, type SignerInput } from '@/lib/agreements/types';
@@ -70,7 +70,10 @@ export default function AgreementsPage({ params }: { params: Promise<{ id: strin
                   <FileSignature className="w-4 h-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-white truncate">{a.title}</div>
+                  <div className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
+                    {a.title}
+                    {a.visibility === 'private' && <Lock className="w-3 h-3 text-amber-400 shrink-0" />}
+                  </div>
                   <div className="text-[11px] text-slate-500 capitalize mt-0.5">{a.type} · {a.signers.length} signer(s) · {signed}/{a.signers.length} signed</div>
                 </div>
                 <StatusBadge s={a.status} />
@@ -92,6 +95,7 @@ function CreateModal({ workspaceId, onClose, onCreated }: { workspaceId: string;
   const [type, setType] = useState('service');
   const [signingOrder, setSigningOrder] = useState<'parallel' | 'sequential'>('parallel');
   const [expiry, setExpiry] = useState('');
+  const [confidential, setConfidential] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [signers, setSigners] = useState<SignerInput[]>([
     { role: 'customer', name: '', email: '', partySide: 'external', orderIndex: 0, authMethod: 'typed' },
@@ -109,7 +113,7 @@ function CreateModal({ workspaceId, onClose, onCreated }: { workspaceId: string;
     if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return; }
     setSubmitting(true);
     try {
-      const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, signers: valid.map((s, i) => ({ ...s, orderIndex: i })) };
+      const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, visibility: confidential ? 'private' : 'team', signers: valid.map((s, i) => ({ ...s, orderIndex: i })) };
       const ag = source === 'template'
         ? await agreementsApi.createTemplate(workspaceId, common)
         : await agreementsApi.uploadPdf(workspaceId, { ...common, fileName: file!.name, fileSize: file!.size, mimeType: file!.type || 'application/pdf' });
@@ -178,6 +182,10 @@ function CreateModal({ workspaceId, onClose, onCreated }: { workspaceId: string;
             <p className="text-[10px] text-slate-600 mt-1.5">Internal parties counter-sign first; external parties sign after.</p>
           </div>
           <input className={inp} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+          <label className="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-white/10 bg-white/[0.02] p-3">
+            <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} className="w-4 h-4 mt-0.5 accent-emerald-600" />
+            <span className="text-xs text-slate-300">Confidential — only owners/admins (and signers) can see this. Staff won't see it in their Documents.</span>
+          </label>
         </div>
         <div className="px-5 py-4 border-t border-white/5 flex justify-end gap-2">
           <button onClick={onClose} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03]">Cancel</button>
