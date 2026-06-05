@@ -78,24 +78,10 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-6">
-      {/* Industry header — makes the workspace feel like its vertical. */}
-      <section className={`rounded-2xl border border-white/5 bg-gradient-to-br ${profile.accent} to-transparent p-5`}>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-white shrink-0">
-              <Icon name={profile.icon} className="w-6 h-6" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold text-white truncate">{ctx.workspace.name}</h1>
-              <p className="text-[12px] text-slate-300">
-                {profile.label} · {profile.tagline}
-                <span className="text-slate-500"> · you're {ctx.my_role || 'a member'}</span>
-              </p>
-            </div>
-          </div>
-          <QuickActions actions={profile.quickActions} workspaceId={id} />
-        </div>
-      </section>
+      {/* Industry quick actions (no page header — the brand lives in the top bar) */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <QuickActions actions={profile.quickActions} workspaceId={id} />
+      </div>
 
       {ctx.is_admin_override && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-200 flex items-start gap-2">
