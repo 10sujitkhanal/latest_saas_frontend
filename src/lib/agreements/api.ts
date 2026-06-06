@@ -3,7 +3,17 @@
 // Public signing calls (by token) use a bare fetch so they work for anonymous
 // external signers on the tenant host.
 import { apiClient, resolveApiBase } from '@/lib/axios';
-import type { Agreement, AgreementSigner, AgreementAuditEvent, SignerInput } from './types';
+import type { Agreement, AgreementSigner, AgreementAuditEvent, SignerInput, SignatureField } from './types';
+
+// What the backend PUT /fields/ expects per field (camelCase; signerId = real id).
+export interface FieldInput {
+  signerId: string | null;
+  fieldType: string;
+  page: number;
+  x: number; y: number; w: number; h: number;
+  required?: boolean;
+  label?: string;
+}
 
 const BASE = '/agreements';
 
@@ -54,6 +64,16 @@ export const agreementsApi = {
   },
   audit: async (workspaceId: string | number, id: string): Promise<AgreementAuditEvent[]> => {
     const { data } = await apiClient.get(`${BASE}/${id}/audit/`, { params: { workspace_id: workspaceId } });
+    return data;
+  },
+  getFields: async (workspaceId: string | number, id: string): Promise<SignatureField[]> => {
+    const { data } = await apiClient.get(`${BASE}/${id}/fields/`, { params: { workspace_id: workspaceId } });
+    return data;
+  },
+  // Replace ALL fields for an agreement (PUT). Used after create to persist the
+  // signature-field layout placed in the wizard.
+  saveFields: async (workspaceId: string | number, id: string, fields: FieldInput[]): Promise<SignatureField[]> => {
+    const { data } = await apiClient.put(`${BASE}/${id}/fields/`, { workspace_id: workspaceId, fields });
     return data;
   },
 };

@@ -226,12 +226,9 @@ export const OrganizationService = {
     const { data } = await apiClient.post('/organization/notifications/read/');
     return data;
   },
-  // SSE stream URL — EventSource can't send headers, so the JWT rides as a
-  // query param. Uses the live tenant-resolved API base.
-  notificationStreamUrl: (token: string) => {
-    const base = (apiClient.defaults.baseURL || '/api/v1').replace(/\/+$/, '');
-    return `${base}/organization/notifications/stream/?token=${encodeURIComponent(token)}`;
-  },
+  // NOTE: the old SSE stream helper (notificationStreamUrl) was removed — the
+  // bell now polls via the notifications store over the Authorization header.
+  // No EventSource, no token-in-URL, no held server worker.
 
   // RBAC — roles, permissions, menus
   listPermissions: async () => {

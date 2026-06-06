@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, Trash2, Loader2, Send, LayoutTemplate, FileUp } from 'lucide-react';
-import { agreementsApi } from '@/lib/agreements/api';
+import { Plus, Trash2, Loader2, Send, LayoutTemplate, FileUp, ArrowRight, ArrowLeft, MapPin } from 'lucide-react';
+import { agreementsApi, type FieldInput } from '@/lib/agreements/api';
 import type { SignerInput } from '@/lib/agreements/types';
+import { FieldPlacer, type PlacedField } from '@/components/agreements/FieldPlacer';
 import { OrganizationService } from '@/services/organization.service';
 
 const TYPES = ['service', 'sales', 'nda', 'employment', 'partnership', 'custom'];
@@ -15,6 +16,9 @@ const inp = 'h-10 w-full rounded-lg bg-white/[0.03] border border-white/10 px-3 
  * The single create-agreement form, reused by:
  *  - the workspace Agreements modal (workspaceId fixed), and
  *  - the owner Documents "Create & send" tab (pickWorkspace → shows a business picker).
+ *
+ * Two steps: (1) details + signers, (2) optional field placement (where each
+ * signer signs). Fields are persisted after create via agreementsApi.saveFields.
  */
 export default function AgreementCreateForm({
   workspaceId: fixedWs, pickWorkspace = false, onCreated, onCancel,
@@ -25,6 +29,7 @@ export default function AgreementCreateForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
+  const [step, setStep] = useState<1 | 2>(1);
   const [workspaces, setWorkspaces] = useState<{ id: number; name: string }[]>([]);
   const [workspaceId, setWorkspaceId] = useState(fixedWs || '');
   const [source, setSource] = useState<'template' | 'pdf_upload'>('template');
@@ -34,7 +39,9 @@ export default function AgreementCreateForm({
   const [expiry, setExpiry] = useState('');
   const [confidential, setConfidential] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [signers, setSigners] = useState<SignerInput[]>([{ role: 'customer', name: '', email: '', partySide: 'external', orderIndex: 0, authMethod: 'typed' }]);
+  const [placed, setPlaced] = useState<PlacedField[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -47,25 +54,58 @@ export default function AgreementCreateForm({
     }).catch(() => {});
   }, [pickWorkspace]);
 
+  // Local object URL so FieldPlacer can render the uploaded PDF (same-origin blob → no CORS).
+  useEffect(() => {
+    if (source === 'pdf_upload' && file) {
+      const url = URL.createObjectURL(file);
+      setFileUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setFileUrl(null);
+  }, [file, source]);
+
+  // The signers that will actually be posted (must have an email). FieldPlacer
+  // keys fields by index into THIS list, so create + saveFields stay aligned.
+  const validSigners = useMemo(
+    () => signers.filter((s) => s.email.trim()).map((s, i) => ({ ...s, name: s.name.trim() || s.email.trim(), orderIndex: i })),
+    [signers],
+  );
+
   const upRow = (i: number, p: Partial<SignerInput>) => setSigners((prev) => prev.map((s, idx) => idx === i ? { ...s, ...p } : s));
   const addRow = () => setSigners((p) => [...p, { role: 'customer', name: '', email: '', partySide: 'external', orderIndex: p.length, authMethod: 'typed' }]);
   const rmRow = (i: number) => setSigners((p) => p.filter((_, idx) => idx !== i));
 
+  const validateStep1 = (): boolean => {
+    if (!workspaceId) { toast.error('Pick a business'); return false; }
+    if (!title.trim()) { toast.error('Add a title'); return false; }
+    if (validSigners.length === 0) { toast.error('Each signer needs an email address (that’s where the signing link goes).'); return false; }
+    if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return false; }
+    return true;
+  };
+
+  const goPlaceFields = () => { if (validateStep1()) setStep(2); };
+
   const submit = async (send: boolean) => {
-    if (!workspaceId) { toast.error('Pick a business'); return; }
-    if (!title.trim()) { toast.error('Add a title'); return; }
-    const valid = signers.filter((s) => s.email.trim()).map((s) => ({ ...s, name: s.name.trim() || s.email.trim() }));
-    if (valid.length === 0) { toast.error('Each signer needs an email address (that’s where the signing link goes).'); return; }
-    if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return; }
+    if (!validateStep1()) return;
     setBusy(true);
     try {
-      const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, visibility: confidential ? 'private' : 'team', signers: valid.map((s, i) => ({ ...s, orderIndex: i })) };
+      const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, visibility: confidential ? 'private' : 'team', signers: validSigners };
       const ag = source === 'template'
         ? await agreementsApi.createTemplate(workspaceId, common)
         : await agreementsApi.uploadPdf(workspaceId, { ...common, fileName: file!.name, fileSize: file!.size, mimeType: file!.type || 'application/pdf' });
       // Store the actual PDF bytes so it can be viewed/signed for real.
       if (source === 'pdf_upload' && file) {
         try { await agreementsApi.uploadFile(workspaceId, ag.id, file); } catch { /* metadata saved; file optional */ }
+      }
+      // Persist placed fields — map wizard signerKey (index) → real signer id.
+      if (placed.length) {
+        const ordered = [...(ag.signers || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+        const fields: FieldInput[] = placed.map((f) => ({
+          signerId: ordered[Number(f.signerKey)]?.id ?? null,
+          fieldType: f.fieldType, page: f.page, x: f.x, y: f.y, w: f.w, h: f.h,
+          required: true, label: f.label || '',
+        }));
+        try { await agreementsApi.saveFields(workspaceId, ag.id, fields); } catch { /* fields optional */ }
       }
       if (send) { await agreementsApi.send(workspaceId, ag.id); toast.success('Created & sent for signature'); }
       else toast.success('Draft created');
@@ -76,6 +116,41 @@ export default function AgreementCreateForm({
     } finally { setBusy(false); }
   };
 
+  // ── Step 2: field placement ──────────────────────────────────────────────
+  if (step === 2) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-400" /> Place signature fields</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Pick a signer, choose a field, then click the document. Each signer sees only their own fields when signing. This step is optional.</p>
+          </div>
+          <span className="text-[11px] text-slate-500">Step 2 of 2</span>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3 max-h-[60vh] overflow-y-auto">
+          <FieldPlacer
+            mode={source}
+            pdfUrl={fileUrl}
+            templateText={title}
+            signers={validSigners}
+            fields={placed}
+            onChange={setPlaced}
+          />
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <button type="button" onClick={() => setStep(1)} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03] flex items-center gap-1.5"><ArrowLeft className="w-4 h-4" /> Back</button>
+          <button type="button" onClick={() => submit(false)} disabled={busy} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03] disabled:opacity-50">Save draft</button>
+          <button type="button" onClick={() => submit(true)} disabled={busy} className="h-10 flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Create & send
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 1: details + signers ────────────────────────────────────────────
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
@@ -150,8 +225,8 @@ export default function AgreementCreateForm({
       <div className="flex items-center gap-3 pt-1">
         {onCancel && <button type="button" onClick={onCancel} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03]">Cancel</button>}
         <button type="button" onClick={() => submit(false)} disabled={busy} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03] disabled:opacity-50">Save draft</button>
-        <button type="button" onClick={() => submit(true)} disabled={busy} className="h-10 flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Create & send
+        <button type="button" onClick={goPlaceFields} disabled={busy} className="h-10 flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+          Next: place fields <ArrowRight className="w-4 h-4" />
         </button>
       </div>
     </div>
