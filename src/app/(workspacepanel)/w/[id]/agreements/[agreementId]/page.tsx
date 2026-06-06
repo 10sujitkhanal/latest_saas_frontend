@@ -74,7 +74,7 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      {ag.originalPdfUrl && (
+      {ag.originalPdfUrl ? (
         <div className="mb-6 rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
           <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300 flex items-center gap-2"><FileSignature className="w-3.5 h-3.5 text-emerald-400" /> Document</span>
@@ -82,7 +82,16 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <iframe src={ag.originalPdfUrl} className="w-full h-[60vh] bg-white" title="Agreement document" />
         </div>
-      )}
+      ) : ag.bodyText ? (
+        <div className="mb-6 rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2">
+            <FileSignature className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs font-semibold text-slate-300">Document</span>
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto bg-white">
+            <div className="mx-auto max-w-[700px] whitespace-pre-wrap px-8 py-8 text-[12.5px] leading-7 text-slate-800" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{ag.bodyText}</div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Signers */}
@@ -101,9 +110,12 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.status}</span>
                 </div>
                 {s.status !== 'signed' && s.status !== 'declined' && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <button onClick={() => copyLink(s)} className="text-[11px] font-semibold text-emerald-300 hover:text-emerald-200 flex items-center gap-1">
-                      {copied === s.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} Copy signing link
+                  <div className="mt-3 flex items-center gap-3">
+                    <a href={`/sign/${s.signingToken}`} target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-emerald-300 hover:text-emerald-200 inline-flex items-center gap-1">
+                      <FileSignature className="w-3.5 h-3.5" /> {s.partySide === 'internal' ? 'Sign your part' : 'Open & sign'}
+                    </a>
+                    <button onClick={() => copyLink(s)} className="text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1">
+                      {copied === s.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} Copy link
                     </button>
                   </div>
                 )}

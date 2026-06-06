@@ -178,7 +178,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
           <h1 className="text-xl font-black text-slate-900">{ag!.title}</h1>
           <p className="text-sm text-slate-500 mt-1 capitalize">{ag!.type} agreement{ag!.expiryDate ? ` · expires ${ag!.expiryDate}` : ''}</p>
 
-          {ag!.originalPdfUrl && (
+          {ag!.originalPdfUrl ? (
             showOverlay ? (
               // Document with the signer's fields overlaid where they must sign.
               <div className="mt-4 space-y-3">
@@ -212,7 +212,27 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
                 <iframe src={ag!.originalPdfUrl} className="w-full h-[55vh] bg-white" title="Document to sign" />
               </div>
             )
-          )}
+          ) : ag!.bodyText ? (
+            // Template agreement — render the document body + the signer's fields.
+            <div className="mt-4 space-y-3">
+              {myFields.length > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-xs text-emerald-800">
+                  <PenLine className="w-3.5 h-3.5" /> You have <b>{myFields.length}</b> field{myFields.length > 1 ? 's' : ''} to complete — highlighted below.
+                </div>
+              )}
+              <div className="max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200 bg-slate-100 p-2">
+                <div className="relative mx-auto bg-white shadow" style={{ maxWidth: 700 }}>
+                  <div className="whitespace-pre-wrap px-10 py-12 text-[12.5px] leading-7 text-slate-800" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{ag!.bodyText}</div>
+                  {myFields.map((f) => (
+                    <div key={f.id} className="absolute flex items-center justify-center rounded border-2 border-emerald-500 bg-emerald-400/15"
+                      style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }}>
+                      {fieldContent(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-4 border-t border-slate-100 pt-4">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Parties</span>

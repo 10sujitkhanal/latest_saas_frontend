@@ -3,22 +3,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, Trash2, Loader2, Send, LayoutTemplate, FileUp, ArrowRight, ArrowLeft, MapPin } from 'lucide-react';
+import { Plus, Trash2, Loader2, Send, LayoutTemplate, FileUp, ArrowRight, ArrowLeft, MapPin, CheckCircle2, FileSignature } from 'lucide-react';
 import { agreementsApi, type FieldInput } from '@/lib/agreements/api';
 import type { SignerInput } from '@/lib/agreements/types';
+import { AGREEMENT_TEMPLATES, renderTemplateBody } from '@/lib/agreements/templates';
 import { FieldPlacer, type PlacedField } from '@/components/agreements/FieldPlacer';
 import { OrganizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/store/authStore';
 
-const TYPES = ['service', 'sales', 'nda', 'employment', 'partnership', 'custom'];
 const inp = 'h-10 w-full rounded-lg bg-white/[0.03] border border-white/10 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50';
 
 /**
- * The single create-agreement form, reused by:
- *  - the workspace Agreements modal (workspaceId fixed), and
- *  - the owner Documents "Create & send" tab (pickWorkspace → shows a business picker).
+ * The single create-agreement form, reused by the workspace Agreements modal
+ * and the owner Documents "Create & send" tab.
  *
- * Two steps: (1) details + signers, (2) optional field placement (where each
- * signer signs). Fields are persisted after create via agreementsApi.saveFields.
+ * Step 1 — pick a professional template (or upload a PDF) + details + signers.
+ * Step 2 — place signature fields on the document.
+ * On success we show a confirmation (NO surprise redirect) with an explicit
+ * "Open agreement" action.
  */
 export default function AgreementCreateForm({
   workspaceId: fixedWs, pickWorkspace = false, onCreated, onCancel,
@@ -29,12 +31,15 @@ export default function AgreementCreateForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
+  const businessName = useAuthStore((s) => (s as any).business?.name) || '';
   const [step, setStep] = useState<1 | 2>(1);
   const [workspaces, setWorkspaces] = useState<{ id: number; name: string }[]>([]);
   const [workspaceId, setWorkspaceId] = useState(fixedWs || '');
   const [source, setSource] = useState<'template' | 'pdf_upload'>('template');
+  const [templateId, setTemplateId] = useState('tmpl-service-standard');
   const [title, setTitle] = useState('');
   const [type, setType] = useState('service');
+  const [body, setBody] = useState('');
   const [signingOrder, setSigningOrder] = useState<'parallel' | 'sequential'>('parallel');
   const [expiry, setExpiry] = useState('');
   const [confidential, setConfidential] = useState(false);
@@ -43,6 +48,17 @@ export default function AgreementCreateForm({
   const [signers, setSigners] = useState<SignerInput[]>([{ role: 'customer', name: '', email: '', partySide: 'external', orderIndex: 0, authMethod: 'typed' }]);
   const [placed, setPlaced] = useState<PlacedField[]>([]);
   const [busy, setBusy] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+
+  // Seed the first template's body on mount.
+  useEffect(() => {
+    const t = AGREEMENT_TEMPLATES.find((x) => x.id === templateId) || AGREEMENT_TEMPLATES[0];
+    if (!title) setTitle(t.label);
+    setType(t.type);
+    setBody(renderTemplateBody(t.body, businessName));
+    setConfidential(!!t.defaultPrivate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!pickWorkspace) return;
@@ -54,7 +70,6 @@ export default function AgreementCreateForm({
     }).catch(() => {});
   }, [pickWorkspace]);
 
-  // Local object URL so FieldPlacer can render the uploaded PDF (same-origin blob → no CORS).
   useEffect(() => {
     if (source === 'pdf_upload' && file) {
       const url = URL.createObjectURL(file);
@@ -64,8 +79,16 @@ export default function AgreementCreateForm({
     setFileUrl(null);
   }, [file, source]);
 
-  // The signers that will actually be posted (must have an email). FieldPlacer
-  // keys fields by index into THIS list, so create + saveFields stay aligned.
+  const pickTemplate = (id: string) => {
+    const t = AGREEMENT_TEMPLATES.find((x) => x.id === id);
+    if (!t) return;
+    setTemplateId(id);
+    setType(t.type);
+    setBody(renderTemplateBody(t.body, businessName));
+    setConfidential(!!t.defaultPrivate);
+    if (!title || AGREEMENT_TEMPLATES.some((x) => x.label === title)) setTitle(t.label);
+  };
+
   const validSigners = useMemo(
     () => signers.filter((s) => s.email.trim()).map((s, i) => ({ ...s, name: s.name.trim() || s.email.trim(), orderIndex: i })),
     [signers],
@@ -80,6 +103,7 @@ export default function AgreementCreateForm({
     if (!title.trim()) { toast.error('Add a title'); return false; }
     if (validSigners.length === 0) { toast.error('Each signer needs an email address (that’s where the signing link goes).'); return false; }
     if (source === 'pdf_upload' && !file) { toast.error('Choose a PDF'); return false; }
+    if (source === 'template' && !body.trim()) { toast.error('The document body is empty'); return false; }
     return true;
   };
 
@@ -91,13 +115,11 @@ export default function AgreementCreateForm({
     try {
       const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, visibility: confidential ? 'private' : 'team', signers: validSigners };
       const ag = source === 'template'
-        ? await agreementsApi.createTemplate(workspaceId, common)
+        ? await agreementsApi.createTemplate(workspaceId, { ...common, templateId, bodyText: body })
         : await agreementsApi.uploadPdf(workspaceId, { ...common, fileName: file!.name, fileSize: file!.size, mimeType: file!.type || 'application/pdf' });
-      // Store the actual PDF bytes so it can be viewed/signed for real.
       if (source === 'pdf_upload' && file) {
         try { await agreementsApi.uploadFile(workspaceId, ag.id, file); } catch { /* metadata saved; file optional */ }
       }
-      // Persist placed fields — map wizard signerKey (index) → real signer id.
       if (placed.length) {
         const ordered = [...(ag.signers || [])].sort((a, b) => a.orderIndex - b.orderIndex);
         const fields: FieldInput[] = placed.map((f) => ({
@@ -108,13 +130,30 @@ export default function AgreementCreateForm({
         try { await agreementsApi.saveFields(workspaceId, ag.id, fields); } catch { /* fields optional */ }
       }
       if (send) { await agreementsApi.send(workspaceId, ag.id); toast.success('Created & sent for signature'); }
-      else toast.success('Draft created');
+      else toast.success('Draft saved');
       onCreated?.();
-      router.push(`/w/${workspaceId}/agreements/${ag.id}`);
+      setCreatedId(ag.id);   // show the success panel instead of yanking the page
     } catch (e: any) {
       toast.error(e?.response?.data?.error || e?.message || 'Failed to create');
     } finally { setBusy(false); }
   };
+
+  // ── Success panel (no surprise redirect) ─────────────────────────────────
+  if (createdId) {
+    return (
+      <div className="py-6 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300"><CheckCircle2 className="h-6 w-6" /></div>
+        <h3 className="text-lg font-bold text-white">Agreement ready</h3>
+        <p className="mt-1 text-sm text-slate-400">It’s saved{confidential ? ' (confidential)' : ''}. Internal parties sign first, then it opens to the others — track or sign it from the agreement.</p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button type="button" onClick={() => onCancel?.()} className="h-10 px-4 rounded-lg border border-white/10 text-slate-300 text-sm hover:bg-white/[0.03]">Done</button>
+          <button type="button" onClick={() => router.push(`/w/${workspaceId}/agreements/${createdId}`)} className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold inline-flex items-center gap-2">
+            <FileSignature className="h-4 w-4" /> Open agreement
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Step 2: field placement ──────────────────────────────────────────────
   if (step === 2) {
@@ -123,20 +162,13 @@ export default function AgreementCreateForm({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-400" /> Place signature fields</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Pick a signer, choose a field, then click the document. Each signer sees only their own fields when signing. This step is optional.</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Pick a signer + field, then click the document. Drag to move, drag a corner to resize. Each signer sees only their own fields.</p>
           </div>
           <span className="text-[11px] text-slate-500">Step 2 of 2</span>
         </div>
 
         <div className="rounded-xl bg-slate-50 p-3 max-h-[60vh] overflow-y-auto">
-          <FieldPlacer
-            mode={source}
-            pdfUrl={fileUrl}
-            templateText={title}
-            signers={validSigners}
-            fields={placed}
-            onChange={setPlaced}
-          />
+          <FieldPlacer mode={source} pdfUrl={fileUrl} templateText={body} signers={validSigners} fields={placed} onChange={setPlaced} />
         </div>
 
         <div className="flex items-center gap-3 pt-1">
@@ -164,28 +196,45 @@ export default function AgreementCreateForm({
           </div>
         )}
         <div className={pickWorkspace ? '' : 'col-span-2'}>
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Type</label>
-          <select className={`${inp} mt-1.5`} value={type} onChange={(e) => setType(e.target.value)}>
-            {TYPES.map((t) => <option key={t} value={t} className="bg-slate-900 capitalize">{t}</option>)}
-          </select>
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Document source</label>
+          <div className="mt-1.5 grid grid-cols-2 gap-2">
+            {([['template', 'Professional template', LayoutTemplate], ['pdf_upload', 'Upload PDF', FileUp]] as const).map(([v, label, Icon]) => (
+              <button key={v} type="button" onClick={() => setSource(v)} className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium ${source === v ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
+                <Icon className="w-4 h-4" /> {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {([['template', 'From template', LayoutTemplate], ['pdf_upload', 'Upload PDF', FileUp]] as const).map(([v, label, Icon]) => (
-          <button key={v} type="button" onClick={() => setSource(v)} className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium ${source === v ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
-            <Icon className="w-4 h-4" /> {label}
-          </button>
-        ))}
-      </div>
-
-      <input className={inp} placeholder="Agreement title" value={title} onChange={(e) => setTitle(e.target.value)} />
-
-      {source === 'pdf_upload' && (
-        <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/15 text-sm text-slate-400 cursor-pointer hover:border-emerald-500/40">
-          <FileUp className="w-4 h-4" /> {file ? file.name : 'Choose PDF…'}
-          <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-        </label>
+      {source === 'template' ? (
+        <>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Letter type</label>
+            <div className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {AGREEMENT_TEMPLATES.map((t) => (
+                <button key={t.id} type="button" onClick={() => pickTemplate(t.id)} title={t.blurb}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${templateId === t.id ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-200' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
+                  <div className="font-semibold">{t.label}</div>
+                  <div className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{t.blurb}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <input className={inp} placeholder="Agreement title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Document text (editable)</label>
+            <textarea className="mt-1.5 w-full h-44 rounded-lg bg-white/[0.03] border border-white/10 p-3 text-[13px] leading-relaxed text-slate-100 focus:outline-none focus:border-emerald-500/50 font-mono" value={body} onChange={(e) => setBody(e.target.value)} />
+          </div>
+        </>
+      ) : (
+        <>
+          <input className={inp} placeholder="Agreement title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/15 text-sm text-slate-400 cursor-pointer hover:border-emerald-500/40">
+            <FileUp className="w-4 h-4" /> {file ? file.name : 'Choose PDF…'}
+            <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </label>
+        </>
       )}
 
       <div className="grid grid-cols-2 gap-3">
@@ -214,12 +263,12 @@ export default function AgreementCreateForm({
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-slate-600 mt-1.5">Each signer gets a unique signing link by email. Internal parties counter-sign first; external sign after.</p>
+        <p className="text-[10px] text-slate-600 mt-1.5">Each signer gets a unique signing link by email. Mark yourself <b>Internal</b> to counter-sign first; external parties sign after.</p>
       </div>
 
       <label className="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-white/10 bg-white/[0.02] p-3">
         <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} className="w-4 h-4 mt-0.5 accent-emerald-600" />
-        <span className="text-xs text-slate-300">Confidential — only owners/admins (and signers) can see this. Staff won’t see it.</span>
+        <span className="text-xs text-slate-300">Confidential — only owners/admins (and signers) can see this. Staff won’t see it. <span className="text-slate-500">(Auto-on for NDAs &amp; employment.)</span></span>
       </label>
 
       <div className="flex items-center gap-3 pt-1">

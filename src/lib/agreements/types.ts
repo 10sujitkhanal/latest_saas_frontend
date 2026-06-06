@@ -84,6 +84,7 @@ export interface Agreement {
   uploadedPdfSize: number | null;
   uploadedPdfMimeType: string | null;
   finalPdfUrl: string | null;
+  bodyText?: string;
   expiryDate: string;
   createdBy: string;
   createdAt: string;
