@@ -71,8 +71,9 @@ export default function AgreementCreateForm({
   const [monthlyFee, setMonthlyFee] = useState('');
   const [setupFee, setSetupFee] = useState('');
   const [durationMonths, setDurationMonths] = useState('');
-  // Multiple commission rules per contract (basis × rate)
-  const [rules, setRules] = useState<{ basis: string; rate: string }[]>([]);
+  // Multiple commission rules per contract (basis × rate). Money bases may use
+  // progressive tiers instead of a flat rate.
+  const [rules, setRules] = useState<{ basis: string; rate: string; tiers?: { up_to: string; rate: string }[] }[]>([]);
   const [sla, setSla] = useState('');
   const [deliverables, setDeliverables] = useState('');
 
@@ -143,7 +144,14 @@ export default function AgreementCreateForm({
       const terms = billingModel !== 'none' ? {
         billingModel, monthlyFee, setupFee, durationMonths, sla, deliverables,
         currency: businessCurrency(),
-        commissionRules: rules.filter((r) => r.rate && Number(r.rate) > 0).map((r) => ({ basis: r.basis, rate: r.rate })),
+        commissionRules: rules
+          .map((r) => {
+            const tiers = isMoneyBasis(r.basis)
+              ? (r.tiers || []).filter((t) => t.rate && Number(t.rate) > 0).map((t) => ({ up_to: t.up_to === '' ? null : Number(t.up_to), rate: Number(t.rate) }))
+              : [];
+            return { basis: r.basis, rate: r.rate || '0', tiers };
+          })
+          .filter((r) => (r.rate && Number(r.rate) > 0) || r.tiers.length > 0),
       } : {};
       const ag = source === 'template'
         ? await agreementsApi.createTemplate(workspaceId, { ...common, templateId, bodyText: body, ...terms })
@@ -338,18 +346,51 @@ export default function AgreementCreateForm({
                   ))}
                 </div>
                 {rules.length === 0 && <p className="text-[10px] text-slate-500">Add a rule or pick a preset. Commission accrues from the client’s on-platform activity and auto-invoices.</p>}
-                {rules.map((r, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
-                    <select className={`${inp} h-9`} value={r.basis} onChange={(e) => setRules((p) => p.map((x, idx) => idx === i ? { ...x, basis: e.target.value } : x))}>
-                      {COMMISSION_BASES.map((b) => <option key={b.key} value={b.key} className="bg-slate-900">{b.label}</option>)}
-                    </select>
-                    <div className="relative">
-                      <input className={`${inp} h-9 w-28 pr-7`} type="number" min="0" value={r.rate} placeholder={isMoneyBasis(r.basis) ? '10' : '50'} onChange={(e) => setRules((p) => p.map((x, idx) => idx === i ? { ...x, rate: e.target.value } : x))} />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">{isMoneyBasis(r.basis) ? '%' : businessCurrency()}</span>
+                {rules.map((r, i) => {
+                  const money = isMoneyBasis(r.basis);
+                  const tiered = !!r.tiers && r.tiers.length > 0;
+                  const setRule = (patch: any) => setRules((p) => p.map((x, idx) => idx === i ? { ...x, ...patch } : x));
+                  return (
+                  <div key={i} className="rounded-lg border border-white/5 bg-white/[0.015] p-2 space-y-1.5">
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                      <select className={`${inp} h-9`} value={r.basis} onChange={(e) => setRule({ basis: e.target.value, tiers: [] })}>
+                        {COMMISSION_BASES.map((b) => <option key={b.key} value={b.key} className="bg-slate-900">{b.label}</option>)}
+                      </select>
+                      <div className="relative">
+                        <input className={`${inp} h-9 w-28 pr-7 disabled:opacity-40`} type="number" min="0" disabled={tiered} value={r.rate} placeholder={money ? '10' : '50'} onChange={(e) => setRule({ rate: e.target.value })} />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">{money ? '%' : businessCurrency()}</span>
+                      </div>
+                      <button type="button" onClick={() => setRules((p) => p.filter((_, idx) => idx !== i))} className="w-8 h-8 rounded-lg bg-white/[0.03] text-slate-500 hover:text-rose-400 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
-                    <button type="button" onClick={() => setRules((p) => p.filter((_, idx) => idx !== i))} className="w-8 h-8 rounded-lg bg-white/[0.03] text-slate-500 hover:text-rose-400 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
+                    {money && (
+                      <div className="pl-0.5">
+                        <button type="button" onClick={() => setRule({ tiers: tiered ? [] : [{ up_to: '', rate: r.rate || '' }] })} className="text-[10px] font-semibold text-emerald-300/80 hover:text-emerald-200">{tiered ? '− Use flat rate' : '+ Use tiered rates'}</button>
+                        {tiered && (
+                          <div className="mt-1.5 space-y-1.5">
+                            <p className="text-[10px] text-slate-500">Progressive bands — each rate applies to the portion of sales within that band. Leave the last band’s “up to” empty for “and above”.</p>
+                            {(r.tiers || []).map((t, ti) => {
+                              const setTier = (patch: any) => setRule({ tiers: (r.tiers || []).map((x, k) => k === ti ? { ...x, ...patch } : x) });
+                              const last = ti === (r.tiers!.length - 1);
+                              return (
+                                <div key={ti} className="grid grid-cols-[auto_1fr_auto_auto] gap-1.5 items-center text-[11px]">
+                                  <span className="text-slate-500">up to</span>
+                                  <input className={`${inp} h-8`} type="number" min="0" value={t.up_to} placeholder={last ? '∞ (and above)' : '100000'} onChange={(e) => setTier({ up_to: e.target.value })} />
+                                  <div className="relative">
+                                    <input className={`${inp} h-8 w-20 pr-6`} type="number" min="0" value={t.rate} placeholder="10" onChange={(e) => setTier({ rate: e.target.value })} />
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">%</span>
+                                  </div>
+                                  <button type="button" onClick={() => setRule({ tiers: (r.tiers || []).filter((_, k) => k !== ti) })} className="w-7 h-7 rounded-lg bg-white/[0.03] text-slate-500 hover:text-rose-400 flex items-center justify-center"><Trash2 className="w-3 h-3" /></button>
+                                </div>
+                              );
+                            })}
+                            <button type="button" onClick={() => setRule({ tiers: [...(r.tiers || []), { up_to: '', rate: '' }] })} className="text-[10px] font-semibold text-emerald-300/80 hover:text-emerald-200 flex items-center gap-1"><Plus className="w-3 h-3" /> Add band</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

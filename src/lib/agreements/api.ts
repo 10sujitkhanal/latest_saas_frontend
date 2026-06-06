@@ -31,6 +31,7 @@ export const agreementsApi = {
     expiryDate?: string; createdBy?: string; visibility?: string; signers?: SignerInput[];
     billingModel?: string; monthlyFee?: string; setupFee?: string; commissionPct?: string;
     perLeadFee?: string; durationMonths?: string; sla?: string; deliverables?: string; currency?: string;
+    commissionRules?: { basis: string; rate: string; tiers?: { up_to: number | null; rate: number }[] }[];
   }): Promise<Agreement> => {
     const { data } = await apiClient.post(`${BASE}/template/`, { workspace_id: workspaceId, ...payload });
     return data;

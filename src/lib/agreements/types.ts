@@ -95,7 +95,7 @@ export interface Agreement {
   sla?: string;
   deliverables?: string;
   currency?: string;
-  commissionRules?: { id: string; basis: string; rate: string; label?: string }[];
+  commissionRules?: { id: string; basis: string; rate: string; label?: string; tiers?: { up_to: number | null; rate: number }[] }[];
   expiryDate: string;
   createdBy: string;
   createdAt: string;

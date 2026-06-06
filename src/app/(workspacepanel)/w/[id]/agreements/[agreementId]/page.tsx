@@ -107,7 +107,11 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
             {ag.setupFee && Number(ag.setupFee) > 0 && <Term label="Setup fee" value={formatMoney(ag.setupFee, ag.currency)} />}
             {ag.durationMonths ? <Term label="Duration" value={`${ag.durationMonths} months`} /> : null}
             {(ag.commissionRules || []).map((r) => (
-              <Term key={r.id} label={`Commission · ${BASIS_LABEL[r.basis] || r.basis}`} value={MONEY_BASIS.has(r.basis) ? `${r.rate}%` : `${formatMoney(r.rate, ag.currency)}/unit`} />
+              <Term key={r.id} label={`Commission · ${BASIS_LABEL[r.basis] || r.basis}`} value={
+                r.tiers && r.tiers.length > 0
+                  ? r.tiers.map((t) => `${t.rate}%${t.up_to != null ? ` ≤${formatMoney(String(t.up_to), ag.currency)}` : '+'}`).join(', ')
+                  : MONEY_BASIS.has(r.basis) ? `${r.rate}%` : `${formatMoney(r.rate, ag.currency)}/unit`
+              } />
             ))}
             {/* legacy single-pct contracts */}
             {(!ag.commissionRules || ag.commissionRules.length === 0) && ag.commissionPct && Number(ag.commissionPct) > 0 && <Term label="Commission" value={`${ag.commissionPct}% of sales`} />}
