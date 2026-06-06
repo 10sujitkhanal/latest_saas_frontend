@@ -10,8 +10,25 @@ import { AGREEMENT_TEMPLATES, renderTemplateBody } from '@/lib/agreements/templa
 import { FieldPlacer, type PlacedField } from '@/components/agreements/FieldPlacer';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
+import { businessCurrency } from '@/lib/currency';
 
 const inp = 'h-10 w-full rounded-lg bg-white/[0.03] border border-white/10 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50';
+
+// Commission bases: money bases use a % rate; count bases use a per-unit amount.
+const COMMISSION_BASES: { key: string; label: string; money: boolean }[] = [
+  { key: 'total_sales', label: 'Total sales (%)', money: true },
+  { key: 'online_sales', label: 'Online/order sales (%)', money: true },
+  { key: 'leads', label: 'Per lead', money: false },
+  { key: 'new_customers', label: 'Per new customer', money: false },
+  { key: 'bookings', label: 'Per booking', money: false },
+];
+const COMMISSION_PRESETS: { label: string; rules: { basis: string; rate: string }[] }[] = [
+  { label: '10% of sales', rules: [{ basis: 'total_sales', rate: '10' }] },
+  { label: '5% + 50/lead', rules: [{ basis: 'total_sales', rate: '5' }, { basis: 'leads', rate: '50' }] },
+  { label: 'Per booking 30', rules: [{ basis: 'bookings', rate: '30' }] },
+  { label: '8% online sales', rules: [{ basis: 'online_sales', rate: '8' }] },
+];
+const isMoneyBasis = (b: string) => COMMISSION_BASES.find((x) => x.key === b)?.money ?? true;
 
 /**
  * The single create-agreement form, reused by the workspace Agreements modal
@@ -49,6 +66,15 @@ export default function AgreementCreateForm({
   const [placed, setPlaced] = useState<PlacedField[]>([]);
   const [busy, setBusy] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  // Commercial terms (agency↔client contracts)
+  const [billingModel, setBillingModel] = useState<'none' | 'retainer' | 'commission' | 'hybrid' | 'performance'>('none');
+  const [monthlyFee, setMonthlyFee] = useState('');
+  const [setupFee, setSetupFee] = useState('');
+  const [durationMonths, setDurationMonths] = useState('');
+  // Multiple commission rules per contract (basis × rate)
+  const [rules, setRules] = useState<{ basis: string; rate: string }[]>([]);
+  const [sla, setSla] = useState('');
+  const [deliverables, setDeliverables] = useState('');
 
   // Seed the first template's body on mount.
   useEffect(() => {
@@ -114,8 +140,13 @@ export default function AgreementCreateForm({
     setBusy(true);
     try {
       const common = { title: title.trim(), type, signingOrder, expiryDate: expiry, visibility: confidential ? 'private' : 'team', signers: validSigners };
+      const terms = billingModel !== 'none' ? {
+        billingModel, monthlyFee, setupFee, durationMonths, sla, deliverables,
+        currency: businessCurrency(),
+        commissionRules: rules.filter((r) => r.rate && Number(r.rate) > 0).map((r) => ({ basis: r.basis, rate: r.rate })),
+      } : {};
       const ag = source === 'template'
-        ? await agreementsApi.createTemplate(workspaceId, { ...common, templateId, bodyText: body })
+        ? await agreementsApi.createTemplate(workspaceId, { ...common, templateId, bodyText: body, ...terms })
         : await agreementsApi.uploadPdf(workspaceId, { ...common, fileName: file!.name, fileSize: file!.size, mimeType: file!.type || 'application/pdf' });
       if (source === 'pdf_upload' && file) {
         try { await agreementsApi.uploadFile(workspaceId, ag.id, file); } catch { /* metadata saved; file optional */ }
@@ -264,6 +295,68 @@ export default function AgreementCreateForm({
           ))}
         </div>
         <p className="text-[10px] text-slate-600 mt-1.5">Each signer gets a unique signing link by email. Mark yourself <b>Internal</b> to counter-sign first; external parties sign after.</p>
+      </div>
+
+      {/* Commercial terms — for agency↔client contracts (drives the commission engine) */}
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Commercial terms</span>
+          <select className={`${inp} w-auto h-8 text-xs`} value={billingModel} onChange={(e) => setBillingModel(e.target.value as any)}>
+            <option value="none" className="bg-slate-900">No money terms</option>
+            <option value="retainer" className="bg-slate-900">Fixed retainer</option>
+            <option value="commission" className="bg-slate-900">Commission (% of sales)</option>
+            <option value="hybrid" className="bg-slate-900">Hybrid (retainer + %)</option>
+            <option value="performance" className="bg-slate-900">Performance (per lead)</option>
+          </select>
+        </div>
+        {billingModel !== 'none' && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {(billingModel === 'retainer' || billingModel === 'hybrid') && (
+                <label className="text-[11px] text-slate-400">Monthly fee ({businessCurrency()})
+                  <input className={`${inp} mt-1`} type="number" min="0" value={monthlyFee} onChange={(e) => setMonthlyFee(e.target.value)} placeholder="500" />
+                </label>
+              )}
+              <label className="text-[11px] text-slate-400">Setup fee ({businessCurrency()})
+                <input className={`${inp} mt-1`} type="number" min="0" value={setupFee} onChange={(e) => setSetupFee(e.target.value)} placeholder="0" />
+              </label>
+              <label className="text-[11px] text-slate-400">Duration (months)
+                <input className={`${inp} mt-1`} type="number" min="0" value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} placeholder="12" />
+              </label>
+            </div>
+
+            {/* Commission rules — multiple bases per contract */}
+            {billingModel !== 'retainer' && (
+              <div className="rounded-lg border border-white/10 bg-white/[0.015] p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-400">Commission rules</span>
+                  <button type="button" onClick={() => setRules((p) => [...p, { basis: 'total_sales', rate: '' }])} className="text-[11px] font-semibold text-emerald-300 flex items-center gap-1"><Plus className="w-3 h-3" /> Add rule</button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMMISSION_PRESETS.map((p) => (
+                    <button key={p.label} type="button" onClick={() => setRules(p.rules.map((r) => ({ ...r })))} className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-200 hover:bg-emerald-500/20">{p.label}</button>
+                  ))}
+                </div>
+                {rules.length === 0 && <p className="text-[10px] text-slate-500">Add a rule or pick a preset. Commission accrues from the client’s on-platform activity and auto-invoices.</p>}
+                {rules.map((r, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                    <select className={`${inp} h-9`} value={r.basis} onChange={(e) => setRules((p) => p.map((x, idx) => idx === i ? { ...x, basis: e.target.value } : x))}>
+                      {COMMISSION_BASES.map((b) => <option key={b.key} value={b.key} className="bg-slate-900">{b.label}</option>)}
+                    </select>
+                    <div className="relative">
+                      <input className={`${inp} h-9 w-28 pr-7`} type="number" min="0" value={r.rate} placeholder={isMoneyBasis(r.basis) ? '10' : '50'} onChange={(e) => setRules((p) => p.map((x, idx) => idx === i ? { ...x, rate: e.target.value } : x))} />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">{isMoneyBasis(r.basis) ? '%' : businessCurrency()}</span>
+                    </div>
+                    <button type="button" onClick={() => setRules((p) => p.filter((_, idx) => idx !== i))} className="w-8 h-8 rounded-lg bg-white/[0.03] text-slate-500 hover:text-rose-400 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <input className={inp} placeholder="Deliverables (e.g. 4 blog posts/mo, monthly report)" value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
+            <input className={inp} placeholder="SLA (e.g. 24h response, 99% uptime)" value={sla} onChange={(e) => setSla(e.target.value)} />
+          </>
+        )}
       </div>
 
       <label className="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-white/10 bg-white/[0.02] p-3">

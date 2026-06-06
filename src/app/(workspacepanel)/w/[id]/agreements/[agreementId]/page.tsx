@@ -5,10 +5,16 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Send, Copy, Check, Loader2, Clock, XCircle, CheckCircle2, Mail,
-  FileSignature, ShieldCheck, History,
+  FileSignature, ShieldCheck, History, DollarSign,
 } from 'lucide-react';
 import { agreementsApi } from '@/lib/agreements/api';
 import { STATUS_LABEL, type Agreement, type AgreementAuditEvent, type AgreementSigner } from '@/lib/agreements/types';
+import { formatMoney } from '@/lib/currency';
+
+const BASIS_LABEL: Record<string, string> = {
+  total_sales: 'Total sales', online_sales: 'Online sales', leads: 'Leads', new_customers: 'New customers', bookings: 'Bookings',
+};
+const MONEY_BASIS = new Set(['total_sales', 'online_sales']);
 
 const SIGNER_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   signed: CheckCircle2, declined: XCircle, sent: Mail, pending: Clock,
@@ -93,6 +99,24 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
         </div>
       ) : null}
 
+      {ag.billingModel && ag.billingModel !== 'none' && (
+        <div className="mb-6 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/20 p-4">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3"><DollarSign className="w-4 h-4 text-emerald-400" /> Commercial terms <span className="text-[10px] uppercase tracking-wider text-emerald-300/70">{ag.billingModel}</span></h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            {ag.monthlyFee && Number(ag.monthlyFee) > 0 && <Term label="Monthly fee" value={formatMoney(ag.monthlyFee, ag.currency)} />}
+            {ag.setupFee && Number(ag.setupFee) > 0 && <Term label="Setup fee" value={formatMoney(ag.setupFee, ag.currency)} />}
+            {ag.durationMonths ? <Term label="Duration" value={`${ag.durationMonths} months`} /> : null}
+            {(ag.commissionRules || []).map((r) => (
+              <Term key={r.id} label={`Commission · ${BASIS_LABEL[r.basis] || r.basis}`} value={MONEY_BASIS.has(r.basis) ? `${r.rate}%` : `${formatMoney(r.rate, ag.currency)}/unit`} />
+            ))}
+            {/* legacy single-pct contracts */}
+            {(!ag.commissionRules || ag.commissionRules.length === 0) && ag.commissionPct && Number(ag.commissionPct) > 0 && <Term label="Commission" value={`${ag.commissionPct}% of sales`} />}
+          </div>
+          {ag.deliverables && <p className="mt-3 text-[13px] text-slate-300"><span className="text-slate-500">Deliverables:</span> {ag.deliverables}</p>}
+          {ag.sla && <p className="mt-1 text-[13px] text-slate-300"><span className="text-slate-500">SLA:</span> {ag.sla}</p>}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Signers */}
         <div className="lg:col-span-2 space-y-3">
@@ -134,7 +158,7 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
 
         {/* Audit trail */}
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3"><History className="w-4 h-4 text-emerald-400" /> Audit trail</h2>
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3"><History className="w-4 h-4 text-emerald-400" /> Audit trail <span className="text-[10px] uppercase tracking-wider text-slate-500">security log</span></h2>
           <div className="rounded-2xl bg-white/[0.02] border border-white/5 divide-y divide-white/5 max-h-[60vh] overflow-y-auto">
             {audit.length === 0 && <div className="p-5 text-center text-xs text-slate-500">No events yet.</div>}
             {audit.map((e) => (
@@ -146,6 +170,15 @@ export default function AgreementDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Term({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-0.5 font-semibold text-white">{value}</div>
     </div>
   );
 }

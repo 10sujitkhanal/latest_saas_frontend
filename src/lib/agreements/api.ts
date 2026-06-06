@@ -29,6 +29,8 @@ export const agreementsApi = {
   createTemplate: async (workspaceId: string | number, payload: {
     title: string; type: string; signingOrder?: string; templateId?: string; bodyText?: string;
     expiryDate?: string; createdBy?: string; visibility?: string; signers?: SignerInput[];
+    billingModel?: string; monthlyFee?: string; setupFee?: string; commissionPct?: string;
+    perLeadFee?: string; durationMonths?: string; sla?: string; deliverables?: string; currency?: string;
   }): Promise<Agreement> => {
     const { data } = await apiClient.post(`${BASE}/template/`, { workspace_id: workspaceId, ...payload });
     return data;

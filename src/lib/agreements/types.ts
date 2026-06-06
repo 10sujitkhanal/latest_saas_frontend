@@ -85,6 +85,17 @@ export interface Agreement {
   uploadedPdfMimeType: string | null;
   finalPdfUrl: string | null;
   bodyText?: string;
+  // Commercial terms (agency↔client contracts)
+  billingModel?: 'none' | 'retainer' | 'commission' | 'hybrid' | 'performance';
+  monthlyFee?: string | null;
+  setupFee?: string | null;
+  commissionPct?: string | null;
+  perLeadFee?: string | null;
+  durationMonths?: number | null;
+  sla?: string;
+  deliverables?: string;
+  currency?: string;
+  commissionRules?: { id: string; basis: string; rate: string; label?: string }[];
   expiryDate: string;
   createdBy: string;
   createdAt: string;
