@@ -7,6 +7,7 @@
  * talks to AccountingService (no mock fallback - surfaces API messages).
  */
 import { useCallback, useEffect, useState } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { RefreshCw, X, Plus, AlertTriangle } from 'lucide-react';
@@ -17,7 +18,7 @@ export function numberValue(value: string | number | null | undefined) {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function money(value: string | number | null | undefined, currency = 'NPR') {
+export function money(value: string | number | null | undefined, currency = businessCurrency()) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(numberValue(value));
 }
 

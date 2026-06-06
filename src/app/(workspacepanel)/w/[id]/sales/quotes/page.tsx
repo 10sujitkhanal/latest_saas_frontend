@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import { Trash2, Plus, FileSignature } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
@@ -30,7 +31,7 @@ function Inner({ wsId }: { wsId: string }) {
   const { rows, loading, error, reload } = useList<QuoteRow>(fetcher);
 
   const [open, setOpen] = useState(false);
-  const [head, setHead] = useState({ customer_name: '', customer_email: '', issue_date: today(), valid_until: plus(30), currency: 'NPR', system_description: '', terms: '', notes: '' });
+  const [head, setHead] = useState({ customer_name: '', customer_email: '', issue_date: today(), valid_until: plus(30), currency: businessCurrency(), system_description: '', terms: '', notes: '' });
   const [lines, setLines] = useState<LineDraft[]>([blankLine()]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ function Inner({ wsId }: { wsId: string }) {
   );
 
   const openModal = () => {
-    setHead({ customer_name: '', customer_email: '', issue_date: today(), valid_until: plus(30), currency: 'NPR', system_description: '', terms: '', notes: '' });
+    setHead({ customer_name: '', customer_email: '', issue_date: today(), valid_until: plus(30), currency: businessCurrency(), system_description: '', terms: '', notes: '' });
     setLines([blankLine()]); setFormError(null); setOpen(true);
   };
 

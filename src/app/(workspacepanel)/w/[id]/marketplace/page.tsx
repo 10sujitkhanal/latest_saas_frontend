@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import { Globe } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
@@ -12,7 +13,7 @@ import {
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError,
 } from '@/components/accounting/kit';
 
-const emptyForm = { title: '', category: '', item: '', price: '0', currency: 'NPR', image_url: '', description: '' };
+const emptyForm = { title: '', category: '', item: '', price: '0', currency: businessCurrency(), image_url: '', description: '' };
 
 export default function MarketplacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);

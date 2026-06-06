@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowRight, Lock, ShieldAlert } from 'lucide-react';
 import { getAuthToken, removeAuthTokens } from '@/lib/storage';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
+import { setBusinessCurrency } from '@/lib/currency';
 import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 
 /**
@@ -48,6 +49,7 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
         }
         const m = res.data;
         setMe({ email: m.email, is_admin: !!m.is_admin, subscription_active: !!m.subscription_active, business: m.business });
+        setBusinessCurrency((m.business as { currency?: string } | undefined)?.currency);
         // Apply the business's own favicon + tab title in the workspace panel too
         // (same as the admin panel — the public branding endpoint doesn't carry
         // the tenant's own favicon for non-white-label orgs).

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type MembershipPlanRow } from '@/services/loyalty.service';
@@ -9,7 +10,7 @@ import {
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
 } from '@/components/loyalty/kit';
 
-const empty = { name: '', price: '0', currency: 'NPR', interval: 'monthly', benefits: '', description: '', is_active: true, is_public: false };
+const empty = { name: '', price: '0', currency: businessCurrency(), interval: 'monthly', benefits: '', description: '', is_active: true, is_public: false };
 
 export default function MembershipPlansPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);

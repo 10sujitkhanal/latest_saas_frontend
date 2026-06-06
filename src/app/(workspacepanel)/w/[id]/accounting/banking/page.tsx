@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type BankAccountRow, type BankTransactionRow } from '@/services/accounting.service';
@@ -11,7 +12,7 @@ import {
 
 const ACCT_TYPES = ['checking', 'savings', 'cash', 'credit_card', 'other'];
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyAcct = { name: '', bank_name: '', account_number: '', account_type: 'checking', currency: 'NPR', opening_balance: '0' };
+const emptyAcct = { name: '', bank_name: '', account_number: '', account_type: 'checking', currency: businessCurrency(), opening_balance: '0' };
 
 export default function BankingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
@@ -23,7 +24,7 @@ function MarketplaceTabs({ wsId }: { wsId: string }) {
   );
 }
 
-const empty = { title: '', description: '', venue: '', starts_at: '', capacity: '0', price: '0', currency: 'NPR', status: 'published' };
+const empty = { title: '', description: '', venue: '', starts_at: '', capacity: '0', price: '0', currency: businessCurrency(), status: 'published' };
 
 export default function EventsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);

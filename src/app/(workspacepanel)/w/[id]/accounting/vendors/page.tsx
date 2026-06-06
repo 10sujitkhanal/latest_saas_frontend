@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type VendorRow } from '@/services/accounting.service';
@@ -10,7 +11,7 @@ import {
 } from '@/components/accounting/kit';
 
 const TERMS = ['cod', 'net_7', 'net_15', 'net_30', 'net_60'];
-const emptyForm = { name: '', email: '', phone: '', tax_id: '', currency: 'NPR', payment_terms: 'net_30' };
+const emptyForm = { name: '', email: '', phone: '', tax_id: '', currency: businessCurrency(), payment_terms: 'net_30' };
 
 export default function VendorsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -33,7 +34,7 @@ function Inner({ wsId }: { wsId: string }) {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
   const openEdit = (v: VendorRow) => {
     setEditing(v);
-    setForm({ name: v.name, email: v.email || '', phone: v.phone || '', tax_id: v.tax_id || '', currency: v.currency || 'NPR', payment_terms: v.payment_terms || 'net_30' });
+    setForm({ name: v.name, email: v.email || '', phone: v.phone || '', tax_id: v.tax_id || '', currency: v.currency || businessCurrency(), payment_terms: v.payment_terms || 'net_30' });
     setFormError(null); setOpen(true);
   };
 

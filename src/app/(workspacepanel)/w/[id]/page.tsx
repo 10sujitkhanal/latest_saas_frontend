@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import * as LucideIcons from 'lucide-react';
 import {
@@ -194,7 +195,7 @@ function BusinessHealth({ wsId }: { wsId: string }) {
 
   if (!loaded) return <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
   if (!h) return null;
-  const cur = h.currency || 'NPR';
+  const cur = h.currency || businessCurrency();
   // Nothing commerce/finance-y configured yet → don't show an empty band.
   if (!h.finance && !h.memberships && !h.orders) return null;
   const overdue = Number(h.finance?.overdue_outstanding || 0);

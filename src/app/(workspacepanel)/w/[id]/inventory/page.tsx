@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { InventoryService, type ItemRow, type CategoryRow } from '@/services/inventory.service';
@@ -10,7 +11,7 @@ import {
 } from '@/components/inventory/kit';
 
 const UNITS = ['pcs', 'kg', 'g', 'l', 'ml', 'box', 'pack', 'hour'];
-const emptyForm = { sku: '', name: '', category: '', unit: 'pcs', cost_price: '0', selling_price: '0', reorder_point: '0', reorder_qty: '0', currency: 'NPR', barcode: '' };
+const emptyForm = { sku: '', name: '', category: '', unit: 'pcs', cost_price: '0', selling_price: '0', reorder_point: '0', reorder_qty: '0', currency: businessCurrency(), barcode: '' };
 
 export default function ItemsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);

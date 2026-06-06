@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { HRService, type EmployeeRow, type DepartmentRow } from '@/services/hr.service';
@@ -12,7 +13,7 @@ import {
 const empty = {
   first_name: '', last_name: '', employee_no: '', department: '', role: '',
   type: 'full_time', status: 'active', hire_date: '', basic_salary: '0',
-  currency: 'NPR', email: '', phone: '', address: '', notes: '',
+  currency: businessCurrency(), email: '', phone: '', address: '', notes: '',
 };
 
 export default function HREmployeesPage({ params }: { params: Promise<{ id: string }> }) {

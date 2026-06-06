@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type DebitNoteRow, type VendorRow, type BillRow } from '@/services/accounting.service';
@@ -31,12 +32,12 @@ function Inner({ wsId }: { wsId: string }) {
   }, [wsId]);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ vendor: '', bill: '', issue_date: today(), amount: '', reason: '', currency: 'NPR' });
+  const [form, setForm] = useState({ vendor: '', bill: '', issue_date: today(), amount: '', reason: '', currency: businessCurrency() });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const openCreate = () => { setForm({ vendor: '', bill: '', issue_date: today(), amount: '', reason: '', currency: 'NPR' }); setFormError(null); setOpen(true); };
+  const openCreate = () => { setForm({ vendor: '', bill: '', issue_date: today(), amount: '', reason: '', currency: businessCurrency() }); setFormError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

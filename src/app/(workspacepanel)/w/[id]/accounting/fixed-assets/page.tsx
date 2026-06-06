@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type FixedAssetRow } from '@/services/accounting.service';
@@ -10,7 +11,7 @@ import {
 } from '@/components/accounting/kit';
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyForm = { name: '', category: '', purchase_date: today(), purchase_cost: '', salvage_value: '0', useful_life_years: '5', currency: 'NPR' };
+const emptyForm = { name: '', category: '', purchase_date: today(), purchase_cost: '', salvage_value: '0', useful_life_years: '5', currency: businessCurrency() };
 
 export default function FixedAssetsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);

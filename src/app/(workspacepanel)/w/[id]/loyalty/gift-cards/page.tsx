@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type GiftCardRow } from '@/services/loyalty.service';
@@ -28,7 +29,7 @@ function Inner({ wsId }: { wsId: string }) {
   useEffect(() => { AccountingService.customers?.list?.(wsId).then((r: { data?: Cust[] }) => setCusts(r.data ?? [])).catch(() => {}); }, [wsId]);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ initial_value: '0', currency: 'NPR', customer: '', expiry_date: '', notes: '' });
+  const [form, setForm] = useState({ initial_value: '0', currency: businessCurrency(), customer: '', expiry_date: '', notes: '' });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -39,7 +40,7 @@ function Inner({ wsId }: { wsId: string }) {
       const payload = { ...form, customer: form.customer ? Number(form.customer) : null, expiry_date: form.expiry_date || null };
       const res = await LoyaltyService.giftCards.create(wsId, payload);
       if (!res.success) { setFormError(res.message || 'Could not issue.'); return; }
-      setOpen(false); setForm({ initial_value: '0', currency: 'NPR', customer: '', expiry_date: '', notes: '' }); reload();
+      setOpen(false); setForm({ initial_value: '0', currency: businessCurrency(), customer: '', expiry_date: '', notes: '' }); reload();
     } catch (err) { setFormError(apiError(err, 'Could not issue.')); }
     finally { setSaving(false); }
   };

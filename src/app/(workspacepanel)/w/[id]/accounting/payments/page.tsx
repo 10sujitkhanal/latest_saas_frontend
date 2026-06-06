@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type PaymentRow, type CustomerRow, type VendorRow, type InvoiceRow, type BillRow } from '@/services/accounting.service';
@@ -35,11 +36,11 @@ function Inner({ wsId }: { wsId: string }) {
   }, [wsId]);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ payment_no: '', type: 'received', customer: '', vendor: '', invoice: '', bill: '', date: today(), amount: '', currency: 'NPR', method: 'Bank Transfer', reference: '' });
+  const [form, setForm] = useState({ payment_no: '', type: 'received', customer: '', vendor: '', invoice: '', bill: '', date: today(), amount: '', currency: businessCurrency(), method: 'Bank Transfer', reference: '' });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const openModal = () => { setForm({ payment_no: '', type: 'received', customer: '', vendor: '', invoice: '', bill: '', date: today(), amount: '', currency: 'NPR', method: 'Bank Transfer', reference: '' }); setFormError(null); setOpen(true); };
+  const openModal = () => { setForm({ payment_no: '', type: 'received', customer: '', vendor: '', invoice: '', bill: '', date: today(), amount: '', currency: businessCurrency(), method: 'Bank Transfer', reference: '' }); setFormError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

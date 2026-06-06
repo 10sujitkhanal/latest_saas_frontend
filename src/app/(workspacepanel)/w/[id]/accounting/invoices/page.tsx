@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import { Trash2, Plus } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
@@ -32,7 +33,7 @@ function Inner({ wsId }: { wsId: string }) {
   useEffect(() => { AccountingService.customers.list(wsId).then((r) => setCustomers((r.data ?? []).filter((c) => c.is_active))).catch(() => {}); }, [wsId]);
 
   const [open, setOpen] = useState(false);
-  const [head, setHead] = useState({ invoice_no: '', customer: '', issue_date: today(), due_date: plus(30), currency: 'NPR', notes: '' });
+  const [head, setHead] = useState({ invoice_no: '', customer: '', issue_date: today(), due_date: plus(30), currency: businessCurrency(), notes: '' });
   const [lines, setLines] = useState<LineDraft[]>([blankLine()]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ function Inner({ wsId }: { wsId: string }) {
 
   const total = useMemo(() => lines.reduce((s, l) => s + (numberValue(l.quantity) * numberValue(l.unit_price) - numberValue(l.discount_amount) + numberValue(l.tax_amount)), 0), [lines]);
 
-  const openModal = () => { setHead({ invoice_no: '', customer: '', issue_date: today(), due_date: plus(30), currency: 'NPR', notes: '' }); setLines([blankLine()]); setFormError(null); setOpen(true); };
+  const openModal = () => { setHead({ invoice_no: '', customer: '', issue_date: today(), due_date: plus(30), currency: businessCurrency(), notes: '' }); setLines([blankLine()]); setFormError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
+import { CURRENCIES, setBusinessCurrency } from '@/lib/currency';
 
 type Tab = 'profile' | 'security' | 'activity';
 
@@ -14,7 +15,7 @@ interface ProfileData {
   name: string; contact_email: string; phone: string; address: string;
   brand_color: string; typography: string; industry: string; country: string;
   description: string; support_email: string; support_url: string;
-  terms_url: string; privacy_url: string; timezone: string;
+  terms_url: string; privacy_url: string; timezone: string; currency: string;
   logo: string | null; favicon: string | null;
 }
 
@@ -102,7 +103,7 @@ function ProfileTab() {
     try {
       const fd = new FormData();
       (['name', 'contact_email', 'phone', 'address', 'brand_color', 'industry', 'country',
-        'description', 'support_email', 'support_url', 'terms_url', 'privacy_url', 'timezone'] as const)
+        'description', 'support_email', 'support_url', 'terms_url', 'privacy_url', 'timezone', 'currency'] as const)
         .forEach((k) => fd.append(k, (p as any)[k] ?? ''));
       if (logoFile) fd.append('logo', logoFile);
       if (faviconFile) fd.append('favicon', faviconFile);
@@ -112,6 +113,7 @@ function ProfileTab() {
         setLogoPreview(res.data.logo || '');
         setFaviconPreview(res.data.favicon || '');
         setBusiness({ name: res.data.name, logo: res.data.logo });
+        setBusinessCurrency(res.data.currency);
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       }
@@ -170,6 +172,13 @@ function ProfileTab() {
           <div><span className={labelCls}>Phone</span><input className={`${inputCls} mt-1.5`} value={p.phone} onChange={(e) => set('phone', e.target.value)} /></div>
           <div><span className={labelCls}>Country</span><input className={`${inputCls} mt-1.5`} value={p.country} onChange={(e) => set('country', e.target.value)} /></div>
           <div><span className={labelCls}>Timezone</span><input className={`${inputCls} mt-1.5`} value={p.timezone} onChange={(e) => set('timezone', e.target.value)} /></div>
+          <div>
+            <span className={labelCls}>Currency</span>
+            <select className={`${inputCls} mt-1.5`} value={p.currency || 'SEK'} onChange={(e) => set('currency', e.target.value)}>
+              {CURRENCIES.map((c) => <option key={c.code} value={c.code} className="bg-slate-900">{c.code} — {c.label}</option>)}
+            </select>
+            <p className="text-[10px] text-slate-500 mt-1">One currency for the whole business — used across storefront, invoices, accounting & payroll.</p>
+          </div>
           <div className="md:col-span-2"><span className={labelCls}>Address</span><textarea className={`${inputCls} mt-1.5 h-20 py-2 resize-none`} value={p.address} onChange={(e) => set('address', e.target.value)} /></div>
           <div className="md:col-span-2"><span className={labelCls}>Description</span><textarea className={`${inputCls} mt-1.5 h-16 py-2 resize-none`} value={p.description} onChange={(e) => set('description', e.target.value)} /></div>
         </div>

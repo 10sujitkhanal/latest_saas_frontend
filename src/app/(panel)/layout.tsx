@@ -8,6 +8,7 @@ import { getAuthToken, removeAuthTokens } from '@/lib/storage';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStatusStore } from '@/store/subscriptionStatusStore';
+import { setBusinessCurrency } from '@/lib/currency';
 
 type GateState = 'checking' | 'unauth' | 'forbidden' | 'ok' | 'error';
 
@@ -49,6 +50,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         setPermissions(Array.isArray(me.permission_codes) ? me.permission_codes : []);
         setServices(Array.isArray(me.services) ? me.services : []);
         setBusiness(me.business || null);
+        setBusinessCurrency(me.business?.currency);
         // Apply the org's OWN favicon + tab title (the public branding endpoint
         // only carries the white-label favicon, which is null for non-white-
         // label tenants — so the business's own favicon must come from here).

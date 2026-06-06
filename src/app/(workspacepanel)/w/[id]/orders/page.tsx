@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import { Trash2, Plus } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
@@ -36,7 +37,7 @@ function Inner({ wsId }: { wsId: string }) {
   }, [wsId]);
 
   const [open, setOpen] = useState(false);
-  const [head, setHead] = useState({ customer: '', customer_name: '', order_date: today(), currency: 'NPR', notes: '' });
+  const [head, setHead] = useState({ customer: '', customer_name: '', order_date: today(), currency: businessCurrency(), notes: '' });
   const [lines, setLines] = useState<LineDraft[]>([blankLine()]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,7 +45,7 @@ function Inner({ wsId }: { wsId: string }) {
 
   const total = useMemo(() => lines.reduce((s, l) => s + numberValue(l.qty) * numberValue(l.unit_price), 0), [lines]);
 
-  const openCreate = () => { setHead({ customer: '', customer_name: '', order_date: today(), currency: 'NPR', notes: '' }); setLines([blankLine()]); setFormError(null); setOpen(true); };
+  const openCreate = () => { setHead({ customer: '', customer_name: '', order_date: today(), currency: businessCurrency(), notes: '' }); setLines([blankLine()]); setFormError(null); setOpen(true); };
 
   // when an item is picked, prefill description + price from the item
   const pickItem = (idx: number, itemId: string) => {

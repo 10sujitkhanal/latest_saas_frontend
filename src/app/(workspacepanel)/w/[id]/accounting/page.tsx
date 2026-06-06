@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import {
   AlertTriangle,
   BookOpen,
@@ -41,7 +42,7 @@ function numberValue(value: string | number | null | undefined) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function formatMoney(value: string | number | null | undefined, currency = 'NPR') {
+function formatMoney(value: string | number | null | undefined, currency = businessCurrency()) {
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency,
@@ -114,7 +115,7 @@ function AccountingInner({ workspaceId }: { workspaceId: string }) {
     const invoices = snapshot?.invoices ?? [];
     const bills = snapshot?.bills ?? [];
     const payments = snapshot?.payments ?? [];
-    const currency = invoices[0]?.currency || bills[0]?.currency || payments[0]?.currency || 'NPR';
+    const currency = invoices[0]?.currency || bills[0]?.currency || payments[0]?.currency || businessCurrency();
     const receivables = invoices.reduce((sum, invoice) => sum + numberValue(invoice.amount_due), 0);
     const payables = bills.reduce((sum, bill) => sum + numberValue(bill.amount_due), 0);
     const received = payments.filter((p) => p.type === 'received').reduce((sum, p) => sum + numberValue(p.amount), 0);

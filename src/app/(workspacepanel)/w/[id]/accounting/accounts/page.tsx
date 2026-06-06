@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type AccountRow } from '@/services/accounting.service';
@@ -10,7 +11,7 @@ import {
 } from '@/components/accounting/kit';
 
 const ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'income', 'expense'];
-const emptyForm = { code: '', name: '', type: 'asset', subtype: '', opening_balance: '0', currency: 'NPR' };
+const emptyForm = { code: '', name: '', type: 'asset', subtype: '', opening_balance: '0', currency: businessCurrency() };
 
 export default function AccountsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -34,7 +35,7 @@ function Inner({ wsId }: { wsId: string }) {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
   const openEdit = (a: AccountRow) => {
     setEditing(a);
-    setForm({ code: a.code, name: a.name, type: a.type, subtype: a.subtype || '', opening_balance: String(a.opening_balance ?? '0'), currency: a.currency || 'NPR' });
+    setForm({ code: a.code, name: a.name, type: a.type, subtype: a.subtype || '', opening_balance: String(a.opening_balance ?? '0'), currency: a.currency || businessCurrency() });
     setFormError(null); setOpen(true);
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type RecurringRow, type CustomerRow, type VendorRow } from '@/services/accounting.service';
@@ -32,12 +33,12 @@ function Inner({ wsId }: { wsId: string }) {
   }, [wsId]);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ doc_type: 'invoice', customer: '', vendor: '', description: '', amount: '', frequency: 'monthly', next_run_date: today(), currency: 'NPR' });
+  const [form, setForm] = useState({ doc_type: 'invoice', customer: '', vendor: '', description: '', amount: '', frequency: 'monthly', next_run_date: today(), currency: businessCurrency() });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const openCreate = () => { setForm({ doc_type: 'invoice', customer: '', vendor: '', description: '', amount: '', frequency: 'monthly', next_run_date: today(), currency: 'NPR' }); setFormError(null); setOpen(true); };
+  const openCreate = () => { setForm({ doc_type: 'invoice', customer: '', vendor: '', description: '', amount: '', frequency: 'monthly', next_run_date: today(), currency: businessCurrency() }); setFormError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setFormError(null);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { ExpensesService, type ExpenseRow, type ExpenseCategoryRow } from '@/services/expenses.service';
@@ -65,7 +66,7 @@ function Inner({ wsId }: { wsId: string }) {
                 <td className="px-3 py-2">{e.category_name || '—'}</td>
                 <td className="px-3 py-2">{e.date}</td>
                 <td className="px-3 py-2">{e.payment_method.replace('_', ' ')}</td>
-                <td className="px-3 py-2 text-right">{money(e.total, 'NPR')}</td>
+                <td className="px-3 py-2 text-right">{money(e.total, businessCurrency())}</td>
                 <td className="px-3 py-2 text-center"><Pill>{e.status}</Pill>{e.posted_journal_no && <span className="ml-1 text-[10px] text-emerald-300">{e.posted_journal_no}</span>}</td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   {['draft', 'submitted'].includes(e.status) ? (
