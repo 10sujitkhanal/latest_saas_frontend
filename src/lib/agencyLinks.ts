@@ -4,6 +4,9 @@
 export const AGENCY_PORTAL_URL =
   process.env.NEXT_PUBLIC_AGENCY_PORTAL_URL || 'http://agency.localhost:3000';
 
-// Where "Become a partner" sends people — the agency app's own signup.
+// Where "Become a partner" sends people — the agency app's own signup. The
+// agency app serves this at /auth/signup (NOT /signup), so the fallback must
+// match that path. Override with NEXT_PUBLIC_AGENCY_SIGNUP_URL per environment
+// (e.g. https://agency.morefungi.com/auth/signup in production).
 export const AGENCY_SIGNUP_URL =
-  process.env.NEXT_PUBLIC_AGENCY_SIGNUP_URL || `${AGENCY_PORTAL_URL}/signup`;
+  process.env.NEXT_PUBLIC_AGENCY_SIGNUP_URL || `${AGENCY_PORTAL_URL}/auth/signup`;
