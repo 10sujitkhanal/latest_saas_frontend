@@ -229,7 +229,7 @@ export const OrganizationService = {
   // SSE stream URL — EventSource can't send headers, so the JWT rides as a
   // query param. Uses the live tenant-resolved API base.
   notificationStreamUrl: (token: string) => {
-    const base = apiClient.defaults.baseURL || '/api/v1';
+    const base = (apiClient.defaults.baseURL || '/api/v1').replace(/\/+$/, '');
     return `${base}/organization/notifications/stream/?token=${encodeURIComponent(token)}`;
   },
 

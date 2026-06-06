@@ -6,7 +6,6 @@ import { Bell, CheckCheck, DollarSign, ShoppingBag, UserPlus, Info, AlertTriangl
 import { toast } from 'sonner';
 import { useNotificationsStore } from '@/store/notificationsStore';
 import { OrganizationService } from '@/services/organization.service';
-import { getAuthToken } from '@/lib/storage';
 
 const ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   SUCCESS: CheckCircle2,
@@ -39,36 +38,32 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  const seenMax = useRef(0);
+  const firstLoad = useRef(true);
 
-  // Live SSE — toast new events + refresh the list/badge. Bounded server-side,
-  // so we reconnect when the stream closes.
+  // Poll the store (Authorization header via apiClient — no token in URL, no
+  // held server worker). Refreshes badge + list every 25s and on tab focus.
   useEffect(() => {
-    const token = getAuthToken('access');
-    if (!token) return;
-    let stopped = false;
-    let timer: any;
-    const connect = () => {
-      if (stopped) return;
-      const es = new EventSource(OrganizationService.notificationStreamUrl(token));
-      es.addEventListener('notification', (e: MessageEvent) => {
-        try {
-          const n = JSON.parse(e.data);
-          const fn = n.type === 'SUCCESS' ? toast.success : (n.type === 'WARNING' || n.type === 'PLAN_EXPIRED') ? toast.warning : toast;
-          (fn as any)(n.title, {
-            description: n.message,
-            action: n.link ? { label: 'View', onClick: () => router.push(n.link) } : undefined,
-          });
-          fetch();
-        } catch {}
+    fetch();
+    const t = setInterval(() => fetch(), 25000);
+    const onVis = () => { if (document.visibilityState === 'visible') fetch(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  }, [fetch]);
+
+  // Toast genuinely-new notifications as the store updates (skip first load).
+  useEffect(() => {
+    const maxId = items.reduce((m, n) => Math.max(m, n.id), 0);
+    if (firstLoad.current) { seenMax.current = maxId; firstLoad.current = false; return; }
+    items.filter((n) => n.id > seenMax.current).sort((a, b) => a.id - b.id).forEach((n) => {
+      const fn = n.type === 'SUCCESS' ? toast.success : (n.type === 'WARNING' || n.type === 'PLAN_EXPIRED') ? toast.warning : toast;
+      (fn as any)(n.title, {
+        description: n.message,
+        action: n.link ? { label: 'View', onClick: () => router.push(n.link!) } : undefined,
       });
-      es.addEventListener('count', () => fetch());
-      es.addEventListener('reconnect', () => { es.close(); if (!stopped) timer = setTimeout(connect, 500); });
-      es.onerror = () => { es.close(); if (!stopped) timer = setTimeout(connect, 4000); };
-    };
-    connect();
-    return () => { stopped = true; clearTimeout(timer); };
-  }, [fetch, router]);
+    });
+    if (maxId > seenMax.current) seenMax.current = maxId;
+  }, [items, router]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
