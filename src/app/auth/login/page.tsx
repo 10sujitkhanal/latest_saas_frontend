@@ -11,6 +11,7 @@ import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 import { getAuthToken } from '@/lib/storage';
+import { resolvePostLoginPath } from '@/lib/postLoginRedirect';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -24,7 +25,7 @@ export default function OrgLoginPage() {
   const [globalError, setGlobalError] = useState('');
 
   useEffect(() => {
-    if (getAuthToken('access')) router.replace('/dashboard');
+    if (getAuthToken('access')) resolvePostLoginPath().then((p) => router.replace(p));
   }, [router]);
 
   const {
@@ -40,7 +41,7 @@ export default function OrgLoginPage() {
       if (res?.success && res.data?.access) {
         login(res.data.access, res.data.refresh, form.email);
         toast.success('Welcome back!');
-        router.replace('/dashboard');
+        router.replace(await resolvePostLoginPath());
         return;
       }
       setGlobalError(res?.message || 'Login failed. Check your credentials.');
