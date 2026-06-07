@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Topbar from '@/components/Topbar';
-import { PageSpinner } from '@/components/StateViews';
+import { PageSpinner, PageError } from '@/components/StateViews';
 import { useAuthStore } from '@/store/authStore';
 import { OrganizationService } from '@/services/organization.service';
 import {
@@ -86,14 +86,26 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('30d');
   const [ov, setOv] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [overdueOpen, setOverdueOpen] = useState(false);
 
   const loadOverview = useCallback(async (p: string) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await OrganizationService.getOverview(p);
       if (res?.success) setOv(res.data);
+      else setError(res?.message || 'Could not load your dashboard.');
+    } catch (err) {
+      // Never leave the page blank on failure. A 403 here means this account
+      // isn't an organization admin (the command center is owner/admin only).
+      const v = err as { response?: { status?: number; data?: { message?: string } } };
+      if (v.response?.status === 403) {
+        setError("The company command center is private to the business owner — it shows revenue, profit and every business across the account. Your session doesn't have owner access. If you're managing this on the owner's behalf, ask them to grant you access. Meanwhile, use the menu to open the areas you can work in.");
+      } else {
+        setError(v.response?.data?.message ?? 'Could not load your dashboard. Please try again.');
+      }
     } finally { setLoading(false); }
   }, []);
 
@@ -126,7 +138,9 @@ export default function DashboardPage() {
       />
 
       <main className="flex-1 px-6 lg:px-10 py-8 overflow-y-auto">
-        {loading && !ov ? <PageSpinner /> : ov && (
+        {loading && !ov ? <PageSpinner /> : error && !ov ? (
+          <PageError message={error} onRetry={() => loadOverview(period)} />
+        ) : ov && (
           <div className="space-y-8">
             {/* ── Company Pulse ───────────────────────────────────── */}
             <section>

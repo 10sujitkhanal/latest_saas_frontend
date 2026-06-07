@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Topbar from '@/components/Topbar';
 import {
   Plus, Folder, AlertTriangle, X, Users, ShieldCheck, ArrowRight, Trash2, Pencil,
+  Archive, ArchiveRestore, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
@@ -214,6 +215,8 @@ export default function WorkspacesPage() {
             )}
           </div>
         )}
+
+        {items !== null && <ArchivedWorkspaces onChanged={load} />}
       </main>
 
       {showCreate && (
@@ -338,6 +341,27 @@ function WorkspaceDrawer({
 }) {
   const [industry, setIndustry] = useState<string>(workspace.industry ?? '');
   const [savingIndustry, setSavingIndustry] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+
+  const archive = async () => {
+    if (!confirm(
+      `Archive "${workspace.name}"?\n\n` +
+      `It leaves the dashboard and switcher and its storefront stops serving. ` +
+      `All data inside is kept — you can restore it later from the Archived section.`
+    )) return;
+    setArchiving(true);
+    try {
+      const r = await OrganizationService.archiveWorkspace(workspace.id);
+      if (r.success) {
+        toast.success(r.message || 'Workspace archived.');
+        onClose();
+        await onChanged();
+      } else toast.error(r.message || 'Failed to archive.');
+    } catch (err) {
+      const v = err as { response?: { data?: { message?: string } } };
+      toast.error(v.response?.data?.message ?? 'Failed to archive.');
+    } finally { setArchiving(false); }
+  };
 
   const saveIndustry = async () => {
     setSavingIndustry(true);
@@ -661,6 +685,197 @@ function WorkspaceDrawer({
               </div>
             )}
           </section>
+
+          {/* Danger zone — archive (soft delete) */}
+          {canEdit && (
+            <section>
+              <div className="text-xs uppercase tracking-wider text-red-400/80 font-bold mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5" /> Danger zone
+              </div>
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.03] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-white">Archive this workspace</div>
+                  <p className="text-[12px] text-slate-400 mt-0.5 leading-relaxed">
+                    Removes it from the dashboard and switcher, and stops its storefront.
+                    <span className="text-slate-300"> All data inside is kept</span> — you can
+                    restore it anytime from the Archived section. Nothing is deleted.
+                  </p>
+                </div>
+                <button
+                  onClick={archive}
+                  disabled={archiving}
+                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 font-semibold disabled:opacity-50"
+                >
+                  <Archive className="w-4 h-4" />
+                  {archiving ? 'Archiving…' : 'Archive workspace'}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────── Archived workspaces ─────────────────────────
+
+function ArchivedWorkspaces({ onChanged }: { onChanged: () => Promise<void> }) {
+  const [rows, setRows] = useState<Workspace[] | null>(null);
+  const [open, setOpen] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [purgeTarget, setPurgeTarget] = useState<Workspace | null>(null);
+
+  const load = async () => {
+    try {
+      const r = await OrganizationService.listWorkspaces({ archived: true });
+      if (r.success) setRows(r.data ?? []);
+      else setRows([]);
+    } catch { setRows([]); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const restore = async (w: Workspace) => {
+    setBusyId(w.id);
+    try {
+      const r = await OrganizationService.restoreWorkspace(w.id);
+      if (r.success) {
+        toast.success(r.message || 'Workspace restored.');
+        await load();
+        await onChanged();
+      } else toast.error(r.message || 'Failed to restore.');
+    } catch (err) {
+      const v = err as { response?: { data?: { message?: string } } };
+      toast.error(v.response?.data?.message ?? 'Failed to restore.');
+    } finally { setBusyId(null); }
+  };
+
+  if (rows === null || rows.length === 0) return null;
+
+  return (
+    <div className="mt-10">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white"
+      >
+        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        <Archive className="w-4 h-4 text-slate-500" />
+        Archived workspaces
+        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10">{rows.length}</span>
+      </button>
+
+      {open && (
+        <div className="mt-4 rounded-2xl border border-white/5 bg-white/[0.02] divide-y divide-white/5">
+          {rows.map((w) => (
+            <div key={w.id} className="flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-slate-700/40 border border-white/5 flex items-center justify-center text-slate-400 shrink-0">
+                  <Archive className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-200 truncate">{w.name}</div>
+                  <div className="text-[11px] text-slate-500 truncate">
+                    {w.member_count} member{w.member_count === 1 ? '' : 's'}
+                    {w.archived_at && <> · archived {new Date(w.archived_at).toLocaleDateString()}</>}
+                    {w.archived_by_email && <> · by {w.archived_by_email}</>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => restore(w)}
+                  disabled={busyId === w.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 disabled:opacity-50"
+                >
+                  <ArchiveRestore className="w-3.5 h-3.5" /> Restore
+                </button>
+                <button
+                  onClick={() => setPurgeTarget(w)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete forever
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {purgeTarget && (
+        <PurgeModal
+          workspace={purgeTarget}
+          onClose={() => setPurgeTarget(null)}
+          onPurged={async () => {
+            setPurgeTarget(null);
+            await load();
+            await onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Type-to-confirm permanent delete. This is the ONLY destructive path — it
+// cascades and truly loses the data inside, so it requires the exact name.
+function PurgeModal({
+  workspace,
+  onClose,
+  onPurged,
+}: {
+  workspace: Workspace;
+  onClose: () => void;
+  onPurged: () => Promise<void>;
+}) {
+  const [confirmText, setConfirmText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const matches = confirmText.trim() === workspace.name;
+
+  const purge = async () => {
+    if (!matches) return;
+    setBusy(true);
+    try {
+      const r = await OrganizationService.purgeWorkspace(workspace.id, confirmText.trim());
+      if (r.success) { toast.success(r.message || 'Workspace permanently deleted.'); await onPurged(); }
+      else toast.error(r.message || 'Failed to delete.');
+    } catch (err) {
+      const v = err as { response?: { data?: { message?: string } } };
+      toast.error(v.response?.data?.message ?? 'Failed to delete.');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-red-500/20 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 text-red-300">
+          <AlertTriangle className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Permanently delete workspace</h2>
+        </div>
+        <p className="text-sm text-slate-300 mt-3 leading-relaxed">
+          This <span className="font-semibold text-red-300">cannot be undone</span>. It will permanently
+          delete <span className="font-semibold text-white">{workspace.name}</span> and{' '}
+          <span className="font-semibold">every record inside it</span> — accounting, inventory, orders,
+          storefront, members and more. Prefer Restore unless you're certain.
+        </p>
+        <label className="block mt-5 text-sm text-slate-400 mb-2">
+          Type <span className="font-semibold text-white">{workspace.name}</span> to confirm
+        </label>
+        <input
+          autoFocus
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder={workspace.name}
+          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5">Cancel</button>
+          <button
+            onClick={purge}
+            disabled={!matches || busy}
+            className="px-4 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-500 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {busy ? 'Deleting…' : 'Delete forever'}
+          </button>
         </div>
       </div>
     </div>

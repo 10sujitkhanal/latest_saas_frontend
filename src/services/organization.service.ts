@@ -143,8 +143,10 @@ export const OrganizationService = {
   },
 
   // Workspaces
-  listWorkspaces: async () => {
-    const { data } = await apiClient.get('/organization/workspaces/');
+  listWorkspaces: async (opts?: { archived?: boolean }) => {
+    const { data } = await apiClient.get('/organization/workspaces/', {
+      params: opts?.archived ? { archived: 'true' } : undefined,
+    });
     return data;
   },
   createWorkspace: async (name: string, industry?: string) => {
@@ -159,8 +161,24 @@ export const OrganizationService = {
     const { data } = await apiClient.patch(`/organization/workspaces/${id}/`, payload);
     return data;
   },
-  deleteWorkspace: async (id: number) => {
+  // "Delete" = archive (soft). The workspace and everything inside it stay in
+  // the database; it just leaves the dashboard/switcher and its storefront stops
+  // serving. Reversible via restoreWorkspace.
+  archiveWorkspace: async (id: number) => {
     const { data } = await apiClient.delete(`/organization/workspaces/${id}/`);
+    return data;
+  },
+  restoreWorkspace: async (id: number) => {
+    const { data } = await apiClient.post(`/organization/workspaces/${id}/`);
+    return data;
+  },
+  // Permanent (cascading) delete — only allowed on an already-archived
+  // workspace, and only when confirmName matches the workspace name exactly.
+  purgeWorkspace: async (id: number, confirmName: string) => {
+    const { data } = await apiClient.delete(`/organization/workspaces/${id}/`, {
+      params: { permanent: '1' },
+      data: { confirm_name: confirmName },
+    });
     return data;
   },
   listWorkspaceMembers: async (id: number) => {
@@ -1448,6 +1466,10 @@ export interface Workspace {
   created_at: string;
   role: 'owner' | 'admin' | 'manager' | 'sales' | 'viewer' | null;
   member_count: number;
+  /** ISO timestamp when archived (soft-deleted); null = active. */
+  archived_at?: string | null;
+  /** Email of the admin who archived it, if archived. */
+  archived_by_email?: string | null;
 }
 
 export interface WorkspaceMember {
