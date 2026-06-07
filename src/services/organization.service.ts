@@ -15,6 +15,12 @@ export const OrganizationService = {
     const { data } = await apiClient.post('/organization/auth/refresh/', { refresh });
     return data;
   },
+  // Exchange a one-time agency SSO ticket for this workspace's tokens (Internal
+  // Management hand-off from the agency portal). Public endpoint, no auth needed.
+  ssoExchange: async (ticket: string) => {
+    const { data } = await apiClient.post('/public/agency/internal/exchange/', { ticket });
+    return data;
+  },
   test: async () => {
     const { data } = await apiClient.get('/organization/test/');
     return data;
