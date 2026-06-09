@@ -979,6 +979,43 @@ export async function createPublicSubscription(
   };
 }
 
+// ─── Membership join (scan QR → become a member of THIS business) ─────────────
+
+export interface MembershipJoinPayload {
+  planId: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+export interface MembershipJoinResult {
+  memberNo: string;
+  plan: string;
+  /** True when an active membership already existed (idempotent re-join). */
+  alreadyMember: boolean;
+}
+
+/**
+ * Join a membership plan on this business's storefront (anonymous, public).
+ * Hits the same backend the QR `?join=1` flow targets. The backend is the
+ * source of truth: it is workspace-scoped and idempotent (one active membership
+ * per customer+workspace+plan), so a re-scan returns the existing membership.
+ *
+ * Unlike the other public helpers, this does NOT mock on failure — the caller
+ * needs the real outcome and any real error message.
+ */
+export async function joinMembership(slug: string, payload: MembershipJoinPayload): Promise<MembershipJoinResult> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/subscribe/`, {
+    plan_id: payload.planId,
+    customer: { name: payload.name, email: payload.email, phone: payload.phone ?? "" },
+  });
+  return {
+    memberNo: String(data?.member_no ?? ""),
+    plan: String(data?.plan ?? ""),
+    alreadyMember: Boolean(data?.already_member),
+  };
+}
+
 // ─── Fika Loyalty Stamps ──────────────────────────────────────────────────────
 
 export interface StampState {

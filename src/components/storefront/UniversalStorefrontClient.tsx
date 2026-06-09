@@ -12,6 +12,7 @@ import { createPublicOrder, createPublicBooking } from "@/lib/storefront/storefr
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
 import { getIndustryCapabilities, type BookingType } from "@/lib/industry/config";
 import { BusinessMembershipPanel } from "@/components/moredealsx/BusinessMembershipPanel";
+import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import type { MdxBusiness } from "@/lib/moredealsx/types";
 import { formatCurrencyMarket, buildSwishLink, getVatLabel, isPriceInclusive } from "@/lib/utils/currency";
 import { WellnessStorefrontClient } from "@/components/storefront/WellnessStorefrontClient";
@@ -31,7 +32,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;   // ?ref=CODE affiliate tracking
-  joinIntent?:  boolean;  // ?join=1 membership QR deep-link — focus membership section (UX lives in latest_moredealsx)
+  joinIntent?:  boolean;  // ?join=1 membership QR deep-link — scrolls/focuses the membership join section
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1056,7 +1057,7 @@ function FloatingActions({ phone }: { phone?: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function UniversalStorefrontClient({ storefront, items, offers, availability, refCode }: Props) {
+export function UniversalStorefrontClient({ storefront, items, offers, availability, refCode, joinIntent }: Props) {
   // Industry-specific storefront routing
   if (storefront.industry === "Wellness / Supplements" || storefront.industry === "Wellness / Natural Beauty" || storefront.industry.toLowerCase().startsWith("wellness")) {
     return <WellnessStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
@@ -1563,15 +1564,24 @@ export function UniversalStorefrontClient({ storefront, items, offers, availabil
           </div>
         </div>
 
-        {/* Membership panel */}
-        {caps.membershipEnabled && (
+        {/* Membership panel — real joinable plans (scan-QR → join) when the
+            business sells memberships; otherwise the marketing/loyalty panel. */}
+        {(storefront.memberships?.length ?? 0) > 0 ? (
+          <div className="mt-8">
+            <MembershipJoinSection
+              slug={storefront.slug}
+              memberships={storefront.memberships ?? []}
+              joinIntent={joinIntent}
+            />
+          </div>
+        ) : caps.membershipEnabled ? (
           <div className="mt-8">
             <p className={`mb-3 flex items-center gap-2 font-bold text-slate-900`}>
               <Shield className={`h-4 w-4 ${darkClass}`} /> Membership & loyalty
             </p>
             <BusinessMembershipPanel business={bizAsLegacy} />
           </div>
-        )}
+        ) : null}
 
         {/* Cross-sell section */}
         {caps.crossSellCategories.length > 0 && (
