@@ -8,10 +8,13 @@ import { useBranding } from '@/lib/branding';
 /**
  * Public routes that must render WITHOUT a registered tenant — the apex
  * marketing landing, the signup/partner flows, and the consumer surfaces
- * (MoreDealsX, public storefront, public booking). These resolve their own
- * tenant (by path) or need none, so the org gate must not block them.
+ * (public storefront, public booking). These resolve their own tenant (by
+ * path) or need none, so the org gate must not block them.
+ *
+ * NOTE: the MoreDealsX `/deals` feed was extracted to the standalone (parked)
+ * latest_moredealsx app, so it's no longer a route here.
  */
-const PUBLIC_PREFIXES = ['/signup', '/deals', '/store', '/book', '/quote', '/invoice'];
+const PUBLIC_PREFIXES = ['/signup', '/store', '/book', '/quote', '/invoice'];
 function isPublicPath(pathname: string): boolean {
   if (pathname === '/') return true;
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
