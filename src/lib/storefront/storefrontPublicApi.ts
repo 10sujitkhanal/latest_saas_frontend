@@ -92,6 +92,18 @@ function _mapStorefront(b: any): PublicStorefront {
     orderingEnabled: !!b.capabilities?.show_cart,
     bookingEnabled: _bookingOpen(b),
     galleryImages: [],
+    memberships: Array.isArray(b.memberships)
+      ? b.memberships.map((m: any): PublicMembershipPlan => ({
+          id: String(m.id),
+          name: m.name || "",
+          description: m.description || "",
+          price: String(m.price ?? "0"),
+          currency: m.currency || sf.currency || "",
+          interval: m.interval || "monthly",
+          benefits: m.benefits || "",
+          memberDiscountPercent: Number(m.member_discount_percent ?? 0),
+        }))
+      : [],
   };
 }
 
@@ -191,6 +203,21 @@ export interface PublicStorefront {
     facebook?: string; instagram?: string; tiktok?: string;
     youtube?: string; linkedin?: string; twitter?: string; website?: string;
   };
+  /** Published membership plans a shopper can join on this store. */
+  memberships?: PublicMembershipPlan[];
+}
+
+/** A membership plan as a shopper sees it on the storefront. */
+export interface PublicMembershipPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  currency: string;
+  interval: string;
+  benefits: string;
+  /** Automatic % off storefront orders for active members of this plan (0 = none). */
+  memberDiscountPercent: number;
 }
 
 export interface PublicCategory {

@@ -10,7 +10,7 @@ import {
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
 } from '@/components/loyalty/kit';
 
-const empty = { name: '', price: '0', currency: businessCurrency(), interval: 'monthly', benefits: '', description: '', is_active: true, is_public: false };
+const empty = { name: '', price: '0', currency: businessCurrency(), interval: 'monthly', benefits: '', member_discount_percent: '0', description: '', is_active: true, is_public: false };
 
 export default function MembershipPlansPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -31,7 +31,7 @@ function Inner({ wsId }: { wsId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
 
   const openCreate = () => { setEditing(null); setForm(empty); setFormError(null); setOpen(true); };
-  const openEdit = (p: MembershipPlanRow) => { setEditing(p); setForm({ name: p.name, price: String(p.price), currency: p.currency, interval: p.interval, benefits: p.benefits || '', description: p.description || '', is_active: p.is_active, is_public: Boolean(p.is_public) }); setFormError(null); setOpen(true); };
+  const openEdit = (p: MembershipPlanRow) => { setEditing(p); setForm({ name: p.name, price: String(p.price), currency: p.currency, interval: p.interval, benefits: p.benefits || '', member_discount_percent: String(p.member_discount_percent ?? '0'), description: p.description || '', is_active: p.is_active, is_public: Boolean(p.is_public) }); setFormError(null); setOpen(true); };
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault(); setSaving(true); setFormError(null);
@@ -58,7 +58,7 @@ function Inner({ wsId }: { wsId: string }) {
             {rows.map((p) => (
               <tr key={p.id} className="text-slate-300">
                 <td className="px-3 py-2 font-medium text-white">{p.name}</td>
-                <td className="px-3 py-2">{p.interval.replace('_', ' ')}</td>
+                <td className="px-3 py-2">{p.interval.replace('_', ' ')}{Number(p.member_discount_percent ?? 0) > 0 && <span className="ml-2 text-[10px] text-emerald-300">−{Number(p.member_discount_percent)}% members</span>}</td>
                 <td className="px-3 py-2 text-right">{money(p.price, p.currency)}</td>
                 <td className="px-3 py-2 text-center"><Pill>{p.is_active ? 'active' : 'inactive'}</Pill>{p.is_public && <span className="ml-1 text-[10px] text-pink-300">public</span>}</td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -80,6 +80,10 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
           </div>
           <Field label="Benefits"><TextInput value={form.benefits} onChange={(e) => setForm({ ...form, benefits: e.target.value })} /></Field>
+          <Field label="Member discount %">
+            <TextInput type="number" step="0.01" min="0" max="100" value={form.member_discount_percent} onChange={(e) => setForm({ ...form, member_discount_percent: e.target.value })} />
+            <span className="mt-1 block text-[11px] text-slate-500">Automatic % off storefront orders for active members (0 = none).</span>
+          </Field>
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="h-4 w-4 accent-pink-500" /> Active</label>
             <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} className="h-4 w-4 accent-pink-500" /> Sell on storefront (public)</label>

@@ -31,6 +31,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;   // ?ref=CODE affiliate tracking
+  joinIntent?:  boolean;  // ?join=1 membership QR deep-link — focus membership section (UX lives in latest_moredealsx)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -45,12 +45,17 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
   const [data, setData] = useState<Loaded | null>(null);
   const [state, setState] = useState<'loading' | 'notfound' | 'ok'>('loading');
   const [refCode, setRefCode] = useState<string | undefined>(undefined);
+  // ?join=1 (the membership QR deep-link) — land the shopper on the membership
+  // section so they can become a member in a tap.
+  const [joinIntent, setJoinIntent] = useState(false);
 
   useEffect(() => {
     let alive = true;
     if (typeof window !== 'undefined') {
-      const r = new URLSearchParams(window.location.search).get('ref');
+      const sp = new URLSearchParams(window.location.search);
+      const r = sp.get('ref');
       if (r) setRefCode(r);
+      if (sp.get('join') === '1' || sp.has('join')) setJoinIntent(true);
     }
     (async () => {
       const [storefront, items, offers, availability] = await Promise.all([
@@ -95,6 +100,7 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
         offers={data.offers}
         availability={data.availability}
         refCode={refCode}
+        joinIntent={joinIntent}
       />
     </>
   );

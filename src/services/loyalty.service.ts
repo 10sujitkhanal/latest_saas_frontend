@@ -9,7 +9,7 @@ export interface GiftCardRow {
 }
 export interface MembershipPlanRow {
   id: number; name: string; description?: string; price: string; currency: string;
-  interval: 'monthly' | 'quarterly' | 'yearly' | 'one_time'; benefits?: string; is_active: boolean; is_public?: boolean;
+  interval: 'monthly' | 'quarterly' | 'yearly' | 'one_time'; benefits?: string; member_discount_percent?: string; is_active: boolean; is_public?: boolean;
 }
 export interface MembershipRow {
   id: number; customer: number; customer_name?: string | null; plan: number; plan_name?: string | null;
