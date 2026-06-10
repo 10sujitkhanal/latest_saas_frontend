@@ -221,6 +221,10 @@ export const OrganizationService = {
     const { data } = await apiClient.get(`/organization/workspaces/${id}/setup-hub/`);
     return data;
   },
+  applySellableSetup: async (id: number, payload: { setup_token: string; items: unknown[] }) => {
+    const { data } = await apiClient.post(`/organization/workspaces/${id}/sellable-setup/`, payload);
+    return data;
+  },
   workspaceLeadsList: async (
     id: number,
     params?: {

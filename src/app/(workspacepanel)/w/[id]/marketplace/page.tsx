@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
 import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
-import { Globe } from 'lucide-react';
+import { Globe, Sparkles } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { MarketplaceService, type ListingRow } from '@/services/marketplace.service';
@@ -90,6 +90,15 @@ function Inner({ wsId }: { wsId: string }) {
   return (
     <div className="space-y-5">
       <PageHeader title="Marketplace Listings" subtitle="Manage and publish product listings, then open your public storefront to take orders." action={<AddButton label="New listing" onClick={openCreate} />} />
+      {rows.length === 0 && (
+        <Link href={`/w/${wsId}/marketplace/setup`} className="flex items-center gap-3 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.06] px-4 py-3 hover:bg-emerald-500/[0.1] transition-colors">
+          <Sparkles className="h-5 w-5 text-emerald-300" />
+          <span className="flex-1">
+            <span className="block text-sm font-semibold text-white">Set up products or services</span>
+            <span className="block text-[11px] text-slate-400">New here? Add your catalog the quick, guided way — pick categories, add items, save as drafts →</span>
+          </span>
+        </Link>
+      )}
       <Link href={`/w/${wsId}/marketplace/storefront`} className="flex items-center gap-3 rounded-xl border border-pink-400/20 bg-pink-500/[0.05] px-4 py-3 hover:bg-pink-500/[0.1] transition-colors">
         <Globe className="h-5 w-5 text-pink-300" />
         <span className="flex-1">
