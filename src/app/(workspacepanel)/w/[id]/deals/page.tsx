@@ -204,7 +204,7 @@ function DealsStorefrontPanel({ wsId, coupons, settings, refreshSettings, reload
     const offending = coupons.find((c) => c.status === 'active') ?? coupons[0];
     missing.push({ text: 'Your active coupon isn’t in its date window', fix: { label: 'Review dates', onClick: () => onEditCoupon(offending) } });
   }
-  if (!storeOpen) missing.push({ text: 'Your storefront is closed', fix: { label: 'Open storefront setup', href: `/w/${wsId}/marketplace/storefront` } });
+  if (!storeOpen) missing.push({ text: 'Your business isn’t public yet', fix: { label: 'Go live', href: `/w/${wsId}/marketplace/storefront` } });
 
   const FixButton = ({ fix }: { fix: Fix }) => fix.href ? (
     <Link href={fix.href} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500">{fix.label} <ArrowRight className="h-3 w-3" /></Link>

@@ -132,7 +132,7 @@ function GiftCardStorefrontPanel({ wsId, cards, settings, refreshSettings, onIss
   type Fix = { label: string; onClick?: () => void; href?: string; pending?: boolean };
   const missing: { text: string; fix: Fix }[] = [];
   if (!accept) missing.push({ text: 'Gift cards aren’t accepted at checkout', fix: { label: 'Accept gift cards', onClick: enableAccept, pending: busy } });
-  if (!storeOpen) missing.push({ text: 'Your storefront is closed', fix: { label: 'Open storefront setup', href: `/w/${wsId}/marketplace/storefront` } });
+  if (!storeOpen) missing.push({ text: 'Your business isn’t public yet', fix: { label: 'Go live', href: `/w/${wsId}/marketplace/storefront` } });
 
   const FixButton = ({ fix }: { fix: Fix }) => fix.href ? (
     <Link href={fix.href} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500">{fix.label} <ArrowRight className="h-3 w-3" /></Link>
