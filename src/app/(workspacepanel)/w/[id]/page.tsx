@@ -15,6 +15,7 @@ import MoreTechAIPromo from '@/components/workspace/MoreTechAIPromo';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore, hasPermission } from '@/store/authStore';
 import { industryProfile, type WsCapabilities, type QuickAction } from '@/lib/workspaceIndustry';
+import { SetupHub, type SetupHubData } from '@/components/workspace/SetupHub';
 
 interface Ctx {
   workspace: { id: number; name: string; created_at: string; industry: string | null; effective_industry: string | null };
@@ -63,6 +64,7 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
   const { id } = reactUse(params);
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [setup, setSetup] = useState<SetupStatus | null>(null);
+  const [setupHub, setSetupHub] = useState<SetupHubData | null>(null);
 
   useEffect(() => {
     OrganizationService.workspaceContext(Number(id)).then((res) => {
@@ -72,6 +74,18 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
       if (res?.success) setSetup(res.data);
     });
   }, [id]);
+
+  // Wellness-first Setup Hub (Layer 1): only fetched/rendered for wellness
+  // tenants while the engine is wellness-only. Other industries get it later.
+  const isWellness = (ctx?.workspace.effective_industry || ctx?.workspace.industry || '')
+    .toLowerCase().startsWith('wellness');
+
+  useEffect(() => {
+    if (!isWellness) return;
+    OrganizationService.workspaceSetupHub(Number(id)).then((res) => {
+      if (res?.success) setSetupHub(res.data);
+    });
+  }, [id, isWellness]);
 
   if (!ctx) return <PageSpinner />;
 
@@ -92,6 +106,11 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
           </span>
         </div>
       )}
+
+      {/* Store readiness Setup Hub (wellness) — real-data Live / Action needed
+          cards with one-click fixes. Owner-facing, self-explaining; only shown
+          for wellness tenants for now. */}
+      {isWellness && <SetupHub data={setupHub} workspaceId={id} />}
 
       {/* Setup checklist — surfaces every "do this before AI can run" item.
           Shows only the items that still need attention; collapses to a

@@ -217,6 +217,10 @@ export const OrganizationService = {
     const { data } = await apiClient.get(`/organization/workspaces/${id}/health/`);
     return data;
   },
+  workspaceSetupHub: async (id: number) => {
+    const { data } = await apiClient.get(`/organization/workspaces/${id}/setup-hub/`);
+    return data;
+  },
   workspaceLeadsList: async (
     id: number,
     params?: {
