@@ -60,8 +60,12 @@ function Wizard({ wsId }: { wsId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set(categories.filter((c) => c.recommended).map((c) => c.key)));
   const [custom, setCustom] = useState<SellableCategory[]>([]);
   const [items, setItems] = useState<StagedItem[]>([]);
-  const [token] = useState<string>(uid());
+  // Persisted with the draft so a retry after a dropped connection reuses the
+  // SAME idempotency token — the backend then returns the existing result
+  // instead of creating duplicates.
+  const [token, setToken] = useState<string>(uid());
   const [hydrated, setHydrated] = useState(false);
+  const [resumed, setResumed] = useState(false);
 
   const [newCat, setNewCat] = useState('');
   const [newCatType, setNewCatType] = useState<SellableType>('product');
@@ -76,9 +80,13 @@ function Wizard({ wsId }: { wsId: string }) {
       const raw = localStorage.getItem(storeKey);
       if (raw) {
         const d = JSON.parse(raw);
+        if (typeof d.token === 'string' && d.token) setToken(d.token);   // reuse token → idempotent retry
         if (Array.isArray(d.selected)) setSelected(new Set(d.selected));
         if (Array.isArray(d.custom)) setCustom(d.custom);
-        if (Array.isArray(d.items)) setItems(d.items.map((i: StagedItem) => ({ ...i, imageFile: null })));
+        if (Array.isArray(d.items) && d.items.length > 0) {
+          setItems(d.items.map((i: StagedItem) => ({ ...i, imageFile: null })));
+          setResumed(true);   // tell the owner their work carried over
+        }
       }
     } catch { /* ignore */ }
     setHydrated(true);
@@ -89,11 +97,12 @@ function Wizard({ wsId }: { wsId: string }) {
     if (!hydrated) return;
     try {
       localStorage.setItem(storeKey, JSON.stringify({
+        token,
         selected: [...selected], custom,
         items: items.map(({ imageFile, ...rest }) => rest),
       }));
     } catch { /* ignore */ }
-  }, [selected, custom, items, hydrated, storeKey]);
+  }, [token, selected, custom, items, hydrated, storeKey]);
 
   const allCats = useMemo(() => [...categories, ...custom], [categories, custom]);
   const selectedCats = allCats.filter((c) => selected.has(c.key));
@@ -210,6 +219,13 @@ function Wizard({ wsId }: { wsId: string }) {
         <p className="text-[13px] text-slate-400">Pick categories, add a few items, review — everything saves as a draft. Nothing goes public until you publish it.</p>
       </div>
       <Stepper step={step} />
+
+      {resumed && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.06] px-4 py-2.5 text-[12px] text-emerald-100">
+          <span>We saved your progress — picking up where you left off. (Re-add any photos.)</span>
+          <button type="button" onClick={() => setResumed(false)} className="shrink-0 font-semibold text-emerald-300 hover:text-emerald-200">Dismiss</button>
+        </div>
+      )}
 
       {step === 1 && (
         <Card>
