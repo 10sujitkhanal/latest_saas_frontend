@@ -181,14 +181,17 @@ function Inner({ wsId }: { wsId: string }) {
             <Card>
               <h3 className="text-sm font-semibold text-white px-1 pb-3">Set up your storefront features</h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Only show features that apply to this industry — no greyed-out
+                    "not typical" / "planned" noise (e.g. a wellness store cart-
+                    checks out, so Bookings/Events simply don't appear). */}
                 <ManageCard icon={<Package className="h-5 w-5" />} title="Products / Listings" desc="What customers browse & buy." href={`/w/${wsId}/marketplace`} enabled />
-                <ManageCard icon={<Ticket className="h-5 w-5" />} title="Deals & coupons" desc="Discount codes shown on the store." href={`/w/${wsId}/deals`} enabled={caps.deals_enabled} />
-                <ManageCard icon={<Star className="h-5 w-5" />} title="Memberships" desc="Sell membership plans on the store." href={`/w/${wsId}/loyalty/plans`} enabled={caps.membership_enabled} />
-                <ManageCard icon={<Gift className="h-5 w-5" />} title="Gift cards" desc="Issue & redeem prepaid balances." href={`/w/${wsId}/loyalty/gift-cards`} enabled={caps.gift_cards_enabled} />
-                <ManageCard icon={<Sparkles className="h-5 w-5" />} title="Loyalty points" desc="Reward repeat customers." href={`/w/${wsId}/loyalty/accounts`} enabled={caps.affiliate_enabled || caps.membership_enabled} />
-                <ManageCard icon={<CalendarDays className="h-5 w-5" />} title="Events" desc="Ticketed events & RSVPs." href={null} enabled={caps.events_enabled} planned />
-                <ManageCard icon={<CalendarCheck className="h-5 w-5" />} title={`Bookings (${BOOKING_LABEL[caps.booking_type] || caps.booking_type})`} desc="Appointments / reservations." href={caps.booking_type !== 'none' ? `/w/${wsId}/marketplace/bookings` : null} enabled={caps.booking_type !== 'none'} />
+                {caps.deals_enabled && <ManageCard icon={<Ticket className="h-5 w-5" />} title="Deals & coupons" desc="Discount codes shown on the store." href={`/w/${wsId}/deals`} enabled />}
+                {caps.membership_enabled && <ManageCard icon={<Star className="h-5 w-5" />} title="Memberships" desc="Sell membership plans on the store." href={`/w/${wsId}/loyalty/plans`} enabled />}
+                {caps.gift_cards_enabled && <ManageCard icon={<Gift className="h-5 w-5" />} title="Gift cards" desc="Issue & redeem prepaid balances." href={`/w/${wsId}/loyalty/gift-cards`} enabled />}
+                {(caps.affiliate_enabled || caps.membership_enabled) && <ManageCard icon={<Sparkles className="h-5 w-5" />} title="Loyalty points" desc="Reward repeat customers." href={`/w/${wsId}/loyalty/accounts`} enabled />}
+                {caps.booking_type !== 'none' && <ManageCard icon={<CalendarCheck className="h-5 w-5" />} title={`Bookings (${BOOKING_LABEL[caps.booking_type] || caps.booking_type})`} desc="Appointments / reservations." href={`/w/${wsId}/marketplace/bookings`} enabled />}
                 {(caps.booking_type === 'table' || caps.show_table_selection) && <ManageCard icon={<Users className="h-5 w-5" />} title="Tables" desc="Floor & table management." href={`/w/${wsId}/marketplace/tables`} enabled />}
+                {caps.events_enabled && <ManageCard icon={<CalendarDays className="h-5 w-5" />} title="Events" desc="Ticketed events & RSVPs." href={null} enabled planned />}
               </div>
             </Card>
           )}
