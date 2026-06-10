@@ -22,7 +22,7 @@ import Link from 'next/link';
 import {
   MapPin, Store, Package, BadgeCheck, CalendarClock, Ticket,
   Wallet, Users, Building2, Circle, CheckCircle2, AlertTriangle,
-  Sparkles, ArrowRight, Target,
+  Sparkles, ArrowRight, Target, ShoppingCart, CalendarDays, Boxes, PlusCircle,
 } from 'lucide-react';
 import { Skeleton } from '@/components/workspace/Skeleton';
 
@@ -53,6 +53,11 @@ const CARD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   payments: Wallet,
   team: Users,
   wholesale: Building2,
+  orders: ShoppingCart,
+  events: CalendarDays,
+  inventory: Boxes,
+  upsells: PlusCircle,
+  addons: PlusCircle,
 };
 
 // Goals the owner can declare. Each maps to the card keys it depends on, so we
@@ -69,10 +74,10 @@ const WELLNESS_GOALS: Goal[] = [
 ];
 const ALWAYS_SHOW = new Set(['store_address', 'storefront', 'payments']);
 
-function goalsForIndustry(_industry: string): Goal[] {
-  // Wellness-first MVP; other industries fall back to the same goal set until
-  // they get their own (mirrors the backend's wellness fallback).
-  return WELLNESS_GOALS;
+function goalsForIndustry(industry: string): Goal[] {
+  // The goal chips are tuned for wellness; other industries show the cards
+  // without a (mismatched) goal picker until their own goals are defined.
+  return (industry || '').toLowerCase().startsWith('wellness') ? WELLNESS_GOALS : [];
 }
 
 const STATUS_BADGE: Record<SetupCardData['status'], { label: string; cls: string }> = {

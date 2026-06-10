@@ -75,17 +75,13 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
     });
   }, [id]);
 
-  // Wellness-first Setup Hub (Layer 1): only fetched/rendered for wellness
-  // tenants while the engine is wellness-only. Other industries get it later.
-  const isWellness = (ctx?.workspace.effective_industry || ctx?.workspace.industry || '')
-    .toLowerCase().startsWith('wellness');
-
+  // Store-readiness Setup Hub — now industry-aware (the backend returns the
+  // right cards per the workspace's industry), so it's shown for every industry.
   useEffect(() => {
-    if (!isWellness) return;
     OrganizationService.workspaceSetupHub(Number(id)).then((res) => {
       if (res?.success) setSetupHub(res.data);
     });
-  }, [id, isWellness]);
+  }, [id]);
 
   if (!ctx) return <PageSpinner />;
 
@@ -107,10 +103,10 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      {/* Store readiness Setup Hub (wellness) — real-data Live / Action needed
-          cards with one-click fixes. Owner-facing, self-explaining; only shown
-          for wellness tenants for now. */}
-      {isWellness && <SetupHub data={setupHub} workspaceId={id} />}
+      {/* Store-readiness Setup Hub — industry-aware real-data Live / Action
+          needed cards with one-click fixes. The backend returns the right card
+          set per the workspace's industry. */}
+      {setupHub && <SetupHub data={setupHub} workspaceId={id} />}
 
       {/* Setup checklist — surfaces every "do this before AI can run" item.
           Shows only the items that still need attention; collapses to a
