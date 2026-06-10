@@ -123,6 +123,43 @@ function Inner({ wsId }: { wsId: string }) {
 
       {loading ? <PageSkeleton kind="form" /> : error ? <ErrorBox message={error} onRetry={load} /> : s ? (
         <>
+          {/* Go-live status — the single, clear "is my business public?" control.
+              This is THE switch that makes the store + everything published
+              visible; it's deliberately lifted out of the toggle grid below so
+              it never reads as just another checkbox. */}
+          <Card>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${s.is_open ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-300'}`}>
+                  <Globe className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-white">{s.is_open ? 'Your business is live' : 'Your business isn’t public yet'}</h3>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.is_open ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{s.is_open ? 'Live' : 'Not live'}</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-slate-400">
+                    {s.is_open
+                      ? 'Customers can find your store and everything you’ve published — products, memberships, bookings & coupons.'
+                      : 'Going live makes your storefront and everything you’ve published — products, memberships, bookings & coupons — public to customers.'}
+                  </p>
+                  {s.is_open && storeHref && (
+                    <a href={storeHref} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-emerald-300 hover:text-emerald-200 break-all">
+                      {storeHref.replace(/^https?:\/\//, '')} ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => patch({ is_open: !s.is_open })}
+                disabled={saving}
+                className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50 ${s.is_open ? 'border border-white/15 text-slate-200 hover:bg-white/10' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
+              >
+                {saving ? 'Saving…' : s.is_open ? 'Take store offline' : 'Go live'}
+              </button>
+            </div>
+          </Card>
+
           {/* Industry banner */}
           {caps && (
             <Card>
@@ -156,14 +193,14 @@ function Inner({ wsId }: { wsId: string }) {
             </Card>
           )}
 
-          {/* Visibility & orders */}
+          {/* Checkout & selling options — what happens once you're live. The
+              go-live switch itself lives in the status hero above. */}
           <Card>
             <div className="flex items-center justify-between px-1 pb-3">
-              <h3 className="text-sm font-semibold text-white">Visibility &amp; orders</h3>
+              <h3 className="text-sm font-semibold text-white">Checkout &amp; selling options</h3>
               {saved && <span className="text-[11px] text-emerald-300">Saved</span>}
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {toggle('is_open', 'Open storefront', 'List this workspace + its published items publicly.')}
               {toggle('accept_orders', 'Accept orders', 'Allow anonymous shoppers to place orders.', caps?.show_cart)}
               {toggle('auto_fulfill', 'Auto-fulfil stock', 'Deduct inventory when an order is placed.')}
               {toggle('auto_invoice', 'Auto-invoice', 'Create + post an invoice to the ledger.')}
