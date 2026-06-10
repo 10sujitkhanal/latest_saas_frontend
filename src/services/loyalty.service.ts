@@ -12,7 +12,8 @@ export interface MembershipPlanRow {
   interval: 'monthly' | 'quarterly' | 'yearly' | 'one_time'; benefits?: string; member_discount_percent?: string; is_active: boolean; is_public?: boolean;
 }
 export interface MembershipRow {
-  id: number; customer: number; customer_name?: string | null; plan: number; plan_name?: string | null;
+  id: number; customer: number; customer_name?: string | null; customer_email?: string | null; customer_phone?: string | null;
+  plan: number; plan_name?: string | null;
   member_no: string; start_date: string; end_date?: string | null; status: 'active' | 'expired' | 'cancelled'; auto_renew: boolean;
 }
 export interface LoyaltyAccountRow {
