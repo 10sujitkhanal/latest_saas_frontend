@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicOrder, createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
+import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import { formatCurrencyMarket, buildSwishLink, isPriceInclusive, getVatLabel } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -22,6 +23,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;
+  joinIntent?:  boolean;
 }
 
 type CartMap = Record<string, number>;
@@ -837,7 +839,7 @@ function OfferCard({ offer }: { offer: PublicOffer }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function CraftBeerStorefrontClient({ storefront, items, offers, availability, refCode }: Props) {
+export function CraftBeerStorefrontClient({ storefront, items, offers, availability, refCode, joinIntent }: Props) {
   // Admin localStorage bridge (same pattern as UniversalStorefrontClient)
   const [liveData, setLiveData] = useState({
     logoUrl:     storefront.logoUrl,
@@ -1043,6 +1045,13 @@ export function CraftBeerStorefrontClient({ storefront, items, offers, availabil
           ))}
         </div>
       </div>
+
+      {/* Membership join (scan-QR → become a member) — after hero, before products */}
+      {(storefront.memberships?.length ?? 0) > 0 && (
+        <div className="mx-auto max-w-6xl px-4 pt-8">
+          <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
+        </div>
+      )}
 
       {/* Offers strip */}
       {liveOffers.length > 0 && (

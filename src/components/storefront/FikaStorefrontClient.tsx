@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicOrder } from "@/lib/storefront/storefrontPublicApi";
+import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import { formatCurrencyMarket, buildSwishLink, isPriceInclusive, getVatLabel } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -22,6 +23,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;
+  joinIntent?:  boolean;
 }
 
 type CartMap = Record<string, number>;
@@ -630,7 +632,7 @@ function FikaCartPanel({ cart, items, storefront, availability, stamps, onAdd, o
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FikaStorefrontClient({ storefront, items, offers, availability, refCode }: Props) {
+export function FikaStorefrontClient({ storefront, items, offers, availability, refCode, joinIntent }: Props) {
   const cacheKey  = `storefront_cache_${storefront.slug}`;
   const stampsKey = `fika_stamps_${storefront.slug}`;
 
@@ -793,6 +795,13 @@ export function FikaStorefrontClient({ storefront, items, offers, availability, 
           ))}
         </div>
       </div>
+
+      {/* Membership join (scan-QR → become a member) — after hero, before products */}
+      {(storefront.memberships?.length ?? 0) > 0 && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
+          <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
+        </div>
+      )}
 
       {/* Main */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">

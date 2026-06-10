@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
+import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import { formatCurrencyMarket } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -19,6 +20,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;
+  joinIntent?:  boolean;
 }
 
 function fmt(n: number, currency = "SEK") {
@@ -200,7 +202,7 @@ function BookingModal({
   );
 }
 
-export function SalonStorefrontClient({ storefront, items, offers }: Props) {
+export function SalonStorefrontClient({ storefront, items, offers, joinIntent }: Props) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedService, setSelectedService] = useState<PublicItem | null>(null);
   const [showBooking, setShowBooking] = useState(false);
@@ -281,6 +283,11 @@ export function SalonStorefrontClient({ storefront, items, offers }: Props) {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Membership join (scan-QR → become a member) — after hero, before services */}
+        {(storefront.memberships?.length ?? 0) > 0 && (
+          <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
         )}
 
         {/* Services */}

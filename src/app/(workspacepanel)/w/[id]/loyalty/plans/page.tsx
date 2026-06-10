@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useState, use as reactUse } from 'react';
+import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import Link from 'next/link';
 import { businessCurrency } from '@/lib/currency';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type MembershipPlanRow } from '@/services/loyalty.service';
+import { MarketplaceService, type StorefrontSettingsRow } from '@/services/marketplace.service';
+import { ShieldCheck, AlertTriangle, QrCode, Copy, Check, ArrowRight, ExternalLink } from 'lucide-react';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
@@ -29,6 +32,11 @@ function Inner({ wsId }: { wsId: string }) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<StorefrontSettingsRow | null>(null);
+  const loadSettings = useCallback(() => {
+    MarketplaceService.getStorefront(wsId).then((r) => { if (r.success) setSettings(r.data); }).catch(() => {});
+  }, [wsId]);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
 
   const openCreate = () => { setEditing(null); setForm(empty); setFormError(null); setOpen(true); };
   const openEdit = (p: MembershipPlanRow) => { setEditing(p); setForm({ name: p.name, price: String(p.price), currency: p.currency, interval: p.interval, benefits: p.benefits || '', member_discount_percent: String(p.member_discount_percent ?? '0'), description: p.description || '', is_active: p.is_active, is_public: Boolean(p.is_public) }); setFormError(null); setOpen(true); };
@@ -52,6 +60,7 @@ function Inner({ wsId }: { wsId: string }) {
     <div className="space-y-5">
       <PageHeader title="Membership Plans" subtitle="Tiers customers can subscribe to." action={<AddButton label="New plan" onClick={openCreate} />} />
       <LoyaltyTabs wsId={wsId} />
+      <MembershipStorefrontPanel wsId={wsId} plans={rows} settings={settings} refreshSettings={loadSettings} reloadPlans={reload} onCreatePlan={openCreate} />
       {loading ? <PageSkeleton kind="list" /> : error ? <ErrorBox message={error} onRetry={reload} /> : (
         <Card>
           <TableShell head={<tr><th className="px-3 py-2">Name</th><th className="px-3 py-2">Interval</th><th className="px-3 py-2 text-right">Price</th><th className="px-3 py-2 text-center">Status</th><th className="px-3 py-2 text-right">Actions</th></tr>}>
@@ -96,5 +105,137 @@ function Inner({ wsId }: { wsId: string }) {
         </form>
       </Modal>
     </div>
+  );
+}
+
+/**
+ * Membership-on-storefront status + QR. Turns the otherwise-invisible 4-flag gate
+ * (plan is_active + is_public, storefront is_open + sell_memberships) into a single
+ * "Live / Not live yet" status with the exact missing items and safe one-click fixes.
+ */
+function MembershipStorefrontPanel({ wsId, plans, settings, refreshSettings, reloadPlans, onCreatePlan }: {
+  wsId: string;
+  plans: MembershipPlanRow[];
+  settings: StorefrontSettingsRow | null;
+  refreshSettings: () => void;
+  reloadPlans: () => void;
+  onCreatePlan: () => void;
+}) {
+  const [busy, setBusy] = useState<'public' | 'sell' | null>(null);
+  const [qr, setQr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const hasPlan = plans.length > 0;
+  const hasActive = plans.some((p) => p.is_active);
+  const hasPublic = plans.some((p) => p.is_active && p.is_public);
+  const storeOpen = Boolean(settings?.is_open);
+  const sellOn = Boolean(settings?.sell_memberships);
+  const live = hasPublic && storeOpen && sellOn;
+
+  // Public store URL — derived from the tenant subdomain; null on localhost/dev.
+  const storeHref = (() => {
+    if (typeof window === 'undefined') return null;
+    const label = window.location.hostname.split('.')[0];
+    if (!label || ['localhost', 'www', 'app', '127'].includes(label) || /^\d+$/.test(label)) return null;
+    return `${window.location.origin}/store/${label}`;
+  })();
+  const joinUrl = storeHref ? `${storeHref}?join=1` : null;
+
+  useEffect(() => {
+    if (!joinUrl) { setQr(null); return; }
+    let alive = true;
+    MarketplaceService.storefrontQr(wsId, joinUrl)
+      .then((r) => { if (alive && r.success) setQr(r.data.qr_data_url); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [wsId, joinUrl]);
+
+  const makePublic = async () => {
+    const target = plans.find((p) => p.is_active) ?? plans[0];
+    if (!target) { onCreatePlan(); return; }
+    setBusy('public');
+    try { await LoyaltyService.plans.update(wsId, target.id, { is_public: true, is_active: true }); reloadPlans(); }
+    catch (e) { alert(apiError(e, 'Could not update the plan.')); }
+    finally { setBusy(null); }
+  };
+
+  const enableSell = async () => {
+    setBusy('sell');
+    try { const r = await MarketplaceService.updateStorefront(wsId, { sell_memberships: true }); if (r.success) refreshSettings(); }
+    catch (e) { alert(apiError(e, 'Could not update the storefront.')); }
+    finally { setBusy(null); }
+  };
+
+  const copyLink = async () => {
+    if (!joinUrl) return;
+    try { await navigator.clipboard.writeText(joinUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    catch { prompt('Copy this membership link:', joinUrl); }
+  };
+
+  type Fix = { label: string; onClick?: () => void; href?: string; pending?: boolean };
+  const missing: { text: string; fix: Fix }[] = [];
+  if (!hasPlan) missing.push({ text: 'No membership plan yet', fix: { label: 'Create a plan', onClick: onCreatePlan } });
+  else if (!hasActive) missing.push({ text: 'No active plan', fix: { label: 'Make a plan public', onClick: makePublic, pending: busy === 'public' } });
+  else if (!hasPublic) missing.push({ text: 'Your plan isn’t public', fix: { label: 'Make plan public', onClick: makePublic, pending: busy === 'public' } });
+  if (!storeOpen) missing.push({ text: 'Your storefront is closed', fix: { label: 'Open storefront setup', href: `/w/${wsId}/marketplace/storefront` } });
+  if (!sellOn) missing.push({ text: '“Sell memberships” is turned off', fix: { label: 'Enable selling memberships', onClick: enableSell, pending: busy === 'sell' } });
+
+  const FixButton = ({ fix }: { fix: Fix }) => fix.href ? (
+    <Link href={fix.href} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500">
+      {fix.label} <ArrowRight className="h-3 w-3" />
+    </Link>
+  ) : (
+    <button onClick={fix.onClick} disabled={fix.pending} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500 disabled:opacity-50">
+      {fix.pending ? 'Working…' : fix.label}
+    </button>
+  );
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          {live
+            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300"><ShieldCheck className="h-3.5 w-3.5" /> Live on storefront</span>
+            : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300"><AlertTriangle className="h-3.5 w-3.5" /> Not live yet</span>}
+          <p className="mt-2 text-sm text-slate-300">
+            {live
+              ? 'Customers can scan your QR or open your store and join a plan in a tap.'
+              : 'Your membership won’t appear on the public store until these are done:'}
+          </p>
+          {!live && (
+            <ul className="mt-3 space-y-2">
+              {missing.map((m, i) => (
+                <li key={i} className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-xs text-slate-400"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" /> {m.text}</span>
+                  <FixButton fix={m.fix} />
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href={`/w/${wsId}/marketplace/storefront`} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10">
+              <ExternalLink className="h-3.5 w-3.5" /> Open storefront setup
+            </Link>
+            {joinUrl && (
+              <button onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10">
+                {copied ? <><Check className="h-3.5 w-3.5 text-emerald-300" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy membership link</>}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="shrink-0">
+          {joinUrl ? (
+            <div className="mx-auto flex h-[132px] w-[132px] items-center justify-center rounded-xl bg-white p-2.5 sm:mx-0">
+              {qr ? <img src={qr} alt="Membership QR" className="h-[112px] w-[112px]" /> : <QrCode className="h-8 w-8 text-slate-300" />}
+            </div>
+          ) : (
+            <div className="w-[160px] rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center">
+              <QrCode className="mx-auto h-6 w-6 text-slate-500" />
+              <p className="mt-1.5 text-[10px] text-slate-500">The membership QR appears on your live store domain.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }

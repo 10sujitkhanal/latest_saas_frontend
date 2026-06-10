@@ -36,6 +36,7 @@ export interface ItemRow {
   currency: string;
   barcode?: string;
   is_active: boolean;
+  storefront_listing_id?: number | null;   // first marketplace Listing for this item, or null
 }
 
 export interface MovementRow {

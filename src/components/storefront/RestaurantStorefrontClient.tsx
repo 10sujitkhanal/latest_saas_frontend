@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicOrder } from "@/lib/storefront/storefrontPublicApi";
+import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import { formatCurrencyMarket, buildSwishLink } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -19,6 +20,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;
+  joinIntent?:  boolean;
 }
 
 type CartMap = Record<string, number>;
@@ -102,7 +104,7 @@ function MenuItemCard({
   );
 }
 
-export function RestaurantStorefrontClient({ storefront, items, offers }: Props) {
+export function RestaurantStorefrontClient({ storefront, items, offers, joinIntent }: Props) {
   const [cart, setCart] = useState<CartMap>({});
   const [orderType, setOrderType] = useState<OrderType>("dine_in");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -182,6 +184,13 @@ export function RestaurantStorefrontClient({ storefront, items, offers }: Props)
           </div>
         </div>
       </div>
+
+      {/* Membership join (scan-QR → become a member) — after hero, before menu */}
+      {(storefront.memberships?.length ?? 0) > 0 && (
+        <div className="max-w-6xl mx-auto px-4 pt-8">
+          <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
+        </div>
+      )}
 
       {/* Order type selector (sticky) */}
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">

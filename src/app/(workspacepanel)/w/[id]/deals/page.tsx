@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useState, use as reactUse } from 'react';
+import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import Link from 'next/link';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { DealsService, type CouponRow } from '@/services/deals.service';
+import { MarketplaceService, type StorefrontSettingsRow } from '@/services/marketplace.service';
+import { ShieldCheck, AlertTriangle, ArrowRight, ExternalLink, Copy, Check } from 'lucide-react';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
@@ -32,6 +35,11 @@ function Inner({ wsId }: { wsId: string }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<StorefrontSettingsRow | null>(null);
+  const loadSettings = useCallback(() => {
+    MarketplaceService.getStorefront(wsId).then((r) => { if (r.success) setSettings(r.data); }).catch(() => {});
+  }, [wsId]);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
 
   // quick validator
   const [test, setTest] = useState({ code: '', amount: '' });
@@ -75,6 +83,8 @@ function Inner({ wsId }: { wsId: string }) {
   return (
     <div className="space-y-5">
       <PageHeader title="Deals & Coupons" subtitle="Discount codes — percent, flat, and more. (Consumer deals marketplace is a later phase.)" action={<AddButton label="New coupon" onClick={openCreate} />} />
+
+      <DealsStorefrontPanel wsId={wsId} coupons={rows} settings={settings} refreshSettings={loadSettings} reloadCoupons={reload} onCreateCoupon={openCreate} onEditCoupon={openEdit} />
 
       <Card>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Test a coupon</p>
@@ -135,5 +145,102 @@ function Inner({ wsId }: { wsId: string }) {
         </form>
       </Modal>
     </div>
+  );
+}
+
+/**
+ * Coupons-on-storefront status. A coupon is "live" when the store is open AND at
+ * least one coupon is status=active and today is within its start/end window —
+ * the same gate the public coupons endpoint uses. Turns that into a clear
+ * Live / Not-live status with the missing items and safe one-click fixes.
+ */
+function DealsStorefrontPanel({ wsId, coupons, settings, refreshSettings, reloadCoupons, onCreateCoupon, onEditCoupon }: {
+  wsId: string;
+  coupons: CouponRow[];
+  settings: StorefrontSettingsRow | null;
+  refreshSettings: () => void;
+  reloadCoupons: () => void;
+  onCreateCoupon: () => void;
+  onEditCoupon: (c: CouponRow) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const inWindow = (c: CouponRow) => c.start_date <= todayStr && c.end_date >= todayStr;
+  const hasCoupon = coupons.length > 0;
+  const hasActive = coupons.some((c) => c.status === 'active');
+  const liveCoupon = coupons.find((c) => c.status === 'active' && inWindow(c));
+  const storeOpen = Boolean(settings?.is_open);
+  const live = storeOpen && Boolean(liveCoupon);
+
+  const storeHref = (() => {
+    if (typeof window === 'undefined') return null;
+    const label = window.location.hostname.split('.')[0];
+    if (!label || ['localhost', 'www', 'app', '127'].includes(label) || /^\d+$/.test(label)) return null;
+    return `${window.location.origin}/store/${label}`;
+  })();
+
+  const activate = async () => {
+    const candidate = coupons.find((c) => inWindow(c) && c.status !== 'active') ?? coupons[0];
+    if (!candidate) { onCreateCoupon(); return; }
+    setBusy(true);
+    try { await DealsService.update(wsId, candidate.id, { status: 'active' }); reloadCoupons(); }
+    catch (e) { alert(apiError(e, 'Could not activate the coupon.')); }
+    finally { setBusy(false); }
+  };
+
+  const copyStore = async () => {
+    if (!storeHref) return;
+    try { await navigator.clipboard.writeText(storeHref); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    catch { prompt('Copy your store link:', storeHref); }
+  };
+
+  type Fix = { label: string; onClick?: () => void; href?: string; pending?: boolean };
+  const missing: { text: string; fix: Fix }[] = [];
+  if (!hasCoupon) missing.push({ text: 'No coupon yet', fix: { label: 'Create a coupon', onClick: onCreateCoupon } });
+  else if (!hasActive) missing.push({ text: 'No active coupon', fix: { label: 'Activate a coupon', onClick: activate, pending: busy } });
+  else if (!liveCoupon) {
+    const offending = coupons.find((c) => c.status === 'active') ?? coupons[0];
+    missing.push({ text: 'Your active coupon isn’t in its date window', fix: { label: 'Review dates', onClick: () => onEditCoupon(offending) } });
+  }
+  if (!storeOpen) missing.push({ text: 'Your storefront is closed', fix: { label: 'Open storefront setup', href: `/w/${wsId}/marketplace/storefront` } });
+
+  const FixButton = ({ fix }: { fix: Fix }) => fix.href ? (
+    <Link href={fix.href} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500">{fix.label} <ArrowRight className="h-3 w-3" /></Link>
+  ) : (
+    <button onClick={fix.onClick} disabled={fix.pending} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500 disabled:opacity-50">{fix.pending ? 'Working…' : fix.label}</button>
+  );
+
+  return (
+    <Card>
+      <div className="min-w-0">
+        {live
+          ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300"><ShieldCheck className="h-3.5 w-3.5" /> Live on storefront</span>
+          : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300"><AlertTriangle className="h-3.5 w-3.5" /> Not live yet</span>}
+        <p className="mt-2 text-sm text-slate-300">
+          {live ? 'Your active coupons show on your public store and apply at checkout.' : 'Your coupons won’t show on the public store until these are done:'}
+        </p>
+        {!live && (
+          <ul className="mt-3 space-y-2">
+            {missing.map((m, i) => (
+              <li key={i} className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-xs text-slate-400"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" /> {m.text}</span>
+                <FixButton fix={m.fix} />
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={`/w/${wsId}/marketplace/storefront`} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10"><ExternalLink className="h-3.5 w-3.5" /> Open storefront setup</Link>
+          {storeHref && (
+            <>
+              <a href={storeHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10"><ExternalLink className="h-3.5 w-3.5" /> View store</a>
+              <button onClick={copyStore} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10">{copied ? <><Check className="h-3.5 w-3.5 text-emerald-300" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy store link</>}</button>
+            </>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }

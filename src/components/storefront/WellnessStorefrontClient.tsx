@@ -16,6 +16,7 @@ import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
 import { loadPinnedItems, type CrossSellItem } from "@/lib/storefront/crossSellCatalogue";
 import { WELLNESS_BLOG_POSTS } from "@/lib/storefront/wellnessBlogData";
 import { WellnessMarketplaceFooter } from "@/components/storefront/wellness/WellnessMarketplaceFooter";
+import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ interface Props {
   offers:       PublicOffer[];
   availability: PublicAvailability | null;
   refCode?:     string;
+  joinIntent?:  boolean;
 }
 
 interface StoredEvent {
@@ -750,7 +752,7 @@ function WellnessCartPanel({ cart, items, storefront, availability, subInterval,
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function WellnessStorefrontClient({ storefront, items, offers, availability }: Props) {
+export function WellnessStorefrontClient({ storefront, items, offers, availability, joinIntent }: Props) {
   const cacheKey = `storefront_cache_${storefront.slug}`;
 
   // Live data from localStorage bridge
@@ -1091,6 +1093,13 @@ export function WellnessStorefrontClient({ storefront, items, offers, availabili
           ))}
         </div>
       </div>
+
+      {/* Membership join (scan-QR → become a member) — after hero, before products */}
+      {(storefront.memberships?.length ?? 0) > 0 && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
+          <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
+        </div>
+      )}
 
       {/* Category goal grid */}
       {showSection("categories") && <div className="bg-white border-b border-stone-100 py-8">

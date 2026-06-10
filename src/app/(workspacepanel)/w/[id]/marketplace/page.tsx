@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
 import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
 import { Globe } from 'lucide-react';
@@ -33,15 +33,20 @@ function Inner({ wsId }: { wsId: string }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ListingRow | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [heroFile, setHeroFile] = useState<File | null>(null);
+  const heroPreview = useMemo(
+    () => (heroFile ? URL.createObjectURL(heroFile) : (editing?.hero_image_url || '')),
+    [heroFile, editing],
+  );
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setHeroFile(null); setFormError(null); setOpen(true); };
   const openEdit = (l: ListingRow) => {
     setEditing(l);
     setForm({ title: l.title, category: l.category || '', item: l.item ? String(l.item) : '', price: String(l.price), currency: l.currency, image_url: l.image_url || '', description: l.description || '' });
-    setFormError(null); setOpen(true);
+    setHeroFile(null); setFormError(null); setOpen(true);
   };
 
   const pickItem = (itemId: string) => {
@@ -57,7 +62,13 @@ function Inner({ wsId }: { wsId: string }) {
         ? await MarketplaceService.update(wsId, editing.id, payload)
         : await MarketplaceService.create(wsId, payload);
       if (!res.success) { setFormError(res.message || 'Could not save listing.'); return; }
-      setOpen(false); setForm(emptyForm); setEditing(null); reload();
+      // Upload the hero image after the listing exists (needs its id).
+      const listingId = editing ? editing.id : res.data?.id;
+      if (heroFile && listingId) {
+        const up = await MarketplaceService.uploadHeroImage(wsId, listingId, heroFile);
+        if (!up.success) { setFormError(up.message || 'Listing saved, but the image upload failed.'); reload(); return; }
+      }
+      setOpen(false); setForm(emptyForm); setHeroFile(null); setEditing(null); reload();
     } catch (err) { setFormError(apiError(err, 'Could not save listing.')); }
     finally { setSaving(false); }
   };
@@ -118,6 +129,17 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Price"><TextInput type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field>
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
             <Field label="Image URL"><TextInput value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></Field>
+            <Field label="Hero image (upload — overrides Image URL)">
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(e) => setHeroFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-pink-500/20 file:px-3 file:py-1.5 file:font-medium file:text-pink-200 hover:file:bg-pink-500/30"
+                />
+                {heroPreview && <img src={heroPreview} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-white/10 object-cover" />}
+              </div>
+            </Field>
             <div className="sm:col-span-2"><Field label="Description"><TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field></div>
           </div>
           {formError && <p className="text-xs text-red-300">{formError}</p>}

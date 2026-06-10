@@ -19,14 +19,15 @@ export interface ListingRow {
   item_sku?: string;
   price: string;
   currency: string;
-  image_url?: string;
+  image_url?: string;          // pasted URL (legacy/fallback)
+  hero_image_url?: string;     // absolute URL: uploaded hero_image → pasted image_url → ''
   status: 'draft' | 'published' | 'archived';
   is_featured: boolean;
   published_at?: string | null;
 }
 
 type Params = Record<string, unknown>;
-type Payload = Record<string, unknown>;
+type Payload = Record<string, unknown> | FormData;
 type Id = string | number;
 
 function base(workspaceId: Id) {
@@ -159,6 +160,15 @@ export const MarketplaceService = {
   remove: (workspaceId: Id, id: Id) => httpDelete<null>(`${base(workspaceId)}/listings/${id}/`),
   publish: (workspaceId: Id, id: Id, publish: boolean) => httpPost<ListingRow>(`${base(workspaceId)}/listings/${id}/publish/`, { publish }),
   feature: (workspaceId: Id, id: Id) => httpPost<ListingRow>(`${base(workspaceId)}/listings/${id}/feature/`),
+  // One-click "Add to storefront" from an inventory item — idempotent draft create.
+  fromItem: (workspaceId: Id, itemId: Id) => httpPost<ListingRow>(`${base(workspaceId)}/listings/from-item/${itemId}/`),
+  // Upload a hero image (multipart). Let axios set the multipart boundary — do
+  // NOT set Content-Type manually or the file body is dropped.
+  uploadHeroImage: (workspaceId: Id, id: Id, file: File) => {
+    const fd = new FormData();
+    fd.append('hero_image', file);
+    return httpPatch<ListingRow>(`${base(workspaceId)}/listings/${id}/`, fd);
+  },
   getStorefront: (workspaceId: Id) => httpGet<StorefrontSettingsRow>(`${base(workspaceId)}/storefront/`),
   updateStorefront: (workspaceId: Id, payload: Payload) => httpPatch<StorefrontSettingsRow>(`${base(workspaceId)}/storefront/`, payload),
   storefrontQr: (workspaceId: Id, url: string) => httpGet<{ qr_data_url: string; url: string }>(`${base(workspaceId)}/storefront/qr/`, { url }),

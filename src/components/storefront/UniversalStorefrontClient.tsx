@@ -1060,28 +1060,28 @@ function FloatingActions({ phone }: { phone?: string }) {
 export function UniversalStorefrontClient({ storefront, items, offers, availability, refCode, joinIntent }: Props) {
   // Industry-specific storefront routing
   if (storefront.industry === "Wellness / Supplements" || storefront.industry === "Wellness / Natural Beauty" || storefront.industry.toLowerCase().startsWith("wellness")) {
-    return <WellnessStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <WellnessStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Natural Beauty / Skincare") {
-    return <NaturalBeautyStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <NaturalBeautyStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Fika / Coffee") {
-    return <FikaStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <FikaStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Craft Beer / Brewery") {
-    return <CraftBeerStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <CraftBeerStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Hotel") {
-    return <HotelStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <HotelStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Restaurant") {
-    return <RestaurantStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <RestaurantStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Salon / Spa") {
-    return <SalonStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <SalonStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
   if (storefront.industry === "Trekking / Travel") {
-    return <TrekkingStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} />;
+    return <TrekkingStorefrontClient storefront={storefront} items={items} offers={offers} availability={availability} refCode={refCode} joinIntent={joinIntent} />;
   }
 
   const config = getIndustryStorefrontConfig(storefront.industry as never);

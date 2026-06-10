@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
+import Link from 'next/link';
 import { businessCurrency } from '@/lib/currency';
+import { MarketplaceService } from '@/services/marketplace.service';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { InventoryService, type ItemRow, type CategoryRow } from '@/services/inventory.service';
@@ -33,6 +35,19 @@ function Inner({ wsId }: { wsId: string }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [sfBusy, setSfBusy] = useState<number | null>(null);
+
+  // One-click "Add to storefront" — creates an idempotent draft Listing from the
+  // item, then reloads so the row flips to "View listing".
+  const addToStorefront = async (i: ItemRow) => {
+    setSfBusy(i.id);
+    try {
+      const res = await MarketplaceService.fromItem(wsId, i.id);
+      if (!res.success) { alert(res.message || 'Could not add to storefront.'); return; }
+      reload();
+    } catch (err) { alert(apiError(err, 'Could not add to storefront.')); }
+    finally { setSfBusy(null); }
+  };
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
   const openEdit = (i: ItemRow) => {
@@ -70,7 +85,12 @@ function Inner({ wsId }: { wsId: string }) {
                 <td className="px-3 py-2 text-right">{money(i.cost_price, i.currency)}</td>
                 <td className="px-3 py-2 text-right">{money(i.selling_price, i.currency)}</td>
                 <td className="px-3 py-2 text-center">{i.is_low_stock ? <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-200">low</span> : <Pill>ok</Pill>}</td>
-                <td className="px-3 py-2 text-right"><button onClick={() => openEdit(i)} className="text-xs font-medium text-cyan-300 hover:text-cyan-200">Edit</button></td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <button onClick={() => openEdit(i)} className="text-xs font-medium text-cyan-300 hover:text-cyan-200">Edit</button>
+                  {i.storefront_listing_id
+                    ? <Link href={`/w/${wsId}/marketplace`} className="ml-3 text-xs font-medium text-pink-300 hover:text-pink-200">View listing</Link>
+                    : <button disabled={sfBusy === i.id} onClick={() => addToStorefront(i)} className="ml-3 text-xs font-medium text-emerald-300 hover:text-emerald-200 disabled:opacity-50">Add to storefront</button>}
+                </td>
               </tr>
             ))}
             {rows.length === 0 && <EmptyRow colSpan={8} label="No items yet. Add your first product." />}
