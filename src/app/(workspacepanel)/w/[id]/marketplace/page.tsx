@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
 import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
-import { Globe, Sparkles } from 'lucide-react';
+import { Globe, Sparkles, AlertTriangle, EyeOff } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { MarketplaceService, type ListingRow } from '@/services/marketplace.service';
@@ -30,6 +30,9 @@ function Inner({ wsId }: { wsId: string }) {
   const { rows, loading, error, reload } = useList<ListingRow>(fetcher);
   const [items, setItems] = useState<ItemRow[]>([]);
   useEffect(() => { InventoryService.items.list(wsId).then((r) => setItems((r.data ?? []).filter((i) => i.is_active))).catch(() => {}); }, [wsId]);
+  // Is the store live? Needed to explain why products aren't visible yet.
+  const [storeOpen, setStoreOpen] = useState<boolean | null>(null);
+  useEffect(() => { MarketplaceService.getStorefront(wsId).then((r) => { if (r.success) setStoreOpen(Boolean(r.data?.is_open)); }).catch(() => {}); }, [wsId]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ListingRow | null>(null);
@@ -87,9 +90,30 @@ function Inner({ wsId }: { wsId: string }) {
     catch (err) { alert(apiError(err, 'Could not delete.')); }
   };
 
+  const draftCount = rows.filter((l) => l.status === 'draft').length;
+
   return (
     <div className="space-y-5">
       <PageHeader title="Marketplace Listings" subtitle="Manage and publish product listings, then open your public storefront to take orders." action={<AddButton label="New listing" onClick={openCreate} />} />
+      {/* Visibility alerts — tell the owner exactly why customers can't see
+          products yet (the recurring "I added it, why isn't it showing?" gap). */}
+      {storeOpen === false && rows.length > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-3">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-300" />
+          <span className="flex-1 text-[13px] text-amber-100">
+            <strong className="font-semibold">Your store isn’t live yet.</strong> Published products stay hidden from customers until you go live.
+          </span>
+          <Link href={`/w/${wsId}/marketplace/storefront`} className="shrink-0 rounded-lg bg-amber-500/90 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400">Go live</Link>
+        </div>
+      )}
+      {draftCount > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <EyeOff className="h-5 w-5 shrink-0 text-slate-400" />
+          <span className="flex-1 text-[13px] text-slate-300">
+            <strong className="font-semibold text-white">{draftCount} draft {draftCount === 1 ? 'product is' : 'products are'} hidden from customers.</strong> Click <span className="font-semibold text-emerald-300">Publish</span> on {draftCount === 1 ? 'it' : 'each'} below to make {draftCount === 1 ? 'it' : 'them'} visible.
+          </span>
+        </div>
+      )}
       {rows.length === 0 && (
         <Link href={`/w/${wsId}/marketplace/setup`} className="flex items-center gap-3 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.06] px-4 py-3 hover:bg-emerald-500/[0.1] transition-colors">
           <Sparkles className="h-5 w-5 text-emerald-300" />
@@ -115,7 +139,13 @@ function Inner({ wsId }: { wsId: string }) {
                 <td className="px-3 py-2">{l.category || '—'}</td>
                 <td className="px-3 py-2 text-right">{money(l.price, l.currency)}</td>
                 <td className="px-3 py-2 text-center">{l.is_featured ? <Pill>featured</Pill> : <span className="text-slate-600">—</span>}</td>
-                <td className="px-3 py-2 text-center"><Pill>{l.status}</Pill></td>
+                <td className="px-3 py-2 text-center">
+                  {l.status === 'published'
+                    ? <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">Published · visible</span>
+                    : l.status === 'draft'
+                      ? <span className="inline-flex items-center rounded-md bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">Draft · hidden</span>
+                      : <span className="inline-flex items-center rounded-md bg-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-slate-400">{l.status}</span>}
+                </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(l)} className="text-xs font-medium text-cyan-300 hover:text-cyan-200">Edit</button>
                   {l.status !== 'published'
