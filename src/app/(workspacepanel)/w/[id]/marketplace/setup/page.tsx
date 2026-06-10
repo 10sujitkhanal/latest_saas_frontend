@@ -1,31 +1,33 @@
 'use client';
 
 /**
- * Wellness "Set up what you sell" wizard (Layer 2, Slice 2).
+ * "Set up what you sell" wizard (Layer 2) — industry-aware.
  *
- * Category-first, type-to-add: pick suggested wellness categories → add items
- * naturally → review → Save as drafts. Everything stays a local draft in the
- * browser (persisted to localStorage, minus the image Files) until the owner
- * confirms; only then does it hit the idempotent backend endpoint, which creates
- * DRAFT listings / items / inactive membership plans. Nothing is published.
+ * Category-first, type-to-add: the workspace's industry (resolved from
+ * effective_industry via lib/industrySellables) drives which categories +
+ * starter suggestions appear, so a salon sees hair/nails, a restaurant sees menu
+ * items, etc. — never wellness-for-everyone. Pick categories → add items → review
+ * → Save as drafts. Everything stays a local draft in the browser (persisted to
+ * localStorage, minus image Files) until the owner confirms; only then does it
+ * hit the idempotent backend endpoint, which creates DRAFT listings / items /
+ * inactive membership plans. Nothing is published.
  */
 
 import { useEffect, useMemo, useState, use as reactUse } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { businessCurrency } from '@/lib/currency';
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Tag, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Tag, CheckCircle2, Lock, Wand2 } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
+import { PageSpinner } from '@/components/StateViews';
 import { Card, Field, TextInput, SelectInput, PrimaryButton, apiError } from '@/components/accounting/kit';
 import { ImageDropzone } from '@/components/workspace/ImageDropzone';
 import { OrganizationService } from '@/services/organization.service';
 import { MarketplaceService } from '@/services/marketplace.service';
 import { DealsService } from '@/services/deals.service';
 import {
-  sellableCategoriesFor, TYPE_FIELDS, WELLNESS_STARTERS, STARTER_CATEGORY_KEYS,
-  type SellableCategory, type SellableType,
-} from '@/lib/wellnessSellables';
-import { Wand2 } from 'lucide-react';
+  sellableSetupFor, TYPE_FIELDS,
+  type SellableCategory, type SellableType, type IndustrySellableConfig,
+} from '@/lib/industrySellables';
 
 interface StagedItem {
   ref: string;
@@ -52,12 +54,11 @@ export default function SellableSetupPage({ params }: { params: Promise<{ id: st
 }
 
 function Wizard({ wsId }: { wsId: string }) {
-  const router = useRouter();
   const storeKey = `sellableSetup:${wsId}`;
-  const categories = sellableCategoriesFor();
 
+  const [config, setConfig] = useState<IndustrySellableConfig | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selected, setSelected] = useState<Set<string>>(new Set(categories.filter((c) => c.recommended).map((c) => c.key)));
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [custom, setCustom] = useState<SellableCategory[]>([]);
   const [items, setItems] = useState<StagedItem[]>([]);
   // Persisted with the draft so a retry after a dropped connection reuses the
@@ -74,23 +75,39 @@ function Wizard({ wsId }: { wsId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ listings: number; memberships: number; categories: number; hasPackage: boolean } | null>(null);
 
-  // Restore local draft (text only — Files can't be serialized).
+  // Init: resolve the workspace's industry → its sellable config, then restore
+  // any local draft. Default-check the industry's recommended categories only
+  // when there's no saved draft.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storeKey);
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (typeof d.token === 'string' && d.token) setToken(d.token);   // reuse token → idempotent retry
-        if (Array.isArray(d.selected)) setSelected(new Set(d.selected));
-        if (Array.isArray(d.custom)) setCustom(d.custom);
-        if (Array.isArray(d.items) && d.items.length > 0) {
-          setItems(d.items.map((i: StagedItem) => ({ ...i, imageFile: null })));
-          setResumed(true);   // tell the owner their work carried over
+    let alive = true;
+    (async () => {
+      let industry = '';
+      try {
+        const res = await OrganizationService.workspaceContext(Number(wsId));
+        industry = res?.data?.workspace?.effective_industry || res?.data?.workspace?.industry || '';
+      } catch { /* fall back to generic */ }
+      if (!alive) return;
+      const cfg = sellableSetupFor(industry);
+      let hadSelected = false;
+      try {
+        const raw = localStorage.getItem(storeKey);
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (typeof d.token === 'string' && d.token) setToken(d.token);   // reuse token → idempotent retry
+          if (Array.isArray(d.custom)) setCustom(d.custom);
+          if (Array.isArray(d.selected)) { setSelected(new Set(d.selected)); hadSelected = true; }
+          if (Array.isArray(d.items) && d.items.length > 0) {
+            setItems(d.items.map((i: StagedItem) => ({ ...i, imageFile: null })));
+            setResumed(true);   // tell the owner their work carried over
+          }
         }
-      }
-    } catch { /* ignore */ }
-    setHydrated(true);
-  }, [storeKey]);
+      } catch { /* ignore */ }
+      if (!hadSelected) setSelected(new Set(cfg.categories.filter((c) => c.recommended).map((c) => c.key)));
+      setConfig(cfg);
+      setHydrated(true);
+    })();
+    return () => { alive = false; };
+  }, [wsId, storeKey]);
 
   // Persist on change (strip Files).
   useEffect(() => {
@@ -104,7 +121,7 @@ function Wizard({ wsId }: { wsId: string }) {
     } catch { /* ignore */ }
   }, [token, selected, custom, items, hydrated, storeKey]);
 
-  const allCats = useMemo(() => [...categories, ...custom], [categories, custom]);
+  const allCats = useMemo(() => [...(config?.categories ?? []), ...custom], [config, custom]);
   const selectedCats = allCats.filter((c) => selected.has(c.key));
 
   const toggle = (key: string) => setSelected((p) => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n; });
@@ -121,19 +138,21 @@ function Wizard({ wsId }: { wsId: string }) {
   const removeItem = (ref: string) => setItems((p) => p.filter((i) => i.ref !== ref));
   const updateItem = (ref: string, patch: Partial<StagedItem>) => setItems((p) => p.map((i) => (i.ref === ref ? { ...i, ...patch } : i)));
 
-  // "Start with wellness suggestions": pre-select common categories + stage a few
-  // editable starter rows with BLANK prices (never invented) + neutral copy. The
-  // owner reviews/edits/removes everything and must set a price before saving.
+  // "Start with <industry> suggestions": pre-select that industry's categories +
+  // stage a few editable starter rows with BLANK prices (never invented) +
+  // neutral copy. The owner reviews/edits/removes everything and must set a price
+  // before saving.
   const applySuggestions = () => {
-    const byKey = new Map(sellableCategoriesFor().map((c) => [c.key, c]));
-    setSelected((prev) => { const n = new Set(prev); STARTER_CATEGORY_KEYS.forEach((k) => n.add(k)); return n; });
+    if (!config) return;
+    const byKey = new Map(config.categories.map((c) => [c.key, c]));
+    setSelected((prev) => { const n = new Set(prev); config.starterCategoryKeys.forEach((k) => n.add(k)); return n; });
     setItems((prev) => {
       const have = new Set(prev.map((i) => `${i.categoryKey}::${i.name.toLowerCase()}`));
       const additions: StagedItem[] = [];
-      for (const key of STARTER_CATEGORY_KEYS) {
+      for (const key of config.starterCategoryKeys) {
         const cat = byKey.get(key);
         if (!cat) continue;
-        for (const row of (WELLNESS_STARTERS[key] || [])) {
+        for (const row of (config.starters[key] || [])) {
           if (have.has(`${key}::${row.name.toLowerCase()}`)) continue;
           additions.push({
             ref: uid(), categoryKey: key, category: cat.label, type: cat.type,
@@ -212,6 +231,8 @@ function Wizard({ wsId }: { wsId: string }) {
     );
   }
 
+  if (!config) return <PageSpinner />;
+
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
@@ -233,13 +254,13 @@ function Wizard({ wsId }: { wsId: string }) {
             className="mb-4 flex w-full items-center gap-3 rounded-xl border border-emerald-400/30 bg-gradient-to-r from-emerald-500/15 to-cyan-500/10 px-4 py-3 text-left transition hover:from-emerald-500/20">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300"><Wand2 className="h-5 w-5" /></span>
             <span className="flex-1">
-              <span className="block text-sm font-semibold text-white">Start with wellness suggestions</span>
-              <span className="block text-[11px] text-slate-300">We’ll pre-fill a few common categories &amp; starter items — you set the prices and edit anything before saving. Nothing is created until you save.</span>
+              <span className="block text-sm font-semibold text-white">{config.ctaLabel}</span>
+              <span className="block text-[11px] text-slate-300">We’ll pre-fill a few common categories &amp; starter items for your industry — you set the prices and edit anything before saving. Nothing is created until you save.</span>
             </span>
             <ArrowRight className="h-4 w-4 shrink-0 text-emerald-300" />
           </button>
           <h2 className="px-1 pb-1 text-sm font-semibold text-white">What do you sell?</h2>
-          <p className="px-1 pb-3 text-[12px] text-slate-400">We’ve recommended a few for wellness — check the ones you want, or use the suggestions above.</p>
+          <p className="px-1 pb-3 text-[12px] text-slate-400">We’ve recommended a few for your industry — check the ones you want, or use the suggestions above.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {allCats.map((c) => {
               const on = selected.has(c.key);
