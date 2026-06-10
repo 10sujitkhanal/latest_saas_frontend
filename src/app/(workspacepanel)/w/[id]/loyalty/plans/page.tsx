@@ -7,11 +7,12 @@ import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type MembershipPlanRow } from '@/services/loyalty.service';
 import { MarketplaceService, type StorefrontSettingsRow } from '@/services/marketplace.service';
-import { ShieldCheck, AlertTriangle, QrCode, Copy, Check, ArrowRight, ExternalLink } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, QrCode, Copy, Check, ArrowRight, ExternalLink, Lock } from 'lucide-react';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
 } from '@/components/loyalty/kit';
+import { membershipReadiness } from '@/lib/membershipReadiness';
 
 const empty = { name: '', price: '0', currency: businessCurrency(), interval: 'monthly', benefits: '', member_discount_percent: '0', description: '', is_active: true, is_public: false };
 
@@ -125,12 +126,11 @@ function MembershipStorefrontPanel({ wsId, plans, settings, refreshSettings, rel
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const hasPlan = plans.length > 0;
-  const hasActive = plans.some((p) => p.is_active);
-  const hasPublic = plans.some((p) => p.is_active && p.is_public);
-  const storeOpen = Boolean(settings?.is_open);
-  const sellOn = Boolean(settings?.sell_memberships);
-  const live = hasPublic && storeOpen && sellOn;
+  // One shared readiness check (see lib/membershipReadiness) — the QR card, this
+  // panel and the Setup Hub all derive Live/Not-live from the same gates so they
+  // can never disagree. `missing` is already in dependency order.
+  const readiness = membershipReadiness(plans, settings);
+  const { hasPlan, live, missing: missingGates } = readiness;
 
   // Public store URL — derived from the tenant subdomain; null on localhost/dev.
   const storeHref = (() => {
@@ -142,13 +142,15 @@ function MembershipStorefrontPanel({ wsId, plans, settings, refreshSettings, rel
   const joinUrl = storeHref ? `${storeHref}?join=1` : null;
 
   useEffect(() => {
-    if (!joinUrl) { setQr(null); return; }
+    // Only mint a real QR once every gate passes — never generate a scannable
+    // code that would land a customer on a closed "coming soon" store.
+    if (!joinUrl || !live) { setQr(null); return; }
     let alive = true;
     MarketplaceService.storefrontQr(wsId, joinUrl)
       .then((r) => { if (alive && r.success) setQr(r.data.qr_data_url); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [wsId, joinUrl]);
+  }, [wsId, joinUrl, live]);
 
   const makePublic = async () => {
     const target = plans.find((p) => p.is_active) ?? plans[0];
@@ -172,13 +174,18 @@ function MembershipStorefrontPanel({ wsId, plans, settings, refreshSettings, rel
     catch { prompt('Copy this membership link:', joinUrl); }
   };
 
+  // Map each unmet gate (already in dependency order) to this surface's
+  // one-click fix. The gate list + order live in the shared helper; only the
+  // actions are local.
   type Fix = { label: string; onClick?: () => void; href?: string; pending?: boolean };
-  const missing: { text: string; fix: Fix }[] = [];
-  if (!hasPlan) missing.push({ text: 'No membership plan yet', fix: { label: 'Create a plan', onClick: onCreatePlan } });
-  else if (!hasActive) missing.push({ text: 'No active plan', fix: { label: 'Make a plan public', onClick: makePublic, pending: busy === 'public' } });
-  else if (!hasPublic) missing.push({ text: 'Your plan isn’t public', fix: { label: 'Make plan public', onClick: makePublic, pending: busy === 'public' } });
-  if (!storeOpen) missing.push({ text: 'Your storefront is closed', fix: { label: 'Open storefront setup', href: `/w/${wsId}/marketplace/storefront` } });
-  if (!sellOn) missing.push({ text: '“Sell memberships” is turned off', fix: { label: 'Enable selling memberships', onClick: enableSell, pending: busy === 'sell' } });
+  const fixForGate = (key: 'plan' | 'sell' | 'store'): Fix => {
+    if (key === 'plan') return hasPlan
+      ? { label: 'Make plan public', onClick: makePublic, pending: busy === 'public' }
+      : { label: 'Create a plan', onClick: onCreatePlan };
+    if (key === 'sell') return { label: 'Enable selling memberships', onClick: enableSell, pending: busy === 'sell' };
+    return { label: 'Go live', href: `/w/${wsId}/marketplace/storefront` };
+  };
+  const missing = missingGates.map((g) => ({ text: g.text, fix: fixForGate(g.key) }));
 
   const FixButton = ({ fix }: { fix: Fix }) => fix.href ? (
     <Link href={fix.href} className="inline-flex items-center gap-1 rounded-lg bg-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-pink-500">
@@ -216,7 +223,8 @@ function MembershipStorefrontPanel({ wsId, plans, settings, refreshSettings, rel
             <Link href={`/w/${wsId}/marketplace/storefront`} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10">
               <ExternalLink className="h-3.5 w-3.5" /> Open storefront setup
             </Link>
-            {joinUrl && (
+            {/* Copy link only once live — never let the owner share a dead link. */}
+            {live && joinUrl && (
               <button onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10">
                 {copied ? <><Check className="h-3.5 w-3.5 text-emerald-300" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy membership link</>}
               </button>
@@ -224,14 +232,22 @@ function MembershipStorefrontPanel({ wsId, plans, settings, refreshSettings, rel
           </div>
         </div>
         <div className="shrink-0">
-          {joinUrl ? (
+          {live && joinUrl ? (
+            // Live: a real, scannable QR.
             <div className="mx-auto flex h-[132px] w-[132px] items-center justify-center rounded-xl bg-white p-2.5 sm:mx-0">
               {qr ? <img src={qr} alt="Membership QR" className="h-[112px] w-[112px]" /> : <QrCode className="h-8 w-8 text-slate-300" />}
             </div>
           ) : (
-            <div className="w-[160px] rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center">
-              <QrCode className="mx-auto h-6 w-6 text-slate-500" />
-              <p className="mt-1.5 text-[10px] text-slate-500">The membership QR appears on your live store domain.</p>
+            // Not live: a locked placeholder — NO scannable code until the gates
+            // above pass, so a scan can never hit a "coming soon" store.
+            <div className="mx-auto w-[160px] rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-center sm:mx-0">
+              <Lock className="mx-auto h-6 w-6 text-slate-500" />
+              <p className="mt-2 text-[11px] font-semibold text-slate-400">Membership QR not live yet</p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                {joinUrl
+                  ? 'Finish the steps on the left and your QR + link go live here.'
+                  : 'Your membership QR appears on your live store domain.'}
+              </p>
             </div>
           )}
         </div>
