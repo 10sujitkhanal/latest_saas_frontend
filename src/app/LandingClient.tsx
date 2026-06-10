@@ -164,6 +164,7 @@ export default function LandingClient() {
                 ? <a key={n.href} href={n.href} className="text-slate-300 transition-colors hover:text-white">{n.label}</a>
                 : <Link key={n.href} href={n.href} className="text-slate-300 transition-colors hover:text-white">{n.label}</Link>
             ))}
+            <a href={AGENCY_SIGNUP_URL} className="text-slate-300 transition-colors hover:text-white">For agencies</a>
             <a href="/auth/login" className="text-slate-300 transition-colors hover:text-white">Sign in</a>
             <Link href="/signup" className="rounded-lg border border-emerald-400/40 px-4 py-2 font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10">Start free</Link>
           </nav>
@@ -181,6 +182,7 @@ export default function LandingClient() {
                   ? <a key={n.href} href={n.href} onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-white">{n.label}</a>
                   : <Link key={n.href} href={n.href} onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-white">{n.label}</Link>
               ))}
+              <a href={AGENCY_SIGNUP_URL} onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-white">For agencies</a>
               <a href="/auth/login" className="text-slate-300 hover:text-white">Sign in</a>
               <Link href="/signup" onClick={() => setMenuOpen(false)} className="rounded-lg border border-emerald-400/40 px-4 py-2 text-center font-semibold text-emerald-300">Start free</Link>
             </nav>
