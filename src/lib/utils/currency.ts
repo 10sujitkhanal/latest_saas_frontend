@@ -23,7 +23,11 @@ export function formatCurrencyMarket(
   const config = getCountryByCurrency(currency);
   if (!config) return fallbackFormat(amount, currency);
 
-  const decimals = opts?.decimals ?? config.decimalDigits;
+  let decimals = opts?.decimals ?? config.decimalDigits;
+  // Never round away real cents: 0-decimal currencies (SEK/NOK) still show
+  // decimals when the amount actually has a fractional part — so a 10.50 price
+  // renders "10,50 kr", not a misleading "11 kr". Whole amounts stay clean.
+  if (decimals === 0 && Math.abs(amount % 1) > 1e-9) decimals = 2;
   const formatted = applyConfig(amount, config, decimals);
 
   if (opts?.showVatNote && config.vat.inclusive) {
