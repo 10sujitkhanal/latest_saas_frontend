@@ -21,8 +21,10 @@ import { ImageDropzone } from '@/components/workspace/ImageDropzone';
 import { OrganizationService } from '@/services/organization.service';
 import { MarketplaceService } from '@/services/marketplace.service';
 import {
-  sellableCategoriesFor, TYPE_FIELDS, type SellableCategory, type SellableType,
+  sellableCategoriesFor, TYPE_FIELDS, WELLNESS_STARTERS, STARTER_CATEGORY_KEYS,
+  type SellableCategory, type SellableType,
 } from '@/lib/wellnessSellables';
+import { Wand2 } from 'lucide-react';
 
 interface StagedItem {
   ref: string;
@@ -107,6 +109,33 @@ function Wizard({ wsId }: { wsId: string }) {
 
   const addItem = (it: StagedItem) => setItems((p) => [...p, it]);
   const removeItem = (ref: string) => setItems((p) => p.filter((i) => i.ref !== ref));
+  const updateItem = (ref: string, patch: Partial<StagedItem>) => setItems((p) => p.map((i) => (i.ref === ref ? { ...i, ...patch } : i)));
+
+  // "Start with wellness suggestions": pre-select common categories + stage a few
+  // editable starter rows with BLANK prices (never invented) + neutral copy. The
+  // owner reviews/edits/removes everything and must set a price before saving.
+  const applySuggestions = () => {
+    const byKey = new Map(sellableCategoriesFor().map((c) => [c.key, c]));
+    setSelected((prev) => { const n = new Set(prev); STARTER_CATEGORY_KEYS.forEach((k) => n.add(k)); return n; });
+    setItems((prev) => {
+      const have = new Set(prev.map((i) => `${i.categoryKey}::${i.name.toLowerCase()}`));
+      const additions: StagedItem[] = [];
+      for (const key of STARTER_CATEGORY_KEYS) {
+        const cat = byKey.get(key);
+        if (!cat) continue;
+        for (const row of (WELLNESS_STARTERS[key] || [])) {
+          if (have.has(`${key}::${row.name.toLowerCase()}`)) continue;
+          additions.push({
+            ref: uid(), categoryKey: key, category: cat.label, type: cat.type,
+            name: row.name, price: '', description: row.description,
+            duration: '', track_stock: cat.type === 'product', imageFile: null,
+          });
+        }
+      }
+      return [...prev, ...additions];
+    });
+    setStep(2);
+  };
 
   const counts = useMemo(() => {
     const memberships = items.filter((i) => i.type === 'membership').length;
@@ -116,6 +145,13 @@ function Wizard({ wsId }: { wsId: string }) {
   }, [items]);
 
   const save = async () => {
+    // Prices are never invented — require one on every item before saving.
+    const noPrice = items.filter((i) => !i.price || Number(i.price) <= 0);
+    if (noPrice.length > 0) {
+      setError(`Enter a price for every item before saving — ${noPrice.length} still need a price.`);
+      setStep(2);
+      return;
+    }
     setSaving(true); setError(null);
     try {
       const payload = {
@@ -174,8 +210,17 @@ function Wizard({ wsId }: { wsId: string }) {
 
       {step === 1 && (
         <Card>
+          <button type="button" onClick={applySuggestions}
+            className="mb-4 flex w-full items-center gap-3 rounded-xl border border-emerald-400/30 bg-gradient-to-r from-emerald-500/15 to-cyan-500/10 px-4 py-3 text-left transition hover:from-emerald-500/20">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300"><Wand2 className="h-5 w-5" /></span>
+            <span className="flex-1">
+              <span className="block text-sm font-semibold text-white">Start with wellness suggestions</span>
+              <span className="block text-[11px] text-slate-300">We’ll pre-fill a few common categories &amp; starter items — you set the prices and edit anything before saving. Nothing is created until you save.</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-emerald-300" />
+          </button>
           <h2 className="px-1 pb-1 text-sm font-semibold text-white">What do you sell?</h2>
-          <p className="px-1 pb-3 text-[12px] text-slate-400">We’ve recommended a few for wellness — check the ones you want.</p>
+          <p className="px-1 pb-3 text-[12px] text-slate-400">We’ve recommended a few for wellness — check the ones you want, or use the suggestions above.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {allCats.map((c) => {
               const on = selected.has(c.key);
@@ -209,11 +254,12 @@ function Wizard({ wsId }: { wsId: string }) {
         <div className="space-y-4">
           {selectedCats.length === 0 && <Card><p className="p-2 text-sm text-slate-400">No categories selected. <button className="text-pink-300" onClick={() => setStep(1)}>Go back</button>.</p></Card>}
           {selectedCats.map((c) => (
-            <CategorySection key={c.key} category={c} items={items.filter((i) => i.categoryKey === c.key)} onAdd={addItem} onRemove={removeItem} />
+            <CategorySection key={c.key} category={c} items={items.filter((i) => i.categoryKey === c.key)} onAdd={addItem} onRemove={removeItem} onUpdate={updateItem} />
           ))}
+          {error && <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-200">{error}</div>}
           <div className="flex justify-between">
             <button type="button" onClick={() => setStep(1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
-            <PrimaryButton onClick={() => setStep(3)} disabled={items.length === 0}>Review ({items.length}) <ArrowRight className="ml-1 inline h-3.5 w-3.5" /></PrimaryButton>
+            <PrimaryButton onClick={() => { setError(null); setStep(3); }} disabled={items.length === 0}>Review ({items.length}) <ArrowRight className="ml-1 inline h-3.5 w-3.5" /></PrimaryButton>
           </div>
         </div>
       )}
@@ -263,8 +309,8 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
-function CategorySection({ category, items, onAdd, onRemove }: {
-  category: SellableCategory; items: StagedItem[]; onAdd: (it: StagedItem) => void; onRemove: (ref: string) => void;
+function CategorySection({ category, items, onAdd, onRemove, onUpdate }: {
+  category: SellableCategory; items: StagedItem[]; onAdd: (it: StagedItem) => void; onRemove: (ref: string) => void; onUpdate: (ref: string, patch: Partial<StagedItem>) => void;
 }) {
   const f = TYPE_FIELDS[category.type];
   const [name, setName] = useState('');
@@ -305,15 +351,20 @@ function CategorySection({ category, items, onAdd, onRemove }: {
         <button type="button" onClick={add} disabled={!name.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-500 disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Add</button>
       </div>
       {items.length > 0 && (
-        <ul className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
-          {items.map((i) => (
-            <li key={i.ref} className="flex items-center gap-2 text-sm">
-              {i.imageFile ? <img src={URL.createObjectURL(i.imageFile)} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-slate-500"><Tag className="h-3.5 w-3.5" /></span>}
-              <span className="flex-1 text-white">{i.name}</span>
-              <span className="text-slate-400">{i.price ? `${businessCurrency()} ${i.price}` : '—'}</span>
-              <button type="button" onClick={() => onRemove(i.ref)} className="text-slate-500 hover:text-red-300"><Trash2 className="h-3.5 w-3.5" /></button>
-            </li>
-          ))}
+        <ul className="mt-3 space-y-2 border-t border-white/10 pt-3">
+          {items.map((i) => {
+            const needsPrice = !i.price || Number(i.price) <= 0;
+            return (
+              <li key={i.ref} className="flex items-center gap-2">
+                {i.imageFile ? <img src={URL.createObjectURL(i.imageFile)} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" /> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-slate-500"><Tag className="h-3.5 w-3.5" /></span>}
+                <input value={i.name} onChange={(e) => onUpdate(i.ref, { name: e.target.value })}
+                  className="flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-sm text-white focus:border-pink-400/50 focus:outline-none" />
+                <input type="number" step="0.01" value={i.price} onChange={(e) => onUpdate(i.ref, { price: e.target.value })} placeholder={`${businessCurrency()} price`}
+                  className={`w-28 shrink-0 rounded-lg border bg-white/[0.02] px-2.5 py-1.5 text-sm text-white focus:outline-none ${needsPrice ? 'border-amber-500/50' : 'border-white/10 focus:border-pink-400/50'}`} />
+                <button type="button" onClick={() => onRemove(i.ref)} className="shrink-0 text-slate-500 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
