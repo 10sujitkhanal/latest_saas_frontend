@@ -221,18 +221,12 @@ export function SetupHub({ data, workspaceId }: { data: SetupHubData | null; wor
 
   const pct = data.total > 0 ? Math.round((data.live / data.total) * 100) : 100;
 
-  // Order: action-needed first, then optional, then live — so the owner always
-  // sees what to do next at the top. Within a goal selection, relevant cards
-  // sort ahead of dimmed ones.
-  const order: Record<SetupCardData['status'], number> = { not_live: 0, optional: 1, live: 2 };
-  const items = [...data.items].sort((a, b) => {
-    if (relevant) {
-      const ra = relevant.has(a.key) ? 0 : 1;
-      const rb = relevant.has(b.key) ? 0 : 1;
-      if (ra !== rb) return ra - rb;
-    }
-    return order[a.status] - order[b.status];
-  });
+  // Render in the backend's deliberate JOURNEY order (address → storefront →
+  // products → payments → memberships → coupons → consults → team → wholesale).
+  // We do NOT re-sort by status: a stable, predictable sequence reads better
+  // than cards jumping around as things go live. Status stays obvious through
+  // color + checkmark, and the goal picker only DIMS non-relevant cards.
+  const items = data.items;
 
   return (
     <section className={`rounded-2xl border p-5 ${
