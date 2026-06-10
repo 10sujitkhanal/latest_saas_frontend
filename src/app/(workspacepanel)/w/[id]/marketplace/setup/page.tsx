@@ -20,6 +20,7 @@ import { Card, Field, TextInput, SelectInput, PrimaryButton, apiError } from '@/
 import { ImageDropzone } from '@/components/workspace/ImageDropzone';
 import { OrganizationService } from '@/services/organization.service';
 import { MarketplaceService } from '@/services/marketplace.service';
+import { DealsService } from '@/services/deals.service';
 import {
   sellableCategoriesFor, TYPE_FIELDS, WELLNESS_STARTERS, STARTER_CATEGORY_KEYS,
   type SellableCategory, type SellableType,
@@ -67,7 +68,7 @@ function Wizard({ wsId }: { wsId: string }) {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ listings: number; memberships: number; categories: number } | null>(null);
+  const [done, setDone] = useState<{ listings: number; memberships: number; categories: number; hasPackage: boolean } | null>(null);
 
   // Restore local draft (text only — Files can't be serialized).
   useEffect(() => {
@@ -172,8 +173,9 @@ function Wizard({ wsId }: { wsId: string }) {
           try { await MarketplaceService.uploadHeroImage(wsId, listingId, i.imageFile); } catch { /* non-fatal */ }
         }
       }));
+      const hasPackage = items.some((i) => i.type === 'package');
       try { localStorage.removeItem(storeKey); } catch { /* ignore */ }
-      setDone({ listings: res.data?.listings ?? counts.listings, memberships: res.data?.memberships ?? counts.memberships, categories: (res.data?.categories?.length) ?? counts.categories });
+      setDone({ listings: res.data?.listings ?? counts.listings, memberships: res.data?.memberships ?? counts.memberships, categories: (res.data?.categories?.length) ?? counts.categories, hasPackage });
     } catch (e) { setError(apiError(e, 'Could not save your setup.')); }
     finally { setSaving(false); }
   };
@@ -196,6 +198,7 @@ function Wizard({ wsId }: { wsId: string }) {
             </div>
           </div>
         </Card>
+        <LaunchOfferStep wsId={wsId} hasPackage={done.hasPackage} hasMembership={done.memberships > 0} />
       </div>
     );
   }
@@ -306,6 +309,100 @@ function Stepper({ step }: { step: number }) {
         );
       })}
     </div>
+  );
+}
+
+interface OfferPreset { key: string; label: string; code: string; value: string; description: string; firstTimeOnly?: boolean; requires?: 'package' | 'membership' }
+
+// Safe, editable launch-offer presets — all created PAUSED, neutral copy, no
+// fake urgency. Shown only when relevant to what the owner just created.
+const OFFER_PRESETS: OfferPreset[] = [
+  { key: 'firstvisit', label: 'First-visit offer', code: 'FIRSTVISIT', value: '10', description: 'A first-visit discount for new customers.', firstTimeOnly: true },
+  { key: 'welcome', label: 'Welcome discount', code: 'WELCOME10', value: '10', description: 'A welcome discount for your customers.' },
+  { key: 'package', label: 'Package intro offer', code: 'PACKAGE10', value: '10', description: 'An introductory discount on a package.', requires: 'package' },
+  { key: 'membership', label: 'Membership intro offer', code: 'MEMBER10', value: '10', description: 'An introductory discount on a membership.', requires: 'membership' },
+];
+
+function isoToday(addDays = 0): string {
+  const d = new Date(); d.setDate(d.getDate() + addDays);
+  return d.toISOString().slice(0, 10);
+}
+
+function LaunchOfferStep({ wsId, hasPackage, hasMembership }: { wsId: string; hasPackage: boolean; hasMembership: boolean }) {
+  const offers = OFFER_PRESETS.filter((o) => !o.requires || (o.requires === 'package' && hasPackage) || (o.requires === 'membership' && hasMembership));
+  const [skipped, setSkipped] = useState(false);
+  const [sel, setSel] = useState<OfferPreset | null>(null);
+  const [code, setCode] = useState('');
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  if (skipped) return null;
+
+  const choose = (o: OfferPreset) => { setSel(o); setCode(o.code); setValue(o.value); setErr(null); };
+
+  const create = async () => {
+    if (!sel) return;
+    const v = Number(value);
+    if (!value || v <= 0 || v > 100) { setErr('Enter a discount between 1 and 100%.'); return; }
+    if (!code.trim()) { setErr('Enter a code customers will type.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      const res = await DealsService.create(Number(wsId), {
+        code: code.trim().toUpperCase(), type: 'percent', value: v,
+        description: sel.description, status: 'paused', first_time_only: !!sel.firstTimeOnly,
+        start_date: isoToday(0), end_date: isoToday(365), applicable_categories: [],
+      });
+      if (!res.success) { setErr(res.message || 'Could not create the offer.'); return; }
+      setCreated(code.trim().toUpperCase()); setSel(null);
+    } catch (e) { setErr(apiError(e, 'Could not create the offer.')); }
+    finally { setBusy(false); }
+  };
+
+  if (created) {
+    return (
+      <Card>
+        <div className="flex items-start gap-3 p-1">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-white">Offer “{created}” created — paused</p>
+            <p className="text-[12px] text-slate-400">It won’t run until you review and enable it. <Link href={`/w/${wsId}/deals`} className="font-semibold text-pink-300 hover:text-pink-200">Review in Deals →</Link></p>
+            <button type="button" onClick={() => setCreated(null)} className="mt-2 text-[12px] font-semibold text-slate-300 hover:text-white">Create another offer</button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between px-1 pb-1">
+        <h2 className="text-sm font-semibold text-white">Want to create a launch offer?</h2>
+        <button type="button" onClick={() => setSkipped(true)} className="text-[12px] font-semibold text-slate-400 hover:text-white">Skip for now</button>
+      </div>
+      <p className="px-1 pb-3 text-[12px] text-slate-400">Optional. Any offer is created <strong>paused</strong> — you set the amount and enable it when you’re ready.</p>
+      {!sel ? (
+        <div className="flex flex-wrap gap-2">
+          {offers.map((o) => (
+            <button key={o.key} type="button" onClick={() => choose(o)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/[0.05]">
+              <Tag className="h-3.5 w-3.5 text-pink-300" /> {o.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <p className="mb-2 text-[12px] text-slate-300">{sel.description}</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-24"><Field label="Discount %"><TextInput type="number" step="1" value={value} onChange={(e) => setValue(e.target.value)} /></Field></div>
+            <div className="w-40"><Field label="Code"><TextInput value={code} onChange={(e) => setCode(e.target.value)} /></Field></div>
+            <button type="button" onClick={create} disabled={busy} className="mb-0.5 rounded-lg bg-pink-600 px-3 py-2 text-xs font-semibold text-white hover:bg-pink-500 disabled:opacity-50">{busy ? 'Creating…' : 'Create offer (paused)'}</button>
+            <button type="button" onClick={() => setSel(null)} className="mb-0.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10">Cancel</button>
+          </div>
+          {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
+        </div>
+      )}
+    </Card>
   );
 }
 
