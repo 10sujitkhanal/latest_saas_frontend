@@ -8,6 +8,7 @@ import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { MarketplaceService, type ListingRow } from '@/services/marketplace.service';
 import { InventoryService, type ItemRow } from '@/services/inventory.service';
+import { ImageDropzone } from '@/components/workspace/ImageDropzone';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError,
@@ -122,24 +123,23 @@ function Inner({ wsId }: { wsId: string }) {
       )}
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit listing' : 'New listing'}>
         <form onSubmit={submit} className="space-y-4">
+          {/* Photo first — a picture is what sells the item, so it's the most
+              prominent control, not a buried file field. */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-300">Photo</label>
+            <ImageDropzone
+              previewUrl={heroPreview || null}
+              onFile={setHeroFile}
+              hint="Add a photo of what you’re selling — drag & drop or click (PNG, JPG, WEBP)"
+            />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Link to inventory item (optional)"><SelectInput value={form.item} onChange={(e) => pickItem(e.target.value)}><option value="">— None —</option>{items.map((it) => <option key={it.id} value={it.id}>{it.sku} — {it.name}</option>)}</SelectInput></Field>
             <Field label="Title"><TextInput required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
             <Field label="Category"><TextInput value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></Field>
             <Field label="Price"><TextInput type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field>
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
-            <Field label="Image URL"><TextInput value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></Field>
-            <Field label="Hero image (upload — overrides Image URL)">
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  onChange={(e) => setHeroFile(e.target.files?.[0] ?? null)}
-                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-pink-500/20 file:px-3 file:py-1.5 file:font-medium file:text-pink-200 hover:file:bg-pink-500/30"
-                />
-                {heroPreview && <img src={heroPreview} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-white/10 object-cover" />}
-              </div>
-            </Field>
+            <Field label="Or paste an image URL (used only if no photo uploaded)"><TextInput value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></Field>
             <div className="sm:col-span-2"><Field label="Description"><TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field></div>
           </div>
           {formError && <p className="text-xs text-red-300">{formError}</p>}
