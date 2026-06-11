@@ -13,7 +13,9 @@ import {
 } from '@/components/inventory/kit';
 
 const UNITS = ['pcs', 'kg', 'g', 'l', 'ml', 'box', 'pack', 'hour'];
-const emptyForm = { sku: '', name: '', category: '', unit: 'pcs', cost_price: '0', selling_price: '0', reorder_point: '0', reorder_qty: '0', currency: businessCurrency(), barcode: '' };
+const emptyForm = { sku: '', name: '', category: '', unit: 'pcs', cost_price: '0', selling_price: '0', reorder_point: '0', reorder_qty: '0', currency: businessCurrency(), barcode: '', opening_stock: '0' };
+// Drop a Decimal(…,4) string's trailing zeros for display: "1100.0000" -> "1100".
+const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? String(n) : '0'; };
 
 export default function ItemsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -52,18 +54,26 @@ function Inner({ wsId }: { wsId: string }) {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
   const openEdit = (i: ItemRow) => {
     setEditing(i);
-    setForm({ sku: i.sku, name: i.name, category: i.category ? String(i.category) : '', unit: i.unit, cost_price: String(i.cost_price), selling_price: String(i.selling_price), reorder_point: String(i.reorder_point), reorder_qty: String(i.reorder_qty), currency: i.currency, barcode: i.barcode || '' });
+    setForm({ sku: i.sku, name: i.name, category: i.category ? String(i.category) : '', unit: i.unit, cost_price: num(i.cost_price), selling_price: num(i.selling_price), reorder_point: num(i.reorder_point), reorder_qty: num(i.reorder_qty), currency: i.currency, barcode: i.barcode || '', opening_stock: '0' });
     setFormError(null); setOpen(true);
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setFormError(null);
     try {
-      const payload = { ...form, category: form.category ? Number(form.category) : null };
+      const { opening_stock, ...rest } = form;
+      const payload = { ...rest, category: form.category ? Number(form.category) : null };
       const res = editing
         ? await InventoryService.items.update(wsId, editing.id, payload)
         : await InventoryService.items.create(wsId, payload);
       if (!res.success) { setFormError(res.message || 'Could not save item.'); return; }
+      // New item with opening stock → record it as a stock-in movement (the
+      // audited way; qty_on_hand is read-only and never edited directly).
+      const newId = (res.data as { id?: number } | undefined)?.id;
+      if (!editing && newId && Number(opening_stock) > 0) {
+        try { await InventoryService.recordMovement(wsId, { item: newId, type: 'in', qty: opening_stock, reference: 'Opening stock' }); }
+        catch { /* item created; opening movement is best-effort */ }
+      }
       setOpen(false); setForm(emptyForm); setEditing(null); reload();
     } catch (err) { setFormError(apiError(err, 'Could not save item.')); }
     finally { setSaving(false); }
@@ -81,7 +91,7 @@ function Inner({ wsId }: { wsId: string }) {
                 <td className="px-3 py-2 font-mono text-white">{i.sku}</td>
                 <td className="px-3 py-2 text-white">{i.name}</td>
                 <td className="px-3 py-2">{i.category_name || '—'}</td>
-                <td className="px-3 py-2 text-right">{i.qty_on_hand} {i.unit}</td>
+                <td className="px-3 py-2 text-right">{num(i.qty_on_hand)} {i.unit}</td>
                 <td className="px-3 py-2 text-right">{money(i.cost_price, i.currency)}</td>
                 <td className="px-3 py-2 text-right">{money(i.selling_price, i.currency)}</td>
                 <td className="px-3 py-2 text-center">{i.is_low_stock ? <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-200">low</span> : <Pill>ok</Pill>}</td>
@@ -108,9 +118,11 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Selling price"><TextInput type="number" step="0.01" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} /></Field>
             <Field label="Reorder point"><TextInput type="number" step="0.01" value={form.reorder_point} onChange={(e) => setForm({ ...form, reorder_point: e.target.value })} /></Field>
             <Field label="Reorder qty"><TextInput type="number" step="0.01" value={form.reorder_qty} onChange={(e) => setForm({ ...form, reorder_qty: e.target.value })} /></Field>
+            {!editing && <Field label="Opening stock (optional)"><TextInput type="number" step="0.01" value={form.opening_stock} onChange={(e) => setForm({ ...form, opening_stock: e.target.value })} placeholder="0" /></Field>}
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
             <Field label="Barcode"><TextInput value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} /></Field>
           </div>
+          {!editing && <p className="text-xs text-slate-500">Set the starting quantity in “Opening stock”. After that, quantity changes only via the Stock Movements tab.</p>}
           {editing && <p className="text-xs text-slate-500">Quantity on hand is changed on the Stock Movements tab, not here.</p>}
           {formError && <p className="text-xs text-red-300">{formError}</p>}
           <div className="flex justify-end gap-2">
