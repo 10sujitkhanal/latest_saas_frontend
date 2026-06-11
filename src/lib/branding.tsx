@@ -85,20 +85,30 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Robustly set the tab favicon. Browsers pick ONE of several icon links and
- * cache it hard, so just changing one href usually leaves a stale icon (and
- * Next renders its own). Remove every icon link and add fresh ones, with a
- * cache-bust so the browser re-fetches.
+ * Set the tab favicon to the tenant's own icon.
+ *
+ * CRITICAL: this must NOT remove any existing `<link rel="icon">` nodes. Next's
+ * metadata system renders and *reconciles* its own icon links in `<head>`; if we
+ * `.remove()` them, React later tries to delete an already-detached node and
+ * throws `Cannot read properties of null (reading 'removeChild')` in the
+ * reconciler — which crashes client-side rendering (broken navigation, dead
+ * workspace switcher, login redirect not firing). So we own ONE link per rel by
+ * id and only ever UPDATE its href. Appended last + cache-busted, the browser
+ * prefers it over Next's default, and React's nodes are never touched.
  */
 export function setFavicon(url: string) {
   if (!url || typeof document === 'undefined') return;
-  document.querySelectorAll("link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']").forEach((l) => l.remove());
   const href = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
   for (const rel of ['icon', 'apple-touch-icon']) {
-    const link = document.createElement('link');
-    link.rel = rel;
+    const id = `tenant-fav-${rel}`;
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link');
+      link.id = id;
+      link.rel = rel;
+      document.head.appendChild(link);
+    }
     link.href = href;
-    document.head.appendChild(link);
   }
 }
 

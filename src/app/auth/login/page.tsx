@@ -75,7 +75,11 @@ export default function OrgLoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {/* method="post" is a safety net: if the form is submitted before React
+            hydrates (slow network / hydration race), the browser would otherwise
+            do a native GET and leak email+password into the URL query string.
+            POST keeps credentials out of the URL/history/logs entirely. */}
+        <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
             <div className="relative">
