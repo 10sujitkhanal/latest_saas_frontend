@@ -54,7 +54,7 @@ interface AuthState {
   // the workspace name + the user's role for it. Null on the /w list.
   workspaceMeta: { id: number; name: string; role: string } | null;
   // The org's OWN business identity (OrganizationProfile) for the sidebar brand.
-  business: { name: string; logo: string | null } | null;
+  business: { name: string; logo: string | null; favicon?: string | null } | null;
   login: (access: string, refresh: string, email: string) => void;
   setUser: (user: OrgUser | null) => void;
   setPermissions: (codes: string[]) => void;

@@ -23,6 +23,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const setServices = useAuthStore((s) => s.setServices);
   const setHydrated = useAuthStore((s) => s.setHydrated);
   const setBusiness = useAuthStore((s) => s.setBusiness);
+  const business = useAuthStore((s) => s.business);
   const setSubscriptionStatus = useSubscriptionStatusStore((s) => s.set);
   const subscriptionActive = useSubscriptionStatusStore((s) => s.active);
   const [state, setState] = useState<GateState>('checking');
@@ -89,6 +90,18 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
       cancelled = true;
     };
   }, [router, setUser, setPermissions, setServices, setSubscriptionStatus, setHydrated, setBusiness]);
+
+  // Re-apply the tenant favicon + tab title on every navigation. Next's static
+  // root metadata (title "Merkoll", icon /favicon.ico) is re-asserted on each
+  // App Router navigation, which would otherwise revert the business's own
+  // branding that we set once on mount. Re-running here (after render) keeps the
+  // tenant's favicon/title authoritative across navigations.
+  useEffect(() => {
+    try {
+      if (business?.favicon) setFavicon(business.favicon);
+      if (business?.name) document.title = business.name;
+    } catch { /* non-critical */ }
+  }, [pathname, business]);
 
   // Lock locked-out admins to /subscription. Any navigation to other panel
   // routes is redirected. The subscription page itself stays accessible so

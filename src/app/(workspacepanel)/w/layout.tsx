@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { AlertTriangle, ArrowRight, Lock, ShieldAlert } from 'lucide-react';
 import { getAuthToken, removeAuthTokens } from '@/lib/storage';
 import { OrganizationService } from '@/services/organization.service';
@@ -27,8 +27,9 @@ type GateState = 'checking' | 'ok' | 'unauth' | 'sub_admin' | 'sub_member' | 'er
 
 export default function WorkspacePanelLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [state, setState] = useState<GateState>('checking');
-  const [me, setMe] = useState<{ email: string; is_admin: boolean; subscription_active: boolean; business?: { name: string; logo: string | null } } | null>(null);
+  const [me, setMe] = useState<{ email: string; is_admin: boolean; subscription_active: boolean; business?: { name: string; logo: string | null; favicon?: string | null } } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -77,6 +78,16 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
       });
     return () => { cancelled = true; };
   }, [router]);
+
+  // Re-apply the business's favicon + tab title on every navigation — Next's
+  // static root metadata is re-asserted on each App Router navigation and would
+  // otherwise revert the tenant branding set on mount.
+  useEffect(() => {
+    try {
+      if (me?.business?.favicon) setFavicon(me.business.favicon);
+      if (me?.business?.name) document.title = me.business.name;
+    } catch { /* non-critical */ }
+  }, [pathname, me]);
 
   if (state === 'checking' || state === 'unauth') {
     return (
