@@ -17,8 +17,19 @@ import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import {
   getAssistantStatus,
   askAssistant,
+  askAssistantStream,
   type AssistantTurn,
 } from "@/lib/storefront/storefrontPublicApi";
+
+/** Greeting in the customer's browser language (Swedish stores read in Swedish).
+ *  Falls back to the backend-provided (English) greeting for other languages. */
+function localizedGreeting(name: string, backendGreeting: string): string {
+  const lang = (typeof navigator !== "undefined" ? navigator.language : "en").toLowerCase();
+  if (lang.startsWith("sv")) {
+    return `Hej! Jag är ${name || "butikens"} assistent — fråga mig om produkter, öppettider, policyer eller annat.`;
+  }
+  return backendGreeting || (name ? `Hi! I'm the ${name} assistant — ask me anything.` : "Hi! How can I help?");
+}
 
 interface Props {
   slug: string;
@@ -55,12 +66,12 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
     return () => { alive = false; };
   }, [slug]);
 
-  // Seed the greeting the first time the panel opens.
+  // Seed the greeting the first time the panel opens (in the customer's language).
   useEffect(() => {
-    if (open && messages.length === 0 && greeting) {
-      setMessages([{ role: "assistant", content: greeting }]);
+    if (open && messages.length === 0) {
+      setMessages([{ role: "assistant", content: localizedGreeting(storeName, greeting) }]);
     }
-  }, [open, greeting, messages.length]);
+  }, [open, greeting, storeName, messages.length]);
 
   // Keep the latest message in view + focus the input when opening.
   useEffect(() => {
@@ -83,27 +94,55 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
       { role: "assistant", content: "", pending: true },
     ]);
     setBusy(true);
-    try {
-      const reply = await askAssistant(slug, q, history);
+
+    // Append a streamed delta to the last (assistant) bubble; first token
+    // clears the pending dots.
+    const appendToLast = (delta: string) =>
       setMessages((prev) => {
         const next = prev.slice();
+        const last = next[next.length - 1];
         next[next.length - 1] = {
           role: "assistant",
-          content:
-            reply.answer ||
-            "I'm not sure about that one — could you rephrase, or reach out to the team directly?",
+          content: (last?.pending ? "" : last?.content || "") + delta,
+          pending: false,
         };
+        return next;
+      });
+    const replaceLast = (text: string) =>
+      setMessages((prev) => {
+        const next = prev.slice();
+        next[next.length - 1] = { role: "assistant", content: text, pending: false };
+        return next;
+      });
+
+    try {
+      // Stream the answer out live.
+      await askAssistantStream(slug, q, history, appendToLast);
+      // Guard against an empty stream (no tokens) — show a graceful message.
+      setMessages((prev) => {
+        const next = prev.slice();
+        const last = next[next.length - 1];
+        if (last?.pending || !last?.content) {
+          next[next.length - 1] = {
+            role: "assistant",
+            content:
+              "I'm not sure about that one — could you rephrase, or reach out to the team directly?",
+            pending: false,
+          };
+        }
         return next;
       });
     } catch {
-      setMessages((prev) => {
-        const next = prev.slice();
-        next[next.length - 1] = {
-          role: "assistant",
-          content: "Sorry — I couldn't answer just now. Please try again in a moment.",
-        };
-        return next;
-      });
+      // SSE unavailable → fall back to the blocking endpoint.
+      try {
+        const reply = await askAssistant(slug, q, history);
+        replaceLast(
+          reply.answer ||
+            "I'm not sure about that one — could you rephrase, or reach out to the team directly?",
+        );
+      } catch {
+        replaceLast("Sorry — I couldn't answer just now. Please try again in a moment.");
+      }
     } finally {
       setBusy(false);
     }

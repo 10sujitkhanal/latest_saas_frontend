@@ -1092,3 +1092,65 @@ export async function askAssistant(
     confidence: Number(d?.confidence ?? 0),
   };
 }
+
+/**
+ * Streaming ask — answer text arrives token-by-token via SSE so the UI can type
+ * it out live. ``onToken`` is called with each delta. Throws on transport
+ * failure (or an error event before any token) so the caller can fall back to
+ * the blocking ``askAssistant``. Resolves once the stream completes.
+ */
+export async function askAssistantStream(
+  slug: string,
+  query: string,
+  history: AssistantTurn[],
+  onToken: (text: string) => void,
+): Promise<{ confidence: number; available: boolean }> {
+  const res = await fetch(
+    `${resolveApiV1Base()}/public/storefront/${encodeURIComponent(slug)}/assistant/stream/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify({ query, history }),
+    },
+  );
+  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let confidence = 0;
+  let available = true;
+  let gotToken = false;
+
+  const handle = (payload: string) => {
+    if (!payload) return;
+    let ev: { type?: string; text?: string; confidence?: number; available?: boolean };
+    try {
+      ev = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    if (ev.type === "token" && ev.text) {
+      gotToken = true;
+      onToken(ev.text);
+    } else if (ev.type === "done") {
+      confidence = Number(ev.confidence ?? 0);
+      if (ev.available === false) available = false;
+    } else if (ev.type === "error" && !gotToken) {
+      throw new Error("stream error");
+    }
+  };
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const frames = buf.split("\n\n");
+    buf = frames.pop() || "";
+    for (const frame of frames) {
+      const line = frame.trim();
+      if (line.startsWith("data:")) handle(line.slice(5).trim());
+    }
+  }
+  return { confidence, available };
+}
