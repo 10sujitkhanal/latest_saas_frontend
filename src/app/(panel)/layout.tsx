@@ -9,6 +9,7 @@ import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStatusStore } from '@/store/subscriptionStatusStore';
 import { setBusinessCurrency } from '@/lib/currency';
+import { setFavicon } from '@/lib/branding';
 
 type GateState = 'checking' | 'unauth' | 'forbidden' | 'ok' | 'error';
 
@@ -55,11 +56,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         // only carries the white-label favicon, which is null for non-white-
         // label tenants — so the business's own favicon must come from here).
         try {
-          if (me.business?.favicon) {
-            let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-            link.href = me.business.favicon;
-          }
+          if (me.business?.favicon) setFavicon(me.business.favicon);
           if (me.business?.name) document.title = me.business.name;
         } catch { /* non-critical */ }
         setSubscriptionStatus({

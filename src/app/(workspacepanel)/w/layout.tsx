@@ -8,6 +8,7 @@ import { getAuthToken, removeAuthTokens } from '@/lib/storage';
 import { OrganizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/store/authStore';
 import { setBusinessCurrency } from '@/lib/currency';
+import { setFavicon } from '@/lib/branding';
 import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 
 /**
@@ -54,11 +55,7 @@ export default function WorkspacePanelLayout({ children }: { children: React.Rea
         // (same as the admin panel — the public branding endpoint doesn't carry
         // the tenant's own favicon for non-white-label orgs).
         try {
-          if (m.business?.favicon) {
-            let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-            link.href = m.business.favicon;
-          }
+          if (m.business?.favicon) setFavicon(m.business.favicon);
           if (m.business?.name) document.title = m.business.name;
         } catch { /* non-critical */ }
         if (!m.subscription_active) {
