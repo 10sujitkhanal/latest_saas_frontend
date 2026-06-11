@@ -18,6 +18,7 @@ import {
   type PublicStorefront, type PublicItem, type PublicOffer, type PublicAvailability,
 } from '@/lib/storefront/storefrontPublicApi';
 import { UniversalStorefrontClient } from '@/components/storefront/UniversalStorefrontClient';
+import { setFavicon } from '@/lib/branding';
 
 /** Subtle, non-invasive sign-in pill shown over every storefront. Routes to the
  *  org login, which then sends the user where they belong (owner→dashboard,
@@ -77,11 +78,7 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
     const sf = data?.storefront;
     if (!sf) return;
     if (sf.name) document.title = sf.name;
-    if (sf.faviconUrl) {
-      let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-      link.href = sf.faviconUrl;
-    }
+    if (sf.faviconUrl) setFavicon(sf.faviconUrl);
   }, [data]);
 
   if (state === 'loading') {

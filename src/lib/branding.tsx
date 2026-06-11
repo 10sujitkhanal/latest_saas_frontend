@@ -84,19 +84,29 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   return <BrandingContext.Provider value={branding}>{children}</BrandingContext.Provider>;
 }
 
+/**
+ * Robustly set the tab favicon. Browsers pick ONE of several icon links and
+ * cache it hard, so just changing one href usually leaves a stale icon (and
+ * Next renders its own). Remove every icon link and add fresh ones, with a
+ * cache-bust so the browser re-fetches.
+ */
+export function setFavicon(url: string) {
+  if (!url || typeof document === 'undefined') return;
+  document.querySelectorAll("link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']").forEach((l) => l.remove());
+  const href = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  for (const rel of ['icon', 'apple-touch-icon']) {
+    const link = document.createElement('link');
+    link.rel = rel;
+    link.href = href;
+    document.head.appendChild(link);
+  }
+}
+
 function applyBranding(data: BrandingData) {
   if (data.brand_color) {
     document.documentElement.style.setProperty('--brand-primary', data.brand_color);
   }
-  if (data.favicon) {
-    let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'shortcut icon';
-      document.getElementsByTagName('head')[0].appendChild(link);
-    }
-    link.href = data.favicon;
-  }
+  if (data.favicon) setFavicon(data.favicon);
   if (data.name) document.title = data.name;
 }
 
