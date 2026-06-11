@@ -3,6 +3,7 @@
 // formatMoney() everywhere, plus as the default for create forms — so the whole
 // UI shows one currency per business, matching the backend.
 import { create } from 'zustand';
+import { formatCurrencyMarket } from '@/lib/utils/currency';
 
 export const CURRENCIES: { code: string; label: string }[] = [
   { code: 'SEK', label: 'Swedish Krona (kr)' },
@@ -43,17 +44,12 @@ export function businessCurrency(): string {
 }
 
 /**
- * Format an amount in the business currency (or an explicit one). Uses
- * Intl currency formatting; falls back to "<CODE> <amount>" if the runtime
- * doesn't know the code.
+ * Format an amount in the BUSINESS currency (the one chosen in Settings), or an
+ * explicit one. Routes through the market formatter so a SEK business reads
+ * "kr" everywhere — admin + storefront — never Intl's "SEK"/"Rs".
  */
 export function formatMoney(amount: number | string | null | undefined, currency?: string): string {
   const n = typeof amount === 'string' ? parseFloat(amount) : (amount ?? 0);
   const val = Number.isFinite(n as number) ? (n as number) : 0;
-  const cur = currency || businessCurrency();
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 2 }).format(val);
-  } catch {
-    return `${cur} ${val.toFixed(2)}`;
-  }
+  return formatCurrencyMarket(val, currency || businessCurrency());
 }
