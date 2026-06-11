@@ -9,7 +9,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { SalesService, type QuoteRow, type QuoteStatus } from '@/services/sales.service';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
-  Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
+  Modal, Field, TextInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
 } from '@/components/accounting/kit';
 
 type LineDraft = { description: string; quantity: string; unit_price: string; discount_amount: string; tax_amount: string };
@@ -150,7 +150,7 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Customer email"><TextInput type="email" value={head.customer_email} onChange={(e) => setHead({ ...head, customer_email: e.target.value })} placeholder="ap@acme.com" /></Field>
             <Field label="Issue date"><TextInput type="date" required value={head.issue_date} onChange={(e) => setHead({ ...head, issue_date: e.target.value })} /></Field>
             <Field label="Valid until"><TextInput type="date" value={head.valid_until} onChange={(e) => setHead({ ...head, valid_until: e.target.value })} /></Field>
-            <Field label="Currency"><SelectInput value={head.currency} onChange={(e) => setHead({ ...head, currency: e.target.value })}><option>NPR</option><option>USD</option><option>EUR</option><option>INR</option></SelectInput></Field>
+            <Field label="Currency"><TextInput value={head.currency} readOnly disabled title="Your business currency (change it in Settings)" /></Field>
           </div>
           <Field label="Scope of work (optional)"><TextInput value={head.system_description} onChange={(e) => setHead({ ...head, system_description: e.target.value })} placeholder="What you're quoting for" /></Field>
 

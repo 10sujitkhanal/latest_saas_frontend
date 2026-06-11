@@ -7,6 +7,7 @@ import {
   CheckCircle2, Share2, ExternalLink, Ticket, Play,
 } from "lucide-react";
 import type { PublicStorefront } from "@/lib/storefront/storefrontPublicApi";
+import { formatCurrencyMarket } from "@/lib/utils/currency";
 import { WellnessPageLayout } from "./WellnessPageLayout";
 
 interface StoredEvent {
@@ -122,7 +123,7 @@ export function WellnessEventDetailClient({ storefront, eventId }: { storefront:
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-3">
                 <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${event.isFree ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                  {event.isFree ? "Free Entry" : `NPR ${event.ticketPrice.toLocaleString()}`}
+                  {event.isFree ? "Free Entry" : formatCurrencyMarket(event.ticketPrice, storefront.currency || "SEK")}
                 </span>
                 {event.isOnlineEvent && <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">🌐 Online</span>}
                 {isPast && <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Past</span>}
@@ -224,7 +225,7 @@ export function WellnessEventDetailClient({ storefront, eventId }: { storefront:
                   </h3>
                 </div>
                 <p className="text-2xl font-extrabold text-[#1a3a2b] mb-4">
-                  {event.isFree ? "Free" : `NPR ${event.ticketPrice.toLocaleString()}`}
+                  {event.isFree ? "Free" : formatCurrencyMarket(event.ticketPrice, storefront.currency || "SEK")}
                 </p>
 
                 {isPast ? (
