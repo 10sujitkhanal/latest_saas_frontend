@@ -25,6 +25,29 @@ import {
   Sparkles, ArrowRight, Target, ShoppingCart, CalendarDays, Boxes, PlusCircle,
 } from 'lucide-react';
 import { Skeleton } from '@/components/workspace/Skeleton';
+import { useAuthStore, hasPermission } from '@/store/authStore';
+
+// Per-card permission gate. A setup card is only shown to a staff member whose
+// workspace role grants the matching permission — so a Front-Desk or Accountant
+// doesn't see "set up your storefront / products". Admins/owners carry the '*'
+// wildcard, so they see everything. Keys with no entry here are always shown
+// (safe default for future foundational cards). Codes are real rbac codes.
+const CARD_PERMISSION: Record<string, string> = {
+  store_address: 'marketplace.storefront',
+  storefront: 'marketplace.storefront',
+  products: 'inventory.view',
+  inventory: 'inventory.view',
+  orders: 'orders.view',
+  wholesale: 'orders.view',
+  memberships: 'loyalty.view',
+  coupons_loyalty: 'deals.view',
+  bookings: 'scheduling.view',
+  events: 'marketplace.view',
+  payments: 'accounting.view',
+  team: 'staff.view',
+  upsells: 'marketplace.edit',
+  addons: 'marketplace.edit',
+};
 
 export interface SetupCardData {
   key: string;
@@ -182,6 +205,7 @@ function SetupGoalPicker({ goals, selected, onToggle }: {
 
 export function SetupHub({ data, workspaceId }: { data: SetupHubData | null; workspaceId: string }) {
   const storageKey = `setupGoals:${workspaceId}`;
+  const permissionCodes = useAuthStore((s) => s.permissionCodes);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
 
@@ -231,7 +255,16 @@ export function SetupHub({ data, workspaceId }: { data: SetupHubData | null; wor
   // We do NOT re-sort by status: a stable, predictable sequence reads better
   // than cards jumping around as things go live. Status stays obvious through
   // color + checkmark, and the goal picker only DIMS non-relevant cards.
-  const items = data.items;
+  //
+  // Permission gate: a staff member only sees the setup cards their workspace
+  // role can actually act on (owners/admins carry '*', so they see all). If a
+  // role grants none of them, the whole hub is hidden rather than teasing
+  // features they can't touch.
+  const items = data.items.filter((card) => {
+    const code = CARD_PERMISSION[card.key];
+    return !code || hasPermission(permissionCodes, code);
+  });
+  if (items.length === 0) return null;
 
   return (
     <section className={`rounded-2xl border p-5 ${

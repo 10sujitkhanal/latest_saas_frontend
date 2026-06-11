@@ -62,9 +62,13 @@ interface SetupStatus {
 
 export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = reactUse(params);
+  const permissionCodes = useAuthStore((s) => s.permissionCodes);
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [setup, setSetup] = useState<SetupStatus | null>(null);
   const [setupHub, setSetupHub] = useState<SetupHubData | null>(null);
+  // The CRM setup checklist + store Setup Hub are management/onboarding tools —
+  // only surface them to a member whose role can actually act on them.
+  const canSeeCrmSetup = hasPermission(permissionCodes, 'crm.leads_view') || hasPermission(permissionCodes, 'inbox.view');
 
   useEffect(() => {
     OrganizationService.workspaceContext(Number(id)).then((res) => {
@@ -111,7 +115,7 @@ export default function WorkspaceOverviewPage({ params }: { params: Promise<{ id
       {/* Setup checklist — surfaces every "do this before AI can run" item.
           Shows only the items that still need attention; collapses to a
           subtle confetti tile once everything is done. */}
-      <SetupBlock setup={setup} workspaceId={id} />
+      {canSeeCrmSetup && <SetupBlock setup={setup} workspaceId={id} />}
 
       {/* MoreTech AI promo — only shows when not yet purchased. Pitches
           unlimited tokens and opens a purchase popup right here. */}
@@ -199,6 +203,7 @@ function fmtMoney(v: string | number | undefined, currency: string) {
 function BusinessHealth({ wsId }: { wsId: string }) {
   const [h, setH] = useState<Health | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const permissionCodes = useAuthStore((s) => s.permissionCodes);
   useEffect(() => {
     let alive = true;
     OrganizationService.workspaceHealth(Number(wsId))
@@ -211,8 +216,15 @@ function BusinessHealth({ wsId }: { wsId: string }) {
   if (!loaded) return <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
   if (!h) return null;
   const cur = h.currency || businessCurrency();
-  // Nothing commerce/finance-y configured yet → don't show an empty band.
-  if (!h.finance && !h.memberships && !h.orders) return null;
+  // Permission gate: financial figures are sensitive — a member only sees the
+  // bands their workspace role permits (owners/admins carry the '*' wildcard).
+  const showFinance = !!h.finance && hasPermission(permissionCodes, 'accounting.view');
+  const showMemberships = !!h.memberships && hasPermission(permissionCodes, 'loyalty.view');
+  const showOrders = !!h.orders && hasPermission(permissionCodes, 'orders.view');
+  const showQuotes = !!h.quotes && hasPermission(permissionCodes, 'quotes.view');
+  const showTopProducts = !!(h.top_products && h.top_products.length) && (showOrders || showFinance);
+  // Nothing the user is allowed to see → don't show an empty band.
+  if (!showFinance && !showMemberships && !showOrders && !showQuotes && !showTopProducts) return null;
   const overdue = Number(h.finance?.overdue_outstanding || 0);
 
   return (
@@ -221,27 +233,27 @@ function BusinessHealth({ wsId }: { wsId: string }) {
         <h2 className="text-sm font-semibold text-white">Business health <span className="text-[11px] font-normal text-slate-500">· this month</span></h2>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {h.finance && (
+        {showFinance && h.finance && (
           <HealthCard icon={<Wallet className="w-5 h-5" />} label="Collected (MTD)" value={fmtMoney(h.finance.collected_mtd, cur)} sub={`${fmtMoney(h.finance.invoiced_mtd, cur)} invoiced`} href={`/w/${wsId}/accounting/payments`} />
         )}
-        {h.finance && (
+        {showFinance && h.finance && (
           <HealthCard
             icon={<TrendingUp className="w-5 h-5" />} label="Receivable" value={fmtMoney(h.finance.ar_outstanding, cur)}
             sub={overdue > 0 ? `${fmtMoney(overdue, cur)} overdue (${h.finance.overdue_count})` : `${h.finance.open_invoices} open`}
             danger={overdue > 0} href={`/w/${wsId}/accounting/invoices`}
           />
         )}
-        {h.memberships && (
+        {showMemberships && h.memberships && (
           <HealthCard icon={<Sparkles className="w-5 h-5" />} label="MRR" value={fmtMoney(h.memberships.mrr, h.memberships.currency || cur)} sub={`${h.memberships.active} active · ${h.memberships.expiring_30d} renewing`} href={`/w/${wsId}/loyalty/insights`} />
         )}
-        {h.orders && (
+        {showOrders && h.orders && (
           <HealthCard icon={<ShoppingCart className="w-5 h-5" />} label="Orders (MTD)" value={String(h.orders.count_mtd)} sub={`${fmtMoney(h.orders.revenue_mtd, cur)} revenue`} href={`/w/${wsId}/orders`} />
         )}
       </div>
 
-      {(h.top_products?.length || h.quotes) ? (
+      {(showTopProducts || showQuotes) ? (
         <div className="grid gap-4 lg:grid-cols-3">
-          {h.top_products && h.top_products.length > 0 && (
+          {showTopProducts && h.top_products && h.top_products.length > 0 && (
             <div className="lg:col-span-2 rounded-2xl border border-white/5 bg-white/[0.02] p-5">
               <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-white"><Package className="w-4 h-4 text-emerald-300" /> Top products this month</div>
               <ul className="space-y-2">
@@ -254,7 +266,7 @@ function BusinessHealth({ wsId }: { wsId: string }) {
               </ul>
             </div>
           )}
-          {h.quotes && (
+          {showQuotes && h.quotes && (
             <Link href={`/w/${wsId}/sales/quotes`} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors flex flex-col justify-center">
               <div className="flex items-center gap-2 text-amber-300"><FileSignature className="w-5 h-5" /><span className="text-sm font-semibold text-white">Open quotes</span></div>
               <div className="mt-2 text-3xl font-bold text-white">{h.quotes.open}</div>
