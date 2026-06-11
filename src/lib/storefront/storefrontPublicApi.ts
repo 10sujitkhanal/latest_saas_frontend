@@ -75,6 +75,7 @@ function _mapStorefront(b: any): PublicStorefront {
     tagline: sf.tagline || "",
     description: sf.tagline || "",
     logoUrl: b.theme?.logo ?? null,
+    faviconUrl: b.theme?.favicon ?? null,
     bannerUrl: null,
     primaryColor: b.theme?.accent || "#10b981",
     theme: "modern",
@@ -177,6 +178,7 @@ export interface PublicStorefront {
   tagline: string;
   description: string;
   logoUrl: string | null;
+  faviconUrl?: string | null;
   bannerUrl: string | null;
   primaryColor: string;
   theme: string;

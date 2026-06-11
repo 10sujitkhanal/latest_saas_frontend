@@ -72,6 +72,18 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
     return () => { alive = false; };
   }, [schema]);
 
+  // Apply the business's OWN favicon + tab title to the public store.
+  useEffect(() => {
+    const sf = data?.storefront;
+    if (!sf) return;
+    if (sf.name) document.title = sf.name;
+    if (sf.faviconUrl) {
+      let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = sf.faviconUrl;
+    }
+  }, [data]);
+
   if (state === 'loading') {
     return (
       <div className="min-h-screen grid place-items-center bg-white text-slate-400 text-sm">
