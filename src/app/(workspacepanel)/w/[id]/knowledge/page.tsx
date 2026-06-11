@@ -285,7 +285,7 @@ function KnowledgeInner({ wsId }: { wsId: string }) {
                   Open Credentials
                 </Link>
                 <span className="text-[11px] text-slate-400 self-center">
-                  Embeddings: OpenAI or Cohere · Chat: OpenAI or Anthropic.
+                  MoreTech AI covers both chat and embeddings · or connect OpenAI/Cohere (embeddings) + OpenAI/Anthropic (chat).
                 </span>
               </div>
             </div>
