@@ -98,7 +98,14 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
  */
 export function setFavicon(url: string) {
   if (!url || typeof document === 'undefined') return;
-  const href = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  // Mixed-content guard: the per-tenant media host is reachable over http+https,
+  // and /me sometimes returns an http:// favicon URL. On an https page the
+  // browser BLOCKS an http favicon, so it never shows. Upgrade to https.
+  let safe = url;
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && safe.startsWith('http://')) {
+    safe = 'https://' + safe.slice('http://'.length);
+  }
+  const href = `${safe}${safe.includes('?') ? '&' : '?'}v=${Date.now()}`;
   for (const rel of ['icon', 'apple-touch-icon']) {
     const id = `tenant-fav-${rel}`;
     let link = document.getElementById(id) as HTMLLinkElement | null;
