@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { businessCurrency } from '@/lib/currency';
+import { formatCurrencyMarket } from '@/lib/utils/currency';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { RefreshCw, X, Plus, AlertTriangle } from 'lucide-react';
@@ -19,7 +20,10 @@ export function numberValue(value: string | number | null | undefined) {
 }
 
 export function money(value: string | number | null | undefined, currency = businessCurrency()) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(numberValue(value));
+  // Same market-aware formatter as the public storefront, so a SEK business
+  // sees "kr" everywhere (admin + store) instead of Intl's "SEK"/"Rs" — and
+  // whole amounts stay clean while real cents (10,50) still show.
+  return formatCurrencyMarket(numberValue(value), currency);
 }
 
 export function toneClass(status: string) {
