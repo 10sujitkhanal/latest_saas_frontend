@@ -1039,3 +1039,56 @@ export async function addPublicLoyaltyStamps(
 ): Promise<StampState | null> {
   return null;
 }
+
+// ─── Storefront AI assistant ────────────────────────────────────────────────
+// Customer-facing chat, powered by the store's own trained KB (the same engine
+// the owner trains in /w/<id>/knowledge). Backend never exposes anything beyond
+// the answer text + confidence.
+
+export interface AssistantStatus {
+  available: boolean;
+  name: string;
+  greeting: string;
+}
+
+export interface AssistantTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AssistantReply {
+  available: boolean;
+  answer: string;
+  confidence: number;
+}
+
+/** Is the AI assistant turned on for this store? (cheap, no LLM call). */
+export async function getAssistantStatus(slug: string): Promise<AssistantStatus> {
+  try {
+    const d = await _pubGet(`/public/storefront/${encodeURIComponent(slug)}/assistant/`);
+    return {
+      available: !!d?.available,
+      name: d?.name || "",
+      greeting: d?.greeting || "",
+    };
+  } catch {
+    return { available: false, name: "", greeting: "" };
+  }
+}
+
+/** Ask the store's AI assistant a question. ``history`` is recent turns for context. */
+export async function askAssistant(
+  slug: string,
+  query: string,
+  history: AssistantTurn[] = [],
+): Promise<AssistantReply> {
+  const d = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/assistant/`, {
+    query,
+    history,
+  });
+  return {
+    available: d?.available !== false,
+    answer: d?.answer || "",
+    confidence: Number(d?.confidence ?? 0),
+  };
+}

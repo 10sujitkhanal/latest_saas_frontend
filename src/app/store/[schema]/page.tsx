@@ -18,6 +18,7 @@ import {
   type PublicStorefront, type PublicItem, type PublicOffer, type PublicAvailability,
 } from '@/lib/storefront/storefrontPublicApi';
 import { UniversalStorefrontClient } from '@/components/storefront/UniversalStorefrontClient';
+import StorefrontAssistant from '@/components/storefront/StorefrontAssistant';
 import { setFavicon } from '@/lib/branding';
 
 /** Subtle, non-invasive sign-in pill shown over every storefront. Routes to the
@@ -110,6 +111,11 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
         availability={data.availability}
         refCode={refCode}
         joinIntent={joinIntent}
+      />
+      <StorefrontAssistant
+        slug={schema}
+        name={data.storefront.name}
+        accent={data.storefront.primaryColor}
       />
     </>
   );
