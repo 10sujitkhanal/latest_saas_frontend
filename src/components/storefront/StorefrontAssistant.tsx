@@ -31,6 +31,34 @@ function localizedGreeting(name: string, backendGreeting: string): string {
   return backendGreeting || (name ? `Hi! I'm the ${name} assistant — ask me anything.` : "Hi! How can I help?");
 }
 
+const _isSwedish = () =>
+  typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("sv");
+
+// Reassuring status while the (CPU-hosted) model works — advances through phrases
+// so a multi-second wait reads as "working on it", not "frozen". Stops on the
+// last phrase rather than looping (looping back to "Thinking…" feels like a reset).
+const THINKING_PHRASES_EN = ["Thinking…", "Looking that up…", "Checking our info…", "Almost there…"];
+const THINKING_PHRASES_SV = ["Tänker…", "Letar upp det…", "Kollar vår info…", "Snart klart…"];
+
+function ThinkingIndicator() {
+  const phrases = _isSwedish() ? THINKING_PHRASES_SV : THINKING_PHRASES_EN;
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((v) => Math.min(v + 1, phrases.length - 1)), 3500);
+    return () => clearInterval(id);
+  }, [phrases.length]);
+  return (
+    <span className="inline-flex items-center gap-2 text-slate-500">
+      <span>{phrases[i]}</span>
+      <span className="inline-flex gap-1">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+      </span>
+    </span>
+  );
+}
+
 interface Props {
   slug: string;
   /** Store display name — used in the header + greeting fallback. */
@@ -150,6 +178,15 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
 
   if (!available) return null;
 
+  const sv = _isSwedish();
+  const L = {
+    ask: sv ? "Fråga oss" : "Ask us",
+    placeholder: sv ? "Ställ en fråga…" : "Ask a question…",
+    footer: sv ? "Drivs av AI · svaren kan vara felaktiga" : "Powered by AI · answers may not be perfect",
+    aiAssistant: sv ? "AI-assistent" : "AI assistant",
+    close: sv ? "Stäng chatt" : "Close chat",
+  };
+
   return (
     <>
       {/* Launcher */}
@@ -157,12 +194,12 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Chat with the store assistant"
+          aria-label={L.ask}
           className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 h-12 rounded-full pl-4 pr-5 text-white text-sm font-semibold shadow-xl transition-transform hover:scale-105"
           style={{ backgroundColor: accent }}
         >
           <MessageCircle className="w-5 h-5" />
-          Ask us
+          {L.ask}
         </button>
       )}
 
@@ -178,13 +215,13 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
               <Sparkles className="w-4 h-4" />
               <div className="leading-tight">
                 <div className="text-sm font-semibold">{storeName || "Assistant"}</div>
-                <div className="text-[11px] opacity-80">AI assistant</div>
+                <div className="text-[11px] opacity-80">{L.aiAssistant}</div>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="Close chat"
+              aria-label={L.close}
               className="rounded-full p-1 hover:bg-white/20"
             >
               <X className="w-4 h-4" />
@@ -204,11 +241,7 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
                   style={m.role === "user" ? { backgroundColor: accent } : undefined}
                 >
                   {m.pending ? (
-                    <span className="inline-flex gap-1">
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
-                    </span>
+                    <ThinkingIndicator />
                   ) : (
                     <span className="whitespace-pre-wrap">{m.content}</span>
                   )}
@@ -229,7 +262,7 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
                   send();
                 }
               }}
-              placeholder="Ask a question…"
+              placeholder={L.placeholder}
               maxLength={1000}
               style={{ color: "#0f172a", caretColor: "#0f172a", WebkitTextFillColor: "#0f172a" }}
               className="flex-1 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-300"
@@ -246,7 +279,7 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
             </button>
           </div>
           <div className="bg-white pb-2 text-center text-[10px] text-slate-400">
-            Powered by AI · answers may not be perfect
+            {L.footer}
           </div>
         </div>
       )}
