@@ -192,7 +192,8 @@ export default function StorefrontAssistant({ slug, name, accent = "#10b981" }: 
               }}
               placeholder="Ask a question…"
               maxLength={1000}
-              className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm outline-none focus:border-slate-300"
+              style={{ color: "#0f172a", caretColor: "#0f172a", WebkitTextFillColor: "#0f172a" }}
+              className="flex-1 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-300"
             />
             <button
               type="button"
