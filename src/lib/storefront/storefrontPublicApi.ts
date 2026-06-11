@@ -124,7 +124,7 @@ function _mapItem(l: any, b: any): PublicItem {
     description: l.description || "",
     price: _num(l.price),
     discountPrice: null,
-    currency: l.currency || "NPR",
+    currency: l.currency || "SEK",
     category: l.category || "",
     imageEmoji: "",
     imageUrl: l.image_url || null,

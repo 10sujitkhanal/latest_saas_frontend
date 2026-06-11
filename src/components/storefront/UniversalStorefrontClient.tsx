@@ -555,12 +555,12 @@ function CartPanel({ cart, items, storefront, availability, accentClass, softCla
 
 // ─── Offers Strip ─────────────────────────────────────────────────────────────
 
-function OfferCard({ offer, accentClass }: { offer: PublicOffer; accentClass: string }) {
+function OfferCard({ offer, accentClass, currency }: { offer: PublicOffer; accentClass: string; currency: string }) {
   const [copied, setCopied] = useState(false);
 
   const discountLabel =
     offer.discountType === "percentage" ? `${offer.discountValue}% OFF` :
-    offer.discountType === "fixed"      ? `NPR ${offer.discountValue.toLocaleString()} OFF` :
+    offer.discountType === "fixed"      ? `${fmt(offer.discountValue, currency)} OFF` :
     "BUY 1 GET 1";
 
   const daysLeft = Math.ceil((new Date(offer.endDate).getTime() - Date.now()) / 86400000);
@@ -590,7 +590,7 @@ function OfferCard({ offer, accentClass }: { offer: PublicOffer; accentClass: st
         <p className="text-sm font-semibold text-slate-900 leading-tight">{offer.title}</p>
         {offer.description && <p className="text-xs text-slate-500 line-clamp-2">{offer.description}</p>}
         {offer.minOrderValue > 0 && (
-          <p className="text-[10px] text-slate-400">Min. order: NPR {offer.minOrderValue.toLocaleString()}</p>
+          <p className="text-[10px] text-slate-400">Min. order: {fmt(offer.minOrderValue, currency)}</p>
         )}
         {offer.code && (
           <button onClick={copy}
@@ -607,11 +607,11 @@ function OfferCard({ offer, accentClass }: { offer: PublicOffer; accentClass: st
   );
 }
 
-function OffersStrip({ offers, accentClass }: { offers: PublicOffer[]; accentClass: string }) {
+function OffersStrip({ offers, accentClass, currency }: { offers: PublicOffer[]; accentClass: string; currency: string }) {
   if (!offers.length) return null;
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-      {offers.map((o) => <OfferCard key={o.id} offer={o} accentClass={accentClass} />)}
+      {offers.map((o) => <OfferCard key={o.id} offer={o} accentClass={accentClass} currency={currency} />)}
     </div>
   );
 }
@@ -1164,7 +1164,7 @@ export function UniversalStorefrontClient({ storefront, items, offers, availabil
             description:       (p.description as string) ?? base?.description ?? "",
             price:             (p.price as number) ?? base?.price ?? 0,
             discountPrice:     (p.discountPrice as number | null) ?? base?.discountPrice ?? null,
-            currency:          base?.currency ?? "NPR",
+            currency:          base?.currency ?? "SEK",
             category:          (p.category as string) ?? base?.category ?? "",
             imageEmoji:        (p.imageEmoji as string) ?? base?.imageEmoji ?? "📦",
             imageUrl:          (p.imageUrl as string | null) ?? base?.imageUrl ?? null,
@@ -1392,7 +1392,7 @@ export function UniversalStorefrontClient({ storefront, items, offers, availabil
               <Zap className={`h-4 w-4 ${darkClass}`} />
               <p className="text-sm font-bold text-slate-800">Active offers</p>
             </div>
-            <OffersStrip offers={liveOffers} accentClass={accentClass} />
+            <OffersStrip offers={liveOffers} accentClass={accentClass} currency={storefront.currency || items[0]?.currency || "SEK"} />
           </div>
         </div>
       )}
