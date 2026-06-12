@@ -93,6 +93,13 @@ export interface LeadAnalysis {
   profile: string;
 }
 
+export interface OutreachChannel { id: number; kind: string }
+export interface OutreachDraftResponse {
+  draft: { channel_kind: string; body: string };
+  available_channels: OutreachChannel[];
+  lead: { id: number; name: string; email: string; phone: string };
+}
+
 export const CrmAgent = {
   /** Score the newest leads + suggest the next move (writes signals + a note). */
   analyzeRecent: (workspaceId: Id, limit = 5) =>
@@ -101,6 +108,33 @@ export const CrmAgent = {
         `${base(workspaceId)}/crm/analyze-recent/`,
         { limit },
       )
+      .then((r) => r.data),
+
+  /** Draft a first-touch message + list the connected channels (no send). */
+  draftOutreach: (workspaceId: Id, leadId: number, channelKind?: string) =>
+    apiClient
+      .post<ApiEnvelope<OutreachDraftResponse>>(`${base(workspaceId)}/crm/draft-outreach/`, {
+        lead_id: leadId,
+        channel_kind: channelKind,
+      })
+      .then((r) => r.data),
+
+  /** Send the approved message via the SAME path the inbox uses. */
+  sendOutreach: (leadId: number, channelId: number, body: string) =>
+    apiClient
+      .post<ApiEnvelope<{ conversation_id: number }>>(`/organization/leads/${leadId}/conversations/start/`, {
+        channel_id: channelId,
+        body,
+      })
+      .then((r) => r.data),
+
+  /** Move the lead to 'contacted' + log the touch (after a successful send). */
+  markContacted: (workspaceId: Id, leadId: number, channel: string) =>
+    apiClient
+      .post<ApiEnvelope<{ status: string }>>(`${base(workspaceId)}/crm/mark-contacted/`, {
+        lead_id: leadId,
+        channel,
+      })
       .then((r) => r.data),
 };
 
