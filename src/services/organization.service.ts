@@ -1357,6 +1357,25 @@ export const OrganizationService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     return true;
   },
+  /** Tenant custom-field definitions for leads. */
+  listCustomFields: async (activeOnly = false) => {
+    const { data } = await apiClient.get('/organization/leads/custom-fields/', {
+      params: activeOnly ? { active: 1 } : {},
+    });
+    return data;
+  },
+  createCustomField: async (payload: Record<string, unknown>) => {
+    const { data } = await apiClient.post('/organization/leads/custom-fields/', payload);
+    return data;
+  },
+  updateCustomField: async (id: number, payload: Record<string, unknown>) => {
+    const { data } = await apiClient.patch(`/organization/leads/custom-fields/${id}/`, payload);
+    return data;
+  },
+  deleteCustomField: async (id: number) => {
+    const { data } = await apiClient.delete(`/organization/leads/custom-fields/${id}/`);
+    return data;
+  },
   /** Download the ready-to-fill sample import CSV (headers + example rows). */
   downloadImportTemplate: async () => {
     const response = await apiClient.get('/organization/leads/import/template/', { responseType: 'blob' });

@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash2, Upload, Download, Search, X, Users, Filter, Lock,
+  Plus, Pencil, Trash2, Upload, Download, Search, X, Users, Filter, Lock, Settings2,
 } from 'lucide-react';
 import Topbar from '@/components/Topbar';
 import { PageSpinner, PageError, EmptyState } from '@/components/StateViews';
 import { OrganizationService, type Lead, type Workspace } from '@/services/organization.service';
 import { useAuthStore, hasPermission } from '@/store/authStore';
+import { CustomFieldsManager, CustomFieldInputs, type CustomFieldDef } from '@/components/leads/CustomFields';
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New' },
@@ -34,6 +35,7 @@ type FormState = {
   email: string;
   phone: string;
   status: string;
+  custom?: Record<string, unknown>;
 };
 
 const emptyForm: FormState = {
@@ -43,6 +45,7 @@ const emptyForm: FormState = {
   email: '',
   phone: '',
   status: 'new',
+  custom: {},
 };
 
 export default function LeadsPage() {
@@ -58,6 +61,7 @@ export default function LeadsPage() {
   const [editing, setEditing] = useState<FormState | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showCustomFields, setShowCustomFields] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -145,6 +149,14 @@ export default function LeadsPage() {
             >
               <Upload className="w-4 h-4" />
               Import
+            </button>
+            <button
+              onClick={() => (can('crm.leads_view') ? setShowCustomFields(true) : null)}
+              title="Custom fields"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-slate-200 text-sm font-medium"
+            >
+              <Settings2 className="w-4 h-4" />
+              Custom fields
             </button>
             <button
               onClick={() => can('crm.leads_add') && setEditing({ ...emptyForm })}
@@ -266,6 +278,7 @@ export default function LeadsPage() {
                           email: l.email ?? '',
                           phone: l.phone ?? '',
                           status: l.status,
+                          custom: (l as { custom?: Record<string, unknown> }).custom || {},
                         })}
                         disabled={!can('crm.leads_edit')}
                         title={can('crm.leads_edit') ? 'Edit' : "You don't have permission to edit"}
@@ -318,6 +331,8 @@ export default function LeadsPage() {
           onClose={() => setShowExport(false)}
         />
       )}
+
+      {showCustomFields && <CustomFieldsManager onClose={() => setShowCustomFields(false)} />}
     </>
   );
 }
@@ -339,8 +354,20 @@ function ExportModal({
   const [source, setSource] = useState('');
   const [limit, setLimit] = useState<string>('');
   const [page, setPage] = useState<string>('1');
+  const [customKeys, setCustomKeys] = useState<string[]>([]);
   const [fields, setFields] = useState<string[]>([...EXPORT_FIELDS]);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    OrganizationService.listCustomFields(true).then((r) => {
+      if (r.success) {
+        const keys = (r.data || []).map((f: CustomFieldDef) => f.key);
+        setCustomKeys(keys);
+        setFields((cur) => [...cur, ...keys]);
+      }
+    }).catch(() => {});
+  }, []);
+  const allCols = [...EXPORT_FIELDS, ...customKeys];
 
   const toggle = (f: string) =>
     setFields((cur) => (cur.includes(f) ? cur.filter((x) => x !== f) : [...cur, f]));
@@ -354,7 +381,7 @@ function ExportModal({
       if (search.trim()) params.search = search.trim();
       if (source.trim()) params.source = source.trim();
       if (limit && Number(limit) > 0) { params.limit = Number(limit); params.page = Math.max(1, Number(page) || 1); }
-      if (fields.length && fields.length !== EXPORT_FIELDS.length) params.fields = fields.join(',');
+      if (fields.length && fields.length !== allCols.length) params.fields = fields.join(',');
       await OrganizationService.exportLeads(params);
       toast.success('Export downloaded.');
       onClose();
@@ -409,7 +436,7 @@ function ExportModal({
           <div>
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Columns</span>
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {EXPORT_FIELDS.map((f) => (
+              {allCols.map((f) => (
                 <label key={f} className="flex items-center gap-1.5 text-xs text-slate-300">
                   <input type="checkbox" checked={fields.includes(f)} onChange={() => toggle(f)} className="accent-emerald-500" />
                   {f}
@@ -448,6 +475,10 @@ function LeadModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isEditing = form.id != null;
+  const [cfields, setCfields] = useState<CustomFieldDef[]>([]);
+  useEffect(() => {
+    OrganizationService.listCustomFields(true).then((r) => { if (r.success) setCfields(r.data || []); }).catch(() => {});
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -463,6 +494,7 @@ function LeadModal({
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         status: form.status,
+        custom: form.custom || {},
       };
       const res = isEditing
         ? await OrganizationService.updateLead(form.id!, payload)
@@ -566,6 +598,16 @@ function LeadModal({
               ))}
             </select>
           </div>
+
+          {cfields.length > 0 && (
+            <div className="border-t border-white/5 pt-4">
+              <CustomFieldInputs
+                fields={cfields}
+                values={form.custom || {}}
+                onChange={(key, value) => setForm((f) => ({ ...f, custom: { ...(f.custom || {}), [key]: value } }))}
+              />
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg border border-red-500/40 bg-red-500/[0.06] px-3 py-2 text-sm text-red-200">
