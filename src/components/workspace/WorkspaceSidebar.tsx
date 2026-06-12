@@ -178,9 +178,15 @@ export default function WorkspaceSidebar({
 
   return (
     <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col border-r border-white/5 bg-[#080e1c] h-screen sticky top-0">
-      {/* Sidebar header — just the back link; workspace identity lives in the
-          top bar switcher, business brand lives in the top header. */}
-      <div className="px-4 py-4 border-b border-white/5">
+      {/* Sidebar header — back to the owner cockpit + workspace switcher. The
+          owner-dashboard button only shows for org owners/admins (a workspace
+          member without org access shouldn't be sent to the org panel). */}
+      <div className="px-4 py-4 border-b border-white/5 space-y-2">
+        {tree?.is_admin && (
+          <Link href="/dashboard" className="flex items-center gap-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 px-3 py-2 text-[13px] font-semibold text-slate-200 hover:text-white transition-colors">
+            <Icons.LayoutDashboard className="w-4 h-4 text-emerald-300" /> Owner dashboard
+          </Link>
+        )}
         <Link href="/w" className="text-[11px] uppercase tracking-wider text-slate-400 hover:text-slate-200 inline-flex items-center gap-1.5">
           <Icons.ArrowLeft className="w-3.5 h-3.5" /> All workspaces
         </Link>
