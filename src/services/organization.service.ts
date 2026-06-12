@@ -959,6 +959,11 @@ export const OrganizationService = {
     const { data } = await apiClient.post('/organization/leads/channels/', payload);
     return data;
   },
+  /** Send a REAL test message through a connected channel (email: to self). */
+  sendTestChannel: async (id: number, to?: string) => {
+    const { data } = await apiClient.post(`/organization/leads/channels/${id}/send-test/`, { to });
+    return data;
+  },
   updateChannel: async (id: number, payload: Record<string, unknown>) => {
     const { data } = await apiClient.patch(`/organization/leads/channels/${id}/`, payload);
     return data;

@@ -789,6 +789,7 @@ function ConnectWizard({
   const [busy, setBusy] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [sendingTest, setSendingTest] = useState(false);
   // OAuth popup state — google_calendar kicks off Google's consent screen
   // in a popup and listens for the result via window.postMessage.
   const [oauthBusy, setOauthBusy] = useState(false);
@@ -997,6 +998,26 @@ function ConnectWizard({
       const err = e as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'Verification failed');
     } finally { setVerifying(false); }
+  };
+
+  // "Send test message" — sends a REAL message through the stored creds so the
+  // user sees it arrive (email → to the from-address). The "it works!" moment.
+  const sendTest = async () => {
+    const missing = missingRequired();
+    if (missing) { toast.error(`${missing} is required before sending a test.`); return; }
+    setSendingTest(true);
+    try {
+      const id = await ensureChannelRow();
+      if (!id) return;
+      // Make sure the latest typed config is saved before we send through it.
+      await OrganizationService.updateChannel(id, { config: form });
+      const res = await OrganizationService.sendTestChannel(id);
+      if (res?.success) toast.success(res.message || 'Test sent — check your inbox.');
+      else toast.error(res?.message || res?.data?.detail || 'Test send failed.');
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Test send failed.');
+    } finally { setSendingTest(false); }
   };
 
   // Save = verify first, then PATCH name+config and flip is_active=true.
@@ -1272,6 +1293,26 @@ function ConnectWizard({
                 ) : (
                   <>
                     <Icons.Zap className="w-3.5 h-3.5" /> Test connection
+                  </>
+                )}
+              </button>
+            )}
+            {catalogEntry.kind === 'email' && (
+              <button
+                type="button"
+                onClick={sendTest}
+                disabled={sendingTest || verifying || busy}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-violet-200 border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 disabled:opacity-50 inline-flex items-center gap-1.5"
+                title="Send a real test email to your from-address"
+              >
+                {sendingTest ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-violet-300 border-t-transparent rounded-full animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  <>
+                    <Icons.Send className="w-3.5 h-3.5" /> Send test
                   </>
                 )}
               </button>
