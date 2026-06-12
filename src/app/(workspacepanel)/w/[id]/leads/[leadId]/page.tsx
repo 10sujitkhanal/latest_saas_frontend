@@ -118,6 +118,19 @@ const APPT_STATE_META: Record<AppointmentRow['time_state'], { label: string; col
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string; leadId: string }> }) {
   const { id: wsId, leadId } = reactUse(params);
+  // Guard against a non-numeric segment falling through to this dynamic route
+  // (e.g. a stale link to /leads/<something>): show a clean not-found instead
+  // of fetching "lead #NaN".
+  if (!/^\d+$/.test(leadId)) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <p className="text-sm text-slate-400">This page doesn’t exist.</p>
+        <Link href={`/w/${wsId}/leads/list`} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to all leads
+        </Link>
+      </div>
+    );
+  }
   return (
     <PermissionGuard required="crm.leads_view" workspaceId={wsId} skeleton="detail">
       <LeadDetailInner wsId={wsId} leadId={Number(leadId)} />
@@ -1247,7 +1260,7 @@ function ConversationsTab({
         {channels.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-500">
             No outbound channels are connected yet.{' '}
-            <Link href={`/w/${wsId}/leads/channels`} className="text-emerald-400 hover:underline">
+            <Link href={`/w/${wsId}/leads/credentials`} className="text-emerald-400 hover:underline">
               Connect one →
             </Link>
           </div>
@@ -1559,7 +1572,7 @@ function Composer({
                 {connected && count > 1 && <span className="opacity-60 font-normal">({count})</span>}
                 {!connected && (
                   <Link
-                    href={`/w/${wsId}/leads/channels`}
+                    href={`/w/${wsId}/leads/credentials`}
                     onClick={(e) => e.stopPropagation()}
                     className="ml-1 text-[10px] text-slate-500 hover:text-emerald-300 underline underline-offset-2"
                   >
