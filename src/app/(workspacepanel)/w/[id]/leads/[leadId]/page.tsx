@@ -16,6 +16,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { useIsAdmin } from '@/hooks/usePermission';
 import { OrganizationService } from '@/services/organization.service';
+import LeadAiAssist from '@/components/leads/LeadAiAssist';
 import { resolveApiV1Base } from '@/lib/apiBase';
 
 /**
@@ -505,7 +506,7 @@ function SocialChips({ contact }: { contact: ContactRow }) {
 // ──────────────────────────────────────────────────────────────────────
 
 function OverviewTab({
-  lead, contact, stages, tasks, notes, attachments, timeline, conversations, appointments, onChange, onJumpTab,
+  lead, contact, stages, tasks, notes, attachments, timeline, conversations, appointments, onChange, onJumpTab, wsId,
 }: {
   lead: LeadDetail;
   contact: ContactRow | null;
@@ -542,6 +543,9 @@ function OverviewTab({
         <Stat label="Score"       value={String(lead.score ?? 0)} accent="#f97316" Icon={Sparkles} sub={lead.temperature || lead.score_band || undefined} />
         <Stat label="Probability" value={lead.stage_probability != null ? `${lead.stage_probability}%` : '—'} accent="#a855f7" Icon={CalendarCheckIcon} />
       </div>
+
+      {/* Inline AI for Sales: read this lead + draft a message, right here. */}
+      <LeadAiAssist workspaceId={wsId} leadId={lead.id} canContact={!!(lead.email || lead.phone)} onUpdated={onChange} />
 
       {lead.ai_summary && (
         <section className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] via-cyan-500/[0.04] to-transparent p-5">

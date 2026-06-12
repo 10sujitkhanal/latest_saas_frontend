@@ -149,6 +149,15 @@ export const CrmAgent = {
       )
       .then((r) => r.data),
 
+  /** Advise ONE lead (inline, for Sales): score + temperature + next move.
+   *  Persists the signals + the lead's AI summary card. */
+  adviseLead: (workspaceId: Id, leadId: number) =>
+    apiClient
+      .post<ApiEnvelope<{ analysis: LeadAnalysis }>>(`${base(workspaceId)}/crm/advise-lead/`, {
+        lead_id: leadId,
+      })
+      .then((r) => r.data),
+
   /** Draft a first-touch message + list the connected channels (no send). */
   draftOutreach: (workspaceId: Id, leadId: number, channelKind?: string) =>
     apiClient
