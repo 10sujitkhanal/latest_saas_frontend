@@ -11,11 +11,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bot, ArrowRight, Clock, Loader2, Sparkles } from 'lucide-react';
 import { OrganizationService, type Workspace } from '@/services/organization.service';
 import { AgentsService } from '@/services/agents.service';
 
 export default function OrgAiStaffPage() {
+  const router = useRouter();
   const [items, setItems] = useState<Workspace[] | null>(null);
   const [pending, setPending] = useState<Record<number, number>>({});
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,9 @@ export default function OrgAiStaffPage() {
         if (cancelled) return;
         if (!res?.success) { setError(res?.message || 'Could not load workspaces.'); setItems([]); return; }
         const ws: Workspace[] = (res.data || []).filter((w: Workspace) => !w.archived_at);
+        // Single-business tenants: skip the roll-up and go straight into the
+        // one workspace's agents — no redundant picker for the common case.
+        if (ws.length === 1) { router.replace(`/w/${ws[0].id}/ai-staff`); return; }
         setItems(ws);
         // Fetch each workspace's awaiting-approval count in parallel (best-effort).
         const counts = await Promise.all(ws.map(async (w) => {

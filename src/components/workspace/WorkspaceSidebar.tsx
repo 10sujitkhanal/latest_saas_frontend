@@ -20,7 +20,7 @@ import { OrganizationService } from '@/services/organization.service';
 type MenuPage = { key: string; label: string; path: string; icon: string; permission: string | null; unread?: number };
 type MenuModule = { code: string; name: string; icon: string; pages: MenuPage[] };
 type MenuService = { code: string; name: string; icon: string; color: string; group: string; modules: MenuModule[] };
-type MenuTree = { services: MenuService[]; group_order?: string[]; is_admin: boolean };
+type MenuTree = { services: MenuService[]; pinned?: MenuPage[]; group_order?: string[]; is_admin: boolean };
 
 const GROUP_ICON: Record<string, string> = {
   Home: 'House', CRM: 'Users', Store: 'ShoppingBag', Finance: 'Wallet',
@@ -206,10 +206,14 @@ export default function WorkspaceSidebar({
         <Link href={`${prefix}/members`} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${pathname === `${prefix}/members` ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'text-slate-300 hover:bg-white/[0.04]'}`}>
           <Icons.Users className="w-4 h-4" /> Members
         </Link>
-        <Link href={`${prefix}/ai-staff`} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive('/ai-staff') ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'text-slate-300 hover:bg-white/[0.04]'}`}>
-          <Icons.Bot className="w-4 h-4" /> AI Staff
-          <span className="ml-auto text-[9px] font-bold uppercase tracking-wider rounded-full bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5">New</span>
-        </Link>
+        {/* Pinned, permission-gated entries from the backend menu tree (e.g. AI
+            Staff — only present when the user holds `agents.manage`). */}
+        {(tree?.pinned ?? []).map((page) => (
+          <Link key={page.key} href={prefix + page.path} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive(page.path) ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'text-slate-300 hover:bg-white/[0.04]'}`}>
+            <Icon name={page.icon} className="w-4 h-4" /> {page.label}
+            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider rounded-full bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5">New</span>
+          </Link>
+        ))}
       </div>
 
       {/* Module switcher — searchable dropdown */}
