@@ -40,6 +40,48 @@ function base(workspaceId: Id) {
   return `/organization/agents/workspaces/${workspaceId}`;
 }
 
+/** A draft product in the Auto-Store basket (from barcode / AI / manual). */
+export interface ProductDraft {
+  name: string;
+  brand?: string;
+  category: string;
+  barcode?: string;
+  image_url: string;
+  description?: string;
+  cost_price: number;
+  selling_price: number;
+  currency?: string;
+}
+
+export interface StoreBuildResult {
+  count: number;
+  created: { item_id: number; listing_id: number | null; name: string; sku: string }[];
+  errors: { name: string; error: string }[];
+}
+
+export const StoreAgent = {
+  /** Barcode → product draft (Open Food Facts). found:false when unknown. */
+  lookup: (workspaceId: Id, barcode: string) =>
+    apiClient
+      .get<ApiEnvelope<{ found: boolean; product: ProductDraft | null }>>(
+        `${base(workspaceId)}/store/lookup/`,
+        { params: { barcode } },
+      )
+      .then((r) => r.data),
+
+  /** Qwen-suggested starter catalogue for the business industry. */
+  suggest: (workspaceId: Id, hint = '') =>
+    apiClient
+      .post<ApiEnvelope<{ products: ProductDraft[] }>>(`${base(workspaceId)}/store/suggest/`, { hint })
+      .then((r) => r.data),
+
+  /** Create draft Item + Listing for each product (no publish). */
+  build: (workspaceId: Id, products: ProductDraft[]) =>
+    apiClient
+      .post<ApiEnvelope<StoreBuildResult>>(`${base(workspaceId)}/store/build/`, { products })
+      .then((r) => r.data),
+};
+
 export const AgentsService = {
   /** Ask the Offers Agent to draft an offer → saved as a proposed task. */
   draftOffer: (workspaceId: Id, goal: string) =>
