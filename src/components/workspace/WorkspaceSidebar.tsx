@@ -129,7 +129,30 @@ export default function WorkspaceSidebar({
   const pageMatches = q ? allPages.filter((p) => p.label.toLowerCase().includes(q) || p.service.toLowerCase().includes(q)).slice(0, 8) : [];
   const groupMatches = q ? groups.filter((g) => g.toLowerCase().includes(q)) : groups;
 
-  const pickGroup = (g: string) => { setActiveGroup(g); setSwitcherOpen(false); setQuery(''); };
+  // First navigable page of a group's first service — the module's landing page.
+  const firstPathForGroup = (g: string): string | null => {
+    const svc = (tree?.services ?? []).find((s) => (s.group || 'More') === g);
+    for (const m of svc?.modules ?? []) {
+      const p = m.pages.find((pg) => pg.path && pg.path !== '/');
+      if (p) return p.path;
+    }
+    return svc?.modules?.[0]?.pages?.[0]?.path ?? null;
+  };
+
+  const pickGroup = (g: string) => {
+    setActiveGroup(g);
+    setSwitcherOpen(false);
+    setQuery('');
+    // Switching modules should take you INTO that module, not just re-skin the
+    // sidebar — otherwise the main view stays on the previous page (confusing).
+    // Only jump if we're not already somewhere inside the picked group.
+    const path = firstPathForGroup(g);
+    if (path) {
+      const target = prefix + path;
+      const alreadyHere = pathname === target || pathname?.startsWith(target + '/');
+      if (!alreadyHere) router.push(target);
+    }
+  };
   const goPage = (path: string) => { setSwitcherOpen(false); setQuery(''); router.push(prefix + path); };
 
   // Command-palette results: every page across modules, filtered by query.
@@ -182,6 +205,10 @@ export default function WorkspaceSidebar({
         </Link>
         <Link href={`${prefix}/members`} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${pathname === `${prefix}/members` ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'text-slate-300 hover:bg-white/[0.04]'}`}>
           <Icons.Users className="w-4 h-4" /> Members
+        </Link>
+        <Link href={`${prefix}/ai-staff`} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive('/ai-staff') ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'text-slate-300 hover:bg-white/[0.04]'}`}>
+          <Icons.Bot className="w-4 h-4" /> AI Staff
+          <span className="ml-auto text-[9px] font-bold uppercase tracking-wider rounded-full bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5">New</span>
         </Link>
       </div>
 
