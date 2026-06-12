@@ -128,6 +128,16 @@ export const CrmAgent = {
       })
       .then((r) => r.data),
 
+  /** Classify a lead's reply + draft the response (returns channels to send). */
+  handleReply: (workspaceId: Id, leadId: number, replyText: string) =>
+    apiClient
+      .post<ApiEnvelope<{
+        analysis: { intent: string; interest: string; sentiment: string; summary: string };
+        draft: { body: string };
+        available_channels: OutreachChannel[];
+      }>>(`${base(workspaceId)}/crm/handle-reply/`, { lead_id: leadId, reply_text: replyText })
+      .then((r) => r.data),
+
   /** Move the lead to 'contacted' + log the touch (after a successful send). */
   markContacted: (workspaceId: Id, leadId: number, channel: string) =>
     apiClient

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Wand2, Loader2, Flame, Sun, Snowflake, ArrowRight, Lightbulb,
-  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle,
+  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CrmAgent, type LeadAnalysis, type OutreachChannel } from '@/services/agents.service';
@@ -27,6 +27,14 @@ const CHANNEL: Record<string, { label: string; Icon: typeof Mail }> = {
   sms: { label: 'SMS', Icon: Phone },
   whatsapp: { label: 'WhatsApp', Icon: MessageSquare },
 };
+const INTEREST: Record<string, { label: string; cls: string }> = {
+  interested: { label: 'Interested', cls: 'bg-emerald-50 text-emerald-700' },
+  objection: { label: 'Objection', cls: 'bg-amber-50 text-amber-700' },
+  not_interested: { label: 'Not interested', cls: 'bg-slate-100 text-slate-500' },
+  neutral: { label: 'Neutral', cls: 'bg-slate-100 text-slate-500' },
+};
+
+type ReplyAnalysis = { intent: string; interest: string; sentiment: string; summary: string };
 
 type Compose = { leadId: number; body: string; channels: OutreachChannel[]; channelId: number | null; channelKind: string };
 
@@ -38,6 +46,10 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
   const [compose, setCompose] = useState<Compose | null>(null);
   const [sending, setSending] = useState(false);
   const [contacted, setContacted] = useState<Set<number>>(new Set());
+  const [replyOpen, setReplyOpen] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [analyzingReply, setAnalyzingReply] = useState(false);
+  const [replyAnalysis, setReplyAnalysis] = useState<{ leadId: number; a: ReplyAnalysis } | null>(null);
 
   const analyze = async () => {
     if (loading) return;
@@ -59,6 +71,7 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
 
   const openCompose = async (leadId: number) => {
     if (draftingId) return;
+    setReplyAnalysis(null);
     setDraftingId(leadId);
     try {
       const res = await CrmAgent.draftOutreach(workspaceId, leadId);
@@ -92,6 +105,34 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
       toast.error(errMsg(e) || 'Could not send the message.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const analyzeReply = async (leadId: number) => {
+    const text = replyText.trim();
+    if (!text || analyzingReply) return;
+    setAnalyzingReply(true);
+    try {
+      const res = await CrmAgent.handleReply(workspaceId, leadId, text);
+      if (res.success && res.data) {
+        const chs = res.data.available_channels || [];
+        setReplyAnalysis({ leadId, a: res.data.analysis });
+        setCompose({
+          leadId,
+          body: res.data.draft?.body || '',
+          channels: chs,
+          channelId: chs[0]?.id ?? null,
+          channelKind: chs[0]?.kind || 'email',
+        });
+        setReplyOpen(null);
+        setReplyText('');
+      } else {
+        toast.error(res.message || 'Could not analyse the reply.');
+      }
+    } catch (e) {
+      toast.error(errMsg(e) || 'Could not analyse the reply.');
+    } finally {
+      setAnalyzingReply(false);
     }
   };
 
@@ -153,24 +194,62 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
                   )}
                   {r.profile && <p className="mt-1 text-[11px] text-slate-400">{r.profile}</p>}
 
-                  {/* Co-pilot action */}
-                  <div className="mt-2">
-                    {isContacted ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                        <Check className="h-3.5 w-3.5" /> Contacted
-                      </span>
-                    ) : !composing ? (
-                      <button type="button" onClick={() => openCompose(r.lead_id)} disabled={draftingId === r.lead_id}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
-                        {draftingId === r.lead_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                        {draftingId === r.lead_id ? 'Drafting…' : 'Draft outreach'}
+                  {/* Co-pilot actions */}
+                  {!composing && replyOpen !== r.lead_id && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {isContacted && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                          <Check className="h-3.5 w-3.5" /> Contacted
+                        </span>
+                      )}
+                      {!isContacted && (
+                        <button type="button" onClick={() => openCompose(r.lead_id)} disabled={draftingId === r.lead_id}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
+                          {draftingId === r.lead_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                          {draftingId === r.lead_id ? 'Drafting…' : 'Draft outreach'}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => { setReplyOpen(r.lead_id); setReplyText(''); }}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                        <Reply className="h-3.5 w-3.5" /> Reply came in
                       </button>
-                    ) : null}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Paste-the-reply box */}
+                  {replyOpen === r.lead_id && (
+                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Paste the customer&apos;s reply</div>
+                      <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={3}
+                        placeholder="e.g. Sounds interesting — what's the price for 50 units?"
+                        className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-300" />
+                      <div className="mt-2 flex items-center justify-end gap-2">
+                        <button type="button" onClick={() => { setReplyOpen(null); setReplyText(''); }}
+                          className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white">Cancel</button>
+                        <button type="button" onClick={() => analyzeReply(r.lead_id)} disabled={analyzingReply || !replyText.trim()}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+                          {analyzingReply ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                          {analyzingReply ? 'Reading…' : 'Analyse reply'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Composer */}
                   {composing && compose && (
                     <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                      {replyAnalysis?.leadId === r.lead_id && (
+                        <div className="mb-2 rounded-lg bg-white/70 p-2 ring-1 ring-slate-200">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reply read</span>
+                            {(() => { const m = INTEREST[replyAnalysis.a.interest] || INTEREST.neutral;
+                              return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${m.cls}`}>{m.label}</span>; })()}
+                            {replyAnalysis.a.intent && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">{replyAnalysis.a.intent.replace(/_/g, ' ')}</span>}
+                          </div>
+                          {replyAnalysis.a.summary && <p className="mt-1 text-[11px] text-slate-500">{replyAnalysis.a.summary}</p>}
+                          <p className="mt-1 text-[10px] text-slate-400">Suggested reply below — edit + approve to send.</p>
+                        </div>
+                      )}
                       {compose.channels.length === 0 ? (
                         <div className="flex items-start gap-2 text-xs text-amber-700">
                           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
