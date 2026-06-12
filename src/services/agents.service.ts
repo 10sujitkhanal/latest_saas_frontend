@@ -15,6 +15,25 @@ export interface OfferProposal {
   currency: string;
 }
 
+export type AgentTaskStatus = 'proposed' | 'executed' | 'rejected' | 'failed';
+
+/** A unit of work an agent proposed — the approval-queue + audit record. */
+export interface AgentTask {
+  id: number;
+  kind: string;
+  title: string;
+  goal: string;
+  status: AgentTaskStatus;
+  proposal: OfferProposal;
+  result: { coupon_id?: number; code?: string };
+  error: string;
+  created_by_email: string;
+  reviewed_by_email: string;
+  created_at: string;
+  updated_at: string;
+  executed_at: string | null;
+}
+
 type Id = string | number;
 
 function base(workspaceId: Id) {
@@ -22,15 +41,28 @@ function base(workspaceId: Id) {
 }
 
 export const AgentsService = {
-  /** Ask the Offers Agent to draft an offer for a plain-language goal. */
+  /** Ask the Offers Agent to draft an offer → saved as a proposed task. */
   draftOffer: (workspaceId: Id, goal: string) =>
     apiClient
-      .post<ApiEnvelope<{ proposal: OfferProposal }>>(`${base(workspaceId)}/offers/draft/`, { goal })
+      .post<ApiEnvelope<{ task: AgentTask }>>(`${base(workspaceId)}/offers/draft/`, { goal })
       .then((r) => r.data),
 
-  /** Approve a (possibly edited) proposal → creates it as a draft/paused coupon. */
-  createOffer: (workspaceId: Id, proposal: OfferProposal) =>
+  /** The agent task queue (most recent first). */
+  listTasks: (workspaceId: Id) =>
+    apiClient.get<ApiEnvelope<AgentTask[]>>(`${base(workspaceId)}/tasks/`).then((r) => r.data),
+
+  /** Approve a task with the (possibly edited) proposal → executes the action. */
+  approveTask: (workspaceId: Id, taskId: Id, proposal: OfferProposal) =>
     apiClient
-      .post<ApiEnvelope<{ id: number; code: string }>>(`${base(workspaceId)}/offers/create/`, { proposal })
+      .post<ApiEnvelope<{ task: AgentTask; coupon: { code: string } }>>(
+        `${base(workspaceId)}/tasks/${taskId}/approve/`,
+        { proposal },
+      )
+      .then((r) => r.data),
+
+  /** Reject a proposed task (no action taken). */
+  rejectTask: (workspaceId: Id, taskId: Id) =>
+    apiClient
+      .post<ApiEnvelope<{ task: AgentTask }>>(`${base(workspaceId)}/tasks/${taskId}/reject/`)
       .then((r) => r.data),
 };
