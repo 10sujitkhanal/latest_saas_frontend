@@ -8,6 +8,7 @@ import {
 import { toast } from 'sonner';
 import { AgentsService, type OfferProposal, type AgentTask } from '@/services/agents.service';
 import StoreAgentCard from '@/components/agents/StoreAgentCard';
+import CrmAgentCard from '@/components/agents/CrmAgentCard';
 
 /**
  * AI Staff — your AI team. Each agent drafts work; you approve it. Every
@@ -124,6 +125,9 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           <p className="text-sm text-slate-500">Your AI team drafts the work — you approve it. Every decision is logged.</p>
         </div>
       </div>
+
+      {/* CRM Agent — score leads + suggest the next move (advisor) */}
+      <CrmAgentCard workspaceId={workspaceId} />
 
       {/* Store Agent — build the catalogue without typing */}
       <StoreAgentCard workspaceId={workspaceId} />
@@ -274,7 +278,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
 
       {/* Coming-soon roster — the rest of the AI staff */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {['CRM agent', 'Booking agent', 'Data-entry agent'].map((n) => (
+        {['Booking agent', 'Data-entry agent', 'Marketing agent'].map((n) => (
           <div key={n} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-center">
             <div className="text-sm font-semibold text-slate-500">{n}</div>
             <div className="text-[11px] text-slate-400">coming soon</div>

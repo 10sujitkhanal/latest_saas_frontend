@@ -82,6 +82,28 @@ export const StoreAgent = {
       .then((r) => r.data),
 };
 
+/** One lead's Advisor analysis (score + next-best-action + profile). */
+export interface LeadAnalysis {
+  lead_id: number;
+  name: string;
+  score: number | null;
+  temperature: '' | 'hot' | 'warm' | 'cold';
+  reason: string;
+  next_action: string;
+  profile: string;
+}
+
+export const CrmAgent = {
+  /** Score the newest leads + suggest the next move (writes signals + a note). */
+  analyzeRecent: (workspaceId: Id, limit = 5) =>
+    apiClient
+      .post<ApiEnvelope<{ results: LeadAnalysis[]; empty?: boolean }>>(
+        `${base(workspaceId)}/crm/analyze-recent/`,
+        { limit },
+      )
+      .then((r) => r.data),
+};
+
 export const AgentsService = {
   /** Ask the Offers Agent to draft an offer → saved as a proposed task. */
   draftOffer: (workspaceId: Id, goal: string) =>
