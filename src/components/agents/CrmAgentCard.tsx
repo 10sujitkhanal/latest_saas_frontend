@@ -59,23 +59,44 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
   // Lead finding (OpenStreetMap)
   const [findOpen, setFindOpen] = useState(false);
   const [findCat, setFindCat] = useState('gym');
-  const [findLoc, setFindLoc] = useState('');
+  const [findCity, setFindCity] = useState('');
+  const [findArea, setFindArea] = useState('');
+  const [findCountry, setFindCountry] = useState('');
   const [finding, setFinding] = useState(false);
   const [found, setFound] = useState<FoundBusiness[] | null>(null);
   const [importing, setImporting] = useState(false);
+  const [enriching, setEnriching] = useState(false);
 
   const findLeads = async () => {
-    if (finding || !findLoc.trim()) return;
+    if (finding || !findCity.trim()) return;
     setFinding(true);
     setFound(null);
     try {
-      const res = await CrmAgent.findLeads(workspaceId, findCat, findLoc.trim());
+      const res = await CrmAgent.findLeads(workspaceId, {
+        category: findCat, city: findCity.trim(), area: findArea.trim(), country: findCountry.trim(),
+      });
       if (res.success) setFound(res.data?.businesses || []);
       else toast.error(res.message || 'Could not search.');
     } catch (e) {
       toast.error(errMsg(e) || 'Lead search is busy — try again in a moment.');
     } finally {
       setFinding(false);
+    }
+  };
+
+  const enrichFound = async () => {
+    if (enriching || !found?.length) return;
+    setEnriching(true);
+    try {
+      const res = await CrmAgent.enrichLeads(workspaceId, found);
+      if (res.success) {
+        setFound(res.data?.businesses || found);
+        toast.success(res.message || 'Looked for more emails.');
+      } else toast.error(res.message || 'Could not enrich.');
+    } catch (e) {
+      toast.error(errMsg(e) || 'Enrichment is busy — try again.');
+    } finally {
+      setEnriching(false);
     }
   };
 
@@ -215,45 +236,78 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
           <p className="mb-2 text-xs text-slate-500">
             Find B2B businesses from open map data (no scraping). They go into your pipeline as new leads — no messages sent.
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <select value={findCat} onChange={(e) => setFindCat(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm capitalize text-slate-900 outline-none focus:border-emerald-300">
-              {FIND_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-            </select>
-            <div className="flex flex-1 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5">
-              <MapPin className="h-4 w-4 text-slate-400" />
-              <input value={findLoc} onChange={(e) => setFindLoc(e.target.value)}
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Business type</span>
+              <select value={findCat} onChange={(e) => setFindCat(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm capitalize text-slate-900 outline-none focus:border-emerald-300">
+                {FIND_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">City *</span>
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5">
+                <MapPin className="h-4 w-4 text-slate-400" />
+                <input value={findCity} onChange={(e) => setFindCity(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findLeads(); } }}
+                  placeholder="Stockholm" className="w-28 bg-transparent py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
+              </div>
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Area (optional)</span>
+              <input value={findArea} onChange={(e) => setFindArea(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findLeads(); } }}
-                placeholder="City or area, e.g. Stockholm"
-                className="flex-1 bg-transparent py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
-            </div>
-            <button type="button" onClick={findLeads} disabled={finding || !findLoc.trim()}
+                placeholder="Södermalm" className="w-28 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-300" />
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Country (optional)</span>
+              <input value={findCountry} onChange={(e) => setFindCountry(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findLeads(); } }}
+                placeholder="Sweden" className="w-28 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-300" />
+            </label>
+            <button type="button" onClick={findLeads} disabled={finding || !findCity.trim()}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
               {finding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {finding ? 'Searching…' : 'Find'}
             </button>
           </div>
 
-          {found && found.length > 0 && (
-            <div className="mt-3">
-              <div className="max-h-60 space-y-1.5 overflow-y-auto">
-                {found.map((b, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
-                    <span className="truncate font-semibold text-slate-800">{b.name}</span>
-                    <span className="ml-auto inline-flex items-center gap-2 text-slate-400">
-                      {b.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{b.phone}</span>}
-                      {b.website && <Globe className="h-3 w-3" />}
-                    </span>
-                  </div>
-                ))}
+          {found && found.length > 0 && (() => {
+            const noEmail = found.filter((b) => !b.email).length;
+            return (
+              <div className="mt-3">
+                <div className="mb-1.5 text-[11px] text-slate-500">
+                  {found.length} found · {found.length - noEmail} with an email{noEmail > 0 ? ` · ${noEmail} need one` : ''}
+                </div>
+                <div className="max-h-60 space-y-1.5 overflow-y-auto">
+                  {found.map((b, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                      <span className="truncate font-semibold text-slate-800">{b.name}</span>
+                      <span className="ml-auto inline-flex items-center gap-2 text-slate-400">
+                        {b.email && <span className="inline-flex items-center gap-1 text-emerald-600"><Mail className="h-3 w-3" />{b.email}</span>}
+                        {!b.email && b.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{b.phone}</span>}
+                        {!b.email && b.website && <Globe className="h-3 w-3" />}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {noEmail > 0 && (
+                    <button type="button" onClick={enrichFound} disabled={enriching}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white disabled:opacity-50">
+                      {enriching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                      {enriching ? 'Finding emails…' : 'Find emails'}
+                    </button>
+                  )}
+                  <button type="button" onClick={importFound} disabled={importing}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
+                    {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    {importing ? 'Adding…' : `Add ${found.length} to pipeline`}
+                  </button>
+                </div>
               </div>
-              <button type="button" onClick={importFound} disabled={importing}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
-                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {importing ? 'Adding…' : `Add ${found.length} to pipeline`}
-              </button>
-            </div>
-          )}
+            );
+          })()}
           {found && found.length === 0 && (
             <p className="mt-3 text-xs text-slate-400">No businesses with contact details found there — try a bigger city or another category.</p>
           )}

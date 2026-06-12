@@ -111,12 +111,24 @@ export interface FoundBusiness {
 }
 
 export const CrmAgent = {
-  /** Find B2B businesses by category + location (OpenStreetMap, preview only). */
-  findLeads: (workspaceId: Id, category: string, location: string) =>
+  /** Find B2B businesses by category + country/city/area (OSM, preview only). */
+  findLeads: (
+    workspaceId: Id,
+    params: { category: string; city: string; area?: string; country?: string },
+  ) =>
     apiClient
       .post<ApiEnvelope<{ businesses: FoundBusiness[]; categories: string[] }>>(
         `${base(workspaceId)}/crm/find-leads/`,
-        { category, location },
+        params,
+      )
+      .then((r) => r.data),
+
+  /** Fill in missing emails from the businesses' websites (preview only). */
+  enrichLeads: (workspaceId: Id, businesses: FoundBusiness[]) =>
+    apiClient
+      .post<ApiEnvelope<{ businesses: FoundBusiness[]; enriched: number }>>(
+        `${base(workspaceId)}/crm/enrich-leads/`,
+        { businesses },
       )
       .then((r) => r.data),
 
