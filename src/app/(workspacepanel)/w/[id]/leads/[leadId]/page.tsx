@@ -16,6 +16,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { useIsAdmin } from '@/hooks/usePermission';
 import { OrganizationService } from '@/services/organization.service';
+import { CrmAgent } from '@/services/agents.service';
 import LeadAiAssist from '@/components/leads/LeadAiAssist';
 import { resolveApiV1Base } from '@/lib/apiBase';
 
@@ -1145,6 +1146,30 @@ function ConversationsTab({
     } finally { setSending(false); }
   };
 
+  // Inline "AI for Sales": classify the latest inbound message + draft a reply,
+  // dropped into the compose box to edit + send. Reuses the SAME handle-reply
+  // endpoint the AI Staff cockpit uses (gated crm.leads_edit — Sales holds it).
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestReply = async () => {
+    if (suggesting) return;
+    const lastInbound = [...thread].reverse().find((m) => m.direction === 'in');
+    setSuggesting(true);
+    try {
+      const r = await CrmAgent.handleReply(wsId, leadId, lastInbound?.body || '');
+      if (r.success && r.data?.draft?.body) {
+        setReply(r.data.draft.body);
+        const a = r.data.analysis;
+        toast.success(a?.interest || a?.intent ? `Drafted a reply · ${a.interest || a.intent}` : 'Drafted a reply.');
+      } else {
+        toast.error(r.message || 'Could not suggest a reply right now.');
+      }
+    } catch (e) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not reach the assistant.');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
   // Start (or continue) a conversation on a specific channel.
   const sendNew = async () => {
     if (!pickedChannelId || !reply.trim()) return;
@@ -1426,8 +1451,13 @@ function ConversationsTab({
                 placeholder="Reply…"
                 className="flex-1 rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-none"
               />
+              <button onClick={suggestReply} disabled={suggesting} title="Let AI draft a reply to the latest message"
+                className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-semibold disabled:opacity-40 inline-flex items-center gap-1.5 shrink-0">
+                <Sparkles className={`w-3.5 h-3.5 ${suggesting ? 'animate-pulse' : ''}`} />
+                {suggesting ? 'Thinking…' : 'Suggest reply'}
+              </button>
               <button onClick={sendReply} disabled={sending || !reply.trim()}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 inline-flex items-center gap-1.5 shrink-0">
                 <Send className="w-3.5 h-3.5" />
                 {sending ? 'Sending…' : 'Send'}
               </button>
