@@ -518,6 +518,16 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
               <code className="text-emerald-300 font-mono">first_name</code>.
               Optional: last_name, email, phone, status, assigned_to_id.
             </p>
+            <button
+              type="button"
+              onClick={async () => {
+                try { await OrganizationService.downloadImportTemplate(); }
+                catch { toast.error('Could not download the sample.'); }
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline"
+            >
+              ↓ Download sample CSV (with example rows)
+            </button>
           </div>
           <button type="button" onClick={onClose} className="p-2 rounded-md text-slate-500 hover:text-white hover:bg-white/5">
             <X className="w-4 h-4" />

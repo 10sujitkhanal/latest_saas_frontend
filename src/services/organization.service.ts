@@ -1354,6 +1354,20 @@ export const OrganizationService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     return true;
   },
+  /** Download the ready-to-fill sample import CSV (headers + example rows). */
+  downloadImportTemplate: async () => {
+    const response = await apiClient.get('/organization/leads/import/template/', { responseType: 'blob' });
+    const blob = new Blob([response.data], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leads-import-template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  },
 };
 
 // ---------- Envelope helpers ----------
