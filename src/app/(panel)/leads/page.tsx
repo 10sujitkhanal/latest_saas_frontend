@@ -57,6 +57,7 @@ export default function LeadsPage() {
   const [workspaceFilter, setWorkspaceFilter] = useState<number | ''>('');
   const [editing, setEditing] = useState<FormState | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -128,9 +129,9 @@ export default function LeadsPage() {
         actions={
           <div className="flex items-center gap-2">
             <button
-              onClick={exportNow}
+              onClick={() => (can('crm.leads_export') ? setShowExport(true) : toast.error("You don't have permission to export."))}
               disabled={!can('crm.leads_export') || busy !== null}
-              title={can('crm.leads_export') ? 'Download CSV' : "You don't have permission to export"}
+              title={can('crm.leads_export') ? 'Export CSV (with filters)' : "You don't have permission to export"}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-slate-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
@@ -310,9 +311,127 @@ export default function LeadsPage() {
           }}
         />
       )}
+
+      {showExport && (
+        <ExportModal
+          initial={{ status: statusFilter, search, workspace: workspaceFilter === '' ? undefined : Number(workspaceFilter) }}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </>
   );
 }
+
+const EXPORT_FIELDS = [
+  'id', 'workspace_id', 'workspace_name', 'first_name', 'last_name',
+  'email', 'phone', 'status', 'source', 'assigned_to_id', 'assigned_to_email',
+  'created_at', 'updated_at',
+];
+
+function ExportModal({
+  initial, onClose,
+}: {
+  initial: { status?: string; search?: string; workspace?: number };
+  onClose: () => void;
+}) {
+  const [status, setStatus] = useState(initial.status || '');
+  const [search, setSearch] = useState(initial.search || '');
+  const [source, setSource] = useState('');
+  const [limit, setLimit] = useState<string>('');
+  const [page, setPage] = useState<string>('1');
+  const [fields, setFields] = useState<string[]>([...EXPORT_FIELDS]);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = (f: string) =>
+    setFields((cur) => (cur.includes(f) ? cur.filter((x) => x !== f) : [...cur, f]));
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const params: Record<string, unknown> = {};
+      if (initial.workspace) params.workspace = initial.workspace;
+      if (status) params.status = status;
+      if (search.trim()) params.search = search.trim();
+      if (source.trim()) params.source = source.trim();
+      if (limit && Number(limit) > 0) { params.limit = Number(limit); params.page = Math.max(1, Number(page) || 1); }
+      if (fields.length && fields.length !== EXPORT_FIELDS.length) params.fields = fields.join(',');
+      await OrganizationService.exportLeads(params);
+      toast.success('Export downloaded.');
+      onClose();
+    } catch (err) {
+      const v = err as { response?: { data?: { message?: string } } };
+      toast.error(v.response?.data?.message ?? 'Export failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-white/10 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 p-6 border-b border-white/5">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Export leads to CSV</h2>
+            <p className="text-sm text-slate-400 mt-1">Filter, page, and pick exactly the columns you want.</p>
+          </div>
+          <button type="button" onClick={onClose} className="p-2 rounded-md text-slate-500 hover:text-white hover:bg-white/5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={expInput}>
+                <option value="">All</option>
+                {['new', 'contacted', 'qualified', 'won', 'lost'].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Source (name)</span>
+              <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. Website" className={expInput} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Rows (latest first)</span>
+              <input type="number" min={0} value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="All" className={expInput} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Page</span>
+              <input type="number" min={1} value={page} onChange={(e) => setPage(e.target.value)} disabled={!limit} className={expInput} />
+            </label>
+            <label className="col-span-2 block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Search (name / email / phone)</span>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} className={expInput} />
+            </label>
+          </div>
+
+          <div>
+            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Columns</span>
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              {EXPORT_FIELDS.map((f) => (
+                <label key={f} className="flex items-center gap-1.5 text-xs text-slate-300">
+                  <input type="checkbox" checked={fields.includes(f)} onChange={() => toggle(f)} className="accent-emerald-500" />
+                  {f}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 p-6 border-t border-white/5">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5">Cancel</button>
+          <button type="button" onClick={run} disabled={busy || fields.length === 0}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50">
+            <Download className="w-4 h-4" /> {busy ? 'Exporting…' : 'Export CSV'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const expInput = 'w-full rounded-lg bg-slate-800 border border-white/5 px-3 py-2 text-sm text-slate-200 outline-none focus:border-emerald-500/40';
 
 function LeadModal({
   editable,

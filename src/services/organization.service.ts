@@ -1338,7 +1338,10 @@ export const OrganizationService = {
     return data;
   },
 
-  exportLeads: async (params?: { workspace?: number }) => {
+  exportLeads: async (params?: {
+    workspace?: number; status?: string; source?: string; search?: string;
+    limit?: number; page?: number; fields?: string;
+  }) => {
     const response = await apiClient.get('/organization/leads/export/', {
       params,
       responseType: 'blob',
