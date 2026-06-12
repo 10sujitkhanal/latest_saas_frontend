@@ -100,7 +100,34 @@ export interface OutreachDraftResponse {
   lead: { id: number; name: string; email: string; phone: string };
 }
 
+/** A business found via OpenStreetMap lead-finding. */
+export interface FoundBusiness {
+  name: string;
+  phone: string;
+  website: string;
+  email: string;
+  address: string;
+  category: string;
+}
+
 export const CrmAgent = {
+  /** Find B2B businesses by category + location (OpenStreetMap, preview only). */
+  findLeads: (workspaceId: Id, category: string, location: string) =>
+    apiClient
+      .post<ApiEnvelope<{ businesses: FoundBusiness[]; categories: string[] }>>(
+        `${base(workspaceId)}/crm/find-leads/`,
+        { category, location },
+      )
+      .then((r) => r.data),
+
+  /** Add found businesses to the pipeline as leads (deduped). */
+  importLeads: (workspaceId: Id, businesses: FoundBusiness[]) =>
+    apiClient
+      .post<ApiEnvelope<{ created: number; skipped: number }>>(`${base(workspaceId)}/crm/import-leads/`, {
+        leads: businesses,
+      })
+      .then((r) => r.data),
+
   /** Score the newest leads + suggest the next move (writes signals + a note). */
   analyzeRecent: (workspaceId: Id, limit = 5) =>
     apiClient

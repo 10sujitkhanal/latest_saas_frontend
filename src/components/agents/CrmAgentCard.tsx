@@ -4,10 +4,16 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Wand2, Loader2, Flame, Sun, Snowflake, ArrowRight, Lightbulb,
-  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply,
+  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply, Search, MapPin, Plus, Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CrmAgent, type LeadAnalysis, type OutreachChannel } from '@/services/agents.service';
+import { CrmAgent, type LeadAnalysis, type OutreachChannel, type FoundBusiness } from '@/services/agents.service';
+
+const FIND_CATEGORIES = [
+  'gym', 'restaurant', 'cafe', 'hotel', 'salon', 'spa', 'pharmacy', 'clinic',
+  'dentist', 'veterinary', 'supermarket', 'grocery', 'bakery', 'beauty',
+  'florist', 'butcher', 'hardware', 'car_repair', 'hairdresser',
+];
 
 /**
  * CRM Agent — Advisor + Co-pilot.
@@ -50,6 +56,45 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
   const [replyText, setReplyText] = useState('');
   const [analyzingReply, setAnalyzingReply] = useState(false);
   const [replyAnalysis, setReplyAnalysis] = useState<{ leadId: number; a: ReplyAnalysis } | null>(null);
+  // Lead finding (OpenStreetMap)
+  const [findOpen, setFindOpen] = useState(false);
+  const [findCat, setFindCat] = useState('gym');
+  const [findLoc, setFindLoc] = useState('');
+  const [finding, setFinding] = useState(false);
+  const [found, setFound] = useState<FoundBusiness[] | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const findLeads = async () => {
+    if (finding || !findLoc.trim()) return;
+    setFinding(true);
+    setFound(null);
+    try {
+      const res = await CrmAgent.findLeads(workspaceId, findCat, findLoc.trim());
+      if (res.success) setFound(res.data?.businesses || []);
+      else toast.error(res.message || 'Could not search.');
+    } catch (e) {
+      toast.error(errMsg(e) || 'Lead search is busy — try again in a moment.');
+    } finally {
+      setFinding(false);
+    }
+  };
+
+  const importFound = async () => {
+    if (importing || !found?.length) return;
+    setImporting(true);
+    try {
+      const res = await CrmAgent.importLeads(workspaceId, found);
+      if (res.success) {
+        toast.success(res.message || 'Added to pipeline.');
+        setFound(null);
+        setFindOpen(false);
+      } else toast.error(res.message || 'Could not add.');
+    } catch (e) {
+      toast.error(errMsg(e) || 'Could not add to pipeline.');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const analyze = async () => {
     if (loading) return;
@@ -157,8 +202,63 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           {loading ? 'Analysing…' : 'Analyse my newest leads'}
         </button>
+        <button type="button" onClick={() => setFindOpen((o) => !o)}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-700">
+          <Search className="h-4 w-4" /> Find new leads
+        </button>
         <Link href={`/w/${workspaceId}/leads`} className="text-sm font-semibold text-slate-500 hover:text-emerald-700">Open CRM</Link>
       </div>
+
+      {/* Find leads (OpenStreetMap) */}
+      {findOpen && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+          <p className="mb-2 text-xs text-slate-500">
+            Find B2B businesses from open map data (no scraping). They go into your pipeline as new leads — no messages sent.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={findCat} onChange={(e) => setFindCat(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm capitalize text-slate-900 outline-none focus:border-emerald-300">
+              {FIND_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+            </select>
+            <div className="flex flex-1 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5">
+              <MapPin className="h-4 w-4 text-slate-400" />
+              <input value={findLoc} onChange={(e) => setFindLoc(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findLeads(); } }}
+                placeholder="City or area, e.g. Stockholm"
+                className="flex-1 bg-transparent py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
+            </div>
+            <button type="button" onClick={findLeads} disabled={finding || !findLoc.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+              {finding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {finding ? 'Searching…' : 'Find'}
+            </button>
+          </div>
+
+          {found && found.length > 0 && (
+            <div className="mt-3">
+              <div className="max-h-60 space-y-1.5 overflow-y-auto">
+                {found.map((b, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                    <span className="truncate font-semibold text-slate-800">{b.name}</span>
+                    <span className="ml-auto inline-flex items-center gap-2 text-slate-400">
+                      {b.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{b.phone}</span>}
+                      {b.website && <Globe className="h-3 w-3" />}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={importFound} disabled={importing}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
+                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {importing ? 'Adding…' : `Add ${found.length} to pipeline`}
+              </button>
+            </div>
+          )}
+          {found && found.length === 0 && (
+            <p className="mt-3 text-xs text-slate-400">No businesses with contact details found there — try a bigger city or another category.</p>
+          )}
+        </div>
+      )}
 
       {empty && (
         <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center text-sm text-slate-400">
