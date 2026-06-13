@@ -168,8 +168,8 @@ export interface BookingsSummaryData {
   insights: string;
 }
 
-export interface BookingDraft { email: string; date: string; pretty?: string; note?: string; service?: string }
-export interface BookingCreated { booking_no: string; date: string; email: string; service: string; email_sent: boolean }
+export interface BookingDraft { email: string; date: string; pretty?: string; note?: string; service?: string; notify?: string[] }
+export interface BookingCreated { booking_no: string; date: string; email: string; service: string; email_sent: boolean; notify?: string[]; notified?: number }
 
 export const BookingsAgent = {
   /** Upcoming bookings (today/pending/week) + AI prep note (read-only). */
@@ -178,11 +178,12 @@ export const BookingsAgent = {
       .post<ApiEnvelope<BookingsSummaryData>>(`${base(workspaceId)}/bookings/summary/`, {})
       .then((r) => r.data),
 
-  /** Create a pending booking + email the customer it's being arranged (approval). */
+  /** Create a pending booking + email the customer (and optionally notify others). */
   create: (workspaceId: Id, draft: BookingDraft) =>
     apiClient
       .post<ApiEnvelope<BookingCreated>>(`${base(workspaceId)}/bookings/create/`, {
         email: draft.email, date: draft.date, note: draft.note || '', service: draft.service || '',
+        notify: draft.notify || [],
       })
       .then((r) => r.data),
 };

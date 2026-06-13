@@ -69,14 +69,16 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
   // Approval-in-chat: actually create the booking + email the customer.
   const confirmBooking = async (idx: number, draft: BookingDraft) => {
     if (actingIdx !== null) return;
-    if (!confirm(`Book a meeting with ${draft.email} on ${draft.pretty || draft.date} and email them it's being arranged?`)) return;
+    const notifyTxt = draft.notify && draft.notify.length ? ` and notify ${draft.notify.join(', ')}` : '';
+    if (!confirm(`Book a meeting with ${draft.email} on ${draft.pretty || draft.date} and email them it's being arranged${notifyTxt}?`)) return;
     setActingIdx(idx);
     try {
       const r = await BookingsAgent.create(workspaceId, draft);
       setMsgs((x) => x.map((mm, i) => (i === idx ? { ...mm, actionDone: true } : mm)));
       if (r.success && r.data) {
         const d = r.data;
-        setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: `Booked ${d.booking_no} for ${d.email} on ${draft.pretty || d.date}. ${d.email_sent ? 'Email sent ✓' : "Couldn't send the email — check your email settings."}` }]);
+        const note = d.notified ? ` Notified ${d.notified} ${d.notified === 1 ? 'person' : 'people'} ✓` : '';
+        setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: `Booked ${d.booking_no} for ${d.email} on ${draft.pretty || d.date}. ${d.email_sent ? 'Email sent ✓' : "Couldn't send the email — check your email settings."}${note}` }]);
       } else {
         setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: r.message || 'Could not create the booking.' }]);
       }
