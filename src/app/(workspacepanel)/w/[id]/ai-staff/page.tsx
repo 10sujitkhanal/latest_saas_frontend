@@ -6,10 +6,15 @@ import {
   Sparkles, Tag, Wand2, Check, X, ArrowRight, Loader2, Bot, Clock, CheckCircle2, XCircle, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { AgentsService, type OfferProposal, type AgentTask } from '@/services/agents.service';
+import { AgentsService, type OfferProposal, type AgentTask, type AgentProfile } from '@/services/agents.service';
 import StoreAgentCard from '@/components/agents/StoreAgentCard';
 import CrmAgentCard from '@/components/agents/CrmAgentCard';
 import AgentTrainer from '@/components/agents/AgentTrainer';
+
+/** Smooth-scroll to an agent section by id. */
+function goTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 /**
  * AI Staff — your AI team. Each agent drafts work; you approve it. Every
@@ -39,6 +44,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
   const [proposal, setProposal] = useState<OfferProposal | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<AgentTask[]>([]);
+  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -47,7 +53,14 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
     } catch { /* non-fatal */ }
   }, [workspaceId]);
 
-  useEffect(() => { loadTasks(); }, [loadTasks]);
+  const loadProfiles = useCallback(async () => {
+    try {
+      const res = await AgentsService.listProfiles(workspaceId, 'crm');
+      if (res.success) setProfiles(res.data || []);
+    } catch { /* non-fatal */ }
+  }, [workspaceId]);
+
+  useEffect(() => { loadTasks(); loadProfiles(); }, [loadTasks, loadProfiles]);
 
   const review = (task: AgentTask) => {
     setActiveTask(task);
@@ -133,17 +146,53 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         </div>
       </div>
 
+      {/* Your AI team — every agent as a card (built-in + the ones you train) */}
+      <div className="mt-5">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Your AI team</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[
+            { key: 'crm', name: 'CRM Agent', desc: 'Finds, scores & messages leads', to: 'agent-crm', tone: 'sky' as const },
+            { key: 'store', name: 'Store Agent', desc: 'Builds your catalogue', to: 'agent-store', tone: 'emerald' as const },
+            { key: 'offers', name: 'Offers Agent', desc: 'Drafts your promotions', to: 'agent-offers', tone: 'violet' as const },
+          ].map((a) => (
+            <button key={a.key} type="button" onClick={() => goTo(a.to)}
+              className="flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-slate-300 hover:shadow">
+              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${a.tone === 'sky' ? 'bg-sky-50 text-sky-600' : a.tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}><Bot className="h-4 w-4" /></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-900">{a.name}</span>
+                <span className="block text-[11px] text-slate-500">{a.desc}</span>
+              </span>
+            </button>
+          ))}
+          {/* Agents you trained */}
+          {profiles.map((p) => (
+            <button key={p.id} type="button" onClick={() => goTo('agent-trainer')}
+              className="flex items-start gap-2.5 rounded-2xl border border-violet-200 bg-violet-50/40 p-3 text-left shadow-sm hover:border-violet-300 hover:shadow">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700"><Bot className="h-4 w-4" /></span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-slate-900">{p.name}</span>
+                <span className="block text-[11px]">
+                  {p.is_default ? <span className="font-semibold text-emerald-600">● In use</span> : <span className="text-slate-500">CRM specialist · train it</span>}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Train your agents — freeform instructions each agent uses (Phase C) */}
-      <AgentTrainer workspaceId={workspaceId} />
+      <div id="agent-trainer" className="scroll-mt-20">
+        <AgentTrainer workspaceId={workspaceId} />
+      </div>
 
       {/* CRM Agent — score leads + suggest the next move (advisor) */}
-      <CrmAgentCard workspaceId={workspaceId} />
+      <div id="agent-crm" className="scroll-mt-20"><CrmAgentCard workspaceId={workspaceId} /></div>
 
       {/* Store Agent — build the catalogue without typing */}
-      <StoreAgentCard workspaceId={workspaceId} />
+      <div id="agent-store" className="scroll-mt-20"><StoreAgentCard workspaceId={workspaceId} /></div>
 
       {/* Offers Agent */}
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div id="agent-offers" className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2">
           <Tag className="h-5 w-5 text-violet-600" />
           <h2 className="text-base font-semibold text-slate-900">Offers Agent</h2>
