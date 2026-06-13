@@ -216,6 +216,23 @@ export const BookingsAgent = {
       .then((r) => r.data),
 };
 
+export interface StaffKpis { active: number; on_leave: number; total: number; present_today: number; absent_today: number; late_today: number; pending_leave: number }
+export interface PendingLeave { id: number; employee: string; type: string; start_date: string; end_date: string; days: string; reason: string }
+export interface StaffSummaryData { kpis: StaffKpis; pending_leave: PendingLeave[]; insights: string }
+
+export const StaffAgent = {
+  /** Team headcount + today's attendance + pending leave + AI note (read-only). */
+  summary: (workspaceId: Id) =>
+    apiClient
+      .post<ApiEnvelope<StaffSummaryData>>(`${base(workspaceId)}/staff/summary/`, {})
+      .then((r) => r.data),
+  /** Approve / reject a pending leave request — reuses the HR decision endpoint. */
+  decideLeave: (workspaceId: Id, leaveId: number, decision: 'approved' | 'rejected') =>
+    apiClient
+      .post<ApiEnvelope<{ status: string }>>(`/organization/hr/workspaces/${workspaceId}/leave/${leaveId}/decision/`, { decision })
+      .then((r) => r.data),
+};
+
 export const MarketingAgent = {
   /** Draft a ready-to-publish marketing post for a goal/occasion (draft only). */
   draft: (workspaceId: Id, goal: string) =>
