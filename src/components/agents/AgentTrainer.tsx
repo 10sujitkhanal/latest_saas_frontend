@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Bot, Plus, Copy, Trash2, Loader2, Save, GraduationCap } from 'lucide-react';
+import { Bot, Plus, Copy, Trash2, Loader2, Save, GraduationCap, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentProfile } from '@/services/agents.service';
 
@@ -97,6 +97,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
   const dirty = active && (name !== active.name || instructions !== (active.instructions || ''));
 
   return (
@@ -106,12 +107,19 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><GraduationCap className="w-4 h-4 text-emerald-300" /> Train your AI agents</h3>
           <p className="text-[12px] text-slate-400 mt-0.5">Teach an agent how to work in plain words. Clone it to specialise per pipeline (B2C vs B2B).</p>
         </div>
-        <button type="button" onClick={() => { setCreating((v) => !v); setNewName(''); }} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-slate-200 disabled:opacity-50 shrink-0">
-          <Plus className="w-3.5 h-3.5" /> New agent
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {!collapsed && (
+            <button type="button" onClick={() => { setCreating((v) => !v); setNewName(''); }} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-slate-200 disabled:opacity-50">
+              <Plus className="w-3.5 h-3.5" /> New agent
+            </button>
+          )}
+          <button type="button" onClick={() => { setCollapsed((v) => !v); setCreating(false); }} title={collapsed ? 'Expand' : 'Close'} className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 h-8 w-8 text-slate-300">
+            {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
-      {creating && (
+      {!collapsed && creating && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
           <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus placeholder="Agent name (e.g. B2B Sales)"
             onKeyDown={(e) => { if (e.key === 'Enter') createNew(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
@@ -121,7 +129,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
         </div>
       )}
 
-      {loading ? (
+      {!collapsed && (loading ? (
         <div className="py-6 text-center text-slate-500 text-sm"><Loader2 className="w-4 h-4 animate-spin inline mr-1" /> Loading…</div>
       ) : (
         <div className="space-y-3">
@@ -162,7 +170,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
             </>
           )}
         </div>
-      )}
+      ))}
     </section>
   );
 }

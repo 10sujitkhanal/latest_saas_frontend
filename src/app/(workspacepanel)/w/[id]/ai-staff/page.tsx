@@ -121,9 +121,15 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow">
           <Bot className="h-6 w-6" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-900">AI Staff</h1>
           <p className="text-sm text-slate-500">Your AI team drafts the work — you approve it. Every decision is logged.</p>
+        </div>
+        <div className="ml-auto shrink-0 text-right">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+            <Sparkles className="h-3.5 w-3.5" /> Qwen 3 · self-hosted
+          </span>
+          <p className="mt-1 text-[10px] text-slate-400">Private &amp; free. Bring-your-own model (ChatGPT) coming next.</p>
         </div>
       </div>
 
