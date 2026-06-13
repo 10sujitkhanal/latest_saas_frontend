@@ -138,20 +138,21 @@ export const CrmAgent = {
       )
       .then((r) => r.data),
 
-  /** Add found businesses to the pipeline as leads (deduped). */
-  importLeads: (workspaceId: Id, businesses: FoundBusiness[]) =>
+  /** Add found businesses to the pipeline as leads (deduped). Scoped to a pipeline. */
+  importLeads: (workspaceId: Id, businesses: FoundBusiness[], pipeline?: number | null) =>
     apiClient
       .post<ApiEnvelope<{ created: number; skipped: number }>>(`${base(workspaceId)}/crm/import-leads/`, {
-        leads: businesses,
+        leads: businesses, pipeline: pipeline ?? undefined,
       })
       .then((r) => r.data),
 
-  /** Score the newest leads + suggest the next move (writes signals + a note). */
-  analyzeRecent: (workspaceId: Id, limit = 5) =>
+  /** Score the newest leads + suggest the next move (writes signals + a note).
+   *  Scoped to ``pipeline`` when the agent is assigned one. */
+  analyzeRecent: (workspaceId: Id, limit = 5, pipeline?: number | null) =>
     apiClient
       .post<ApiEnvelope<{ results: LeadAnalysis[]; empty?: boolean }>>(
         `${base(workspaceId)}/crm/analyze-recent/`,
-        { limit },
+        { limit, pipeline: pipeline ?? undefined },
       )
       .then((r) => r.data),
 

@@ -44,7 +44,7 @@ type ReplyAnalysis = { intent: string; interest: string; sentiment: string; summ
 
 type Compose = { leadId: number; body: string; channels: OutreachChannel[]; channelId: number | null; channelKind: string };
 
-export default function CrmAgentCard({ workspaceId, embed }: { workspaceId: string | number; embed?: boolean }) {
+export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspaceId: string | number; embed?: boolean; pipeline?: number | null }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<LeadAnalysis[] | null>(null);
   const [empty, setEmpty] = useState(false);
@@ -104,7 +104,7 @@ export default function CrmAgentCard({ workspaceId, embed }: { workspaceId: stri
     if (importing || !found?.length) return;
     setImporting(true);
     try {
-      const res = await CrmAgent.importLeads(workspaceId, found);
+      const res = await CrmAgent.importLeads(workspaceId, found, pipeline);
       if (res.success) {
         toast.success(res.message || 'Added to pipeline.');
         setFound(null);
@@ -123,7 +123,7 @@ export default function CrmAgentCard({ workspaceId, embed }: { workspaceId: stri
     setEmpty(false);
     setCompose(null);
     try {
-      const res = await CrmAgent.analyzeRecent(workspaceId, 5);
+      const res = await CrmAgent.analyzeRecent(workspaceId, 5, pipeline);
       if (res.success) {
         setResults(res.data?.results || []);
         setEmpty(!!res.data?.empty);

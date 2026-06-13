@@ -79,7 +79,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
   const pendingCount = tasks.filter((t) => t.status === 'proposed').length;
 
   const workFor = (p: AgentProfile) =>
-    p.agent_type === 'crm' ? <CrmAgentCard workspaceId={workspaceId} embed />
+    p.agent_type === 'crm' ? <CrmAgentCard workspaceId={workspaceId} embed pipeline={p.pipeline} />
       : p.agent_type === 'store' ? <StoreAgentCard workspaceId={workspaceId} embed />
         : <OffersAgentCard workspaceId={workspaceId} embed onChanged={loadTasks} />;
 

@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Users, Package, Tag, Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Users, Package, Tag, Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentProfile } from '@/services/agents.service';
+import { OrganizationService } from '@/services/organization.service';
+
+type PipelineLite = { id: number; name: string };
 
 const TYPE = {
   crm: { label: 'CRM', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700' },
@@ -33,7 +36,24 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
   const [instructions, setInstructions] = useState(profile.instructions || '');
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pipelines, setPipelines] = useState<PipelineLite[]>([]);
   const dirty = instructions !== (profile.instructions || '');
+
+  // CRM agents can be scoped to a pipeline (the leads they work).
+  useEffect(() => {
+    if (profile.agent_type !== 'crm') return;
+    OrganizationService.listPipelines().then((r) => { if (r?.success) setPipelines((r.data as PipelineLite[]) || []); }).catch(() => {});
+  }, [profile.agent_type]);
+
+  const setPipeline = async (id: number | null) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await AgentsService.updateProfile(workspaceId, profile.id, { pipeline: id });
+      if (r.success) { toast.success(id ? 'Agent scoped to that pipeline.' : 'Agent now works all leads.'); onChanged(); }
+      else toast.error(r.message || 'Could not update scope.');
+    } catch { toast.error('Could not update scope.'); } finally { setBusy(false); }
+  };
 
   const saveTraining = async () => {
     if (saving) return;
@@ -87,6 +107,20 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
           {!profile.is_default && <button type="button" onClick={remove} disabled={busy} title="Delete" className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
         </div>
       </div>
+
+      {/* Scope — which pipeline this CRM agent works (its lane in the company) */}
+      {profile.agent_type === 'crm' && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2">
+          <GitBranch className="h-4 w-4 text-slate-400" />
+          <span className="text-[12px] font-medium text-slate-600">Works on</span>
+          <select value={profile.pipeline ?? ''} onChange={(e) => setPipeline(e.target.value ? Number(e.target.value) : null)} disabled={busy}
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm text-slate-900 outline-none focus:border-emerald-300">
+            <option value="">All leads</option>
+            {pipelines.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+          </select>
+          <span className="text-[11px] text-slate-400">Analyse + Find New Leads scope to this pipeline.</span>
+        </div>
+      )}
 
       {/* Training */}
       {training && (
