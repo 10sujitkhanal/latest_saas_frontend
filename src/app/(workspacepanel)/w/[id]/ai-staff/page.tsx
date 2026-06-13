@@ -203,15 +203,17 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         )}
       </div>
 
-      {/* Coming-soon roster — the rest of the AI staff */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {['Booking agent', 'Data-entry agent', 'Marketing agent', 'Finance agent'].map((n) => (
-          <div key={n} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-center">
-            <div className="text-sm font-semibold text-slate-500">{n}</div>
-            <div className="text-[11px] text-slate-400">coming soon</div>
-          </div>
-        ))}
-      </div>
+      {/* Coming-soon roster — modules that don't have a working agent yet (registry-driven) */}
+      {AGENT_MODULE_LIST.some((m) => !m.built) && (
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {AGENT_MODULE_LIST.filter((m) => !m.built).map((m) => (
+            <div key={m.type} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-center">
+              <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500"><m.Icon className="h-3.5 w-3.5" />{m.label} agent</div>
+              <div className="text-[11px] text-slate-400">coming soon</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
