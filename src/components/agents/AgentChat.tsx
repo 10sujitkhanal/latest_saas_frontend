@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2 } from 'lucide-react';
-import { AgentsService } from '@/services/agents.service';
+import { Bot, Send, Loader2, Mail, Check } from 'lucide-react';
+import { AgentsService, type OverdueInvoice } from '@/services/agents.service';
+import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; actionDone?: boolean };
 
 const EXAMPLES = ["Who's overdue?", 'Draft a post for the weekend', 'Analyse my finances', "How's my loyalty?"];
 
@@ -18,8 +19,26 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [actingIdx, setActingIdx] = useState<number | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+
+  // Approval-in-chat: send a reminder to every overdue invoice that has an email,
+  // reusing the same dunning path the Finance card uses.
+  const remindAll = async (idx: number, invoices: OverdueInvoice[]) => {
+    const targets = invoices.filter((i) => i.email);
+    if (!targets.length || actingIdx !== null) return;
+    if (!confirm(`Email a payment reminder to ${targets.length} customer${targets.length === 1 ? '' : 's'}?`)) return;
+    setActingIdx(idx);
+    let sent = 0;
+    for (const inv of targets) {
+      try { const r = await AccountingService.remindInvoice(workspaceId, inv.id); if (r.success) sent++; } catch { /* skip */ }
+    }
+    setMsgs((x) => x.map((m, i) => (i === idx ? { ...m, actionDone: true } : m)));
+    setMsgs((x) => [...x, { role: 'agent', text: `Sent ${sent} reminder${sent === 1 ? '' : 's'}.${targets.length < invoices.length ? ` (${invoices.length - targets.length} had no email.)` : ''}`, agent: 'finance' }]);
+    setActingIdx(null);
+    onActed?.();
+  };
 
   const send = async (text?: string) => {
     const m = (text ?? input).trim();
@@ -30,7 +49,11 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
     try {
       const r = await AgentsService.chat(workspaceId, m);
       if (r.success && r.data) {
-        setMsgs((x) => [...x, { role: 'agent', text: r.data.reply, agent: r.data.agent }]);
+        const d = r.data;
+        const overdue = d.command === 'finance_overdue'
+          ? ((d.data as { invoices?: OverdueInvoice[] } | undefined)?.invoices || []).filter((i) => i.email)
+          : undefined;
+        setMsgs((x) => [...x, { role: 'agent', text: d.reply, agent: d.agent, overdue: overdue && overdue.length ? overdue : undefined }]);
         onActed?.();
       } else {
         setMsgs((x) => [...x, { role: 'agent', text: r.message || 'Something went wrong.' }]);
@@ -66,7 +89,20 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
                   </span>
                 );
               })()}
-              <div className="max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200">{m.text}</div>
+              <div className="max-w-[85%]">
+                <div className="whitespace-pre-line rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200">{m.text}</div>
+                {m.overdue && m.overdue.length > 0 && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Reminders sent</span>
+                  ) : (
+                    <button type="button" onClick={() => remindAll(i, m.overdue!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Sending…' : `Send reminders to all (${m.overdue.length})`}
+                    </button>
+                  )
+                )}
+              </div>
             </div>
           ))}
           {busy && <div className="flex items-center gap-2 pl-8 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Working…</div>}
