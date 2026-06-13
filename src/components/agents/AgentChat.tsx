@@ -78,7 +78,8 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
       if (r.success && r.data) {
         const d = r.data;
         const note = d.notified ? ` Notified ${d.notified} ${d.notified === 1 ? 'person' : 'people'} ✓` : '';
-        setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: `Booked ${d.booking_no} for ${d.email} on ${draft.pretty || d.date}. ${d.email_sent ? 'Email sent ✓' : "Couldn't send the email — check your email settings."}${note}` }]);
+        const sent = d.email_sent ? `Email${d.has_invite ? ' + calendar invite' : ''} sent ✓` : "Couldn't send the email — check your email settings.";
+        setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: `Booked ${d.booking_no} for ${d.email} on ${draft.pretty || d.date}. ${sent}${note}` }]);
       } else {
         setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: r.message || 'Could not create the booking.' }]);
       }
