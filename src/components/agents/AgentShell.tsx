@@ -1,30 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Package, Tag, Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X } from 'lucide-react';
+import { Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentProfile } from '@/services/agents.service';
 import { OrganizationService } from '@/services/organization.service';
+import { agentModule } from '@/lib/agents/modules';
 
 type PipelineLite = { id: number; name: string };
-
-const TYPE = {
-  crm: {
-    label: 'CRM', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700',
-    module: 'CRM & Leads',
-    tasks: ['Find leads', 'Score & prioritise', 'Draft outreach', 'Handle replies', 'Move pipeline stages'],
-  },
-  store: {
-    label: 'Store', Icon: Package, chip: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700',
-    module: 'Inventory & Store',
-    tasks: ['Build catalogue', 'Barcode lookup', 'Import from website', 'Suggest products', 'Draft listings'],
-  },
-  offers: {
-    label: 'Offers', Icon: Tag, chip: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700',
-    module: 'Offers & Deals',
-    tasks: ['Draft promotions', 'Create coupons', 'Plan campaigns'],
-  },
-} as const;
 
 const PLACEHOLDER = `Teach this agent how to work, e.g.
 • Tone: warm and casual, never pushy.
@@ -43,7 +26,7 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
   onChanged: () => void;
   children: React.ReactNode;
 }) {
-  const meta = TYPE[profile.agent_type] ?? TYPE.crm;
+  const meta = agentModule(profile.agent_type);
   const [training, setTraining] = useState(false);
   const [instructions, setInstructions] = useState(profile.instructions || '');
   const [saving, setSaving] = useState(false);

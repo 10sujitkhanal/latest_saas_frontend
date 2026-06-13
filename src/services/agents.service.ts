@@ -280,7 +280,7 @@ export const AgentsService = {
 
 export interface AgentProfile {
   id: number;
-  agent_type: 'crm' | 'offers' | 'store';
+  agent_type: string;
   name: string;
   pipeline: number | null;
   pipeline_name: string | null;

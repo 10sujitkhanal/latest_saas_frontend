@@ -9,6 +9,7 @@ import StoreAgentCard from '@/components/agents/StoreAgentCard';
 import CrmAgentCard from '@/components/agents/CrmAgentCard';
 import OffersAgentCard from '@/components/agents/OffersAgentCard';
 import AgentShell from '@/components/agents/AgentShell';
+import { AGENT_MODULE_LIST, agentModule, type AgentModuleType } from '@/lib/agents/modules';
 
 /**
  * AI Staff — your AI team. Every agent (built-in defaults + the ones you create)
@@ -24,11 +25,6 @@ const STATUS_META: Record<AgentTask['status'], { label: string; cls: string; Ico
   failed: { label: 'Failed', cls: 'bg-rose-50 text-rose-700', Icon: AlertTriangle },
 };
 
-const NEW_TYPES = [
-  ['crm', 'CRM', 'Leads & outreach'],
-  ['store', 'Store', 'Builds catalogue'],
-  ['offers', 'Offers', 'Drafts promos'],
-] as const;
 
 export default function AiStaffPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: workspaceId } = reactUse(params);
@@ -37,7 +33,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [newType, setNewType] = useState<'crm' | 'store' | 'offers'>('crm');
+  const [newType, setNewType] = useState<AgentModuleType>('crm');
   const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -78,10 +74,18 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
     a.agent_type.localeCompare(b.agent_type) || (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
   const pendingCount = tasks.filter((t) => t.status === 'proposed').length;
 
-  const workFor = (p: AgentProfile) =>
-    p.agent_type === 'crm' ? <CrmAgentCard workspaceId={workspaceId} embed pipeline={p.pipeline} />
-      : p.agent_type === 'store' ? <StoreAgentCard workspaceId={workspaceId} embed />
-        : <OffersAgentCard workspaceId={workspaceId} embed onChanged={loadTasks} />;
+  const workFor = (p: AgentProfile) => {
+    if (p.agent_type === 'crm') return <CrmAgentCard workspaceId={workspaceId} embed pipeline={p.pipeline} />;
+    if (p.agent_type === 'store') return <StoreAgentCard workspaceId={workspaceId} embed />;
+    if (p.agent_type === 'offers') return <OffersAgentCard workspaceId={workspaceId} embed onChanged={loadTasks} />;
+    // Module owned + trainable; its automation is on the way.
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-center">
+        <p className="text-sm font-semibold text-slate-600">Automation coming soon</p>
+        <p className="mt-1 text-[12px] text-slate-400">You can already name + train this agent for its module — its hands-on actions are being built next.</p>
+      </div>
+    );
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -111,19 +115,22 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           </button>
         ) : (
           <div className="space-y-2 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">What kind of agent?</p>
-            <div className="grid grid-cols-3 gap-2">
-              {NEW_TYPES.map(([v, l, d]) => (
-                <button key={v} type="button" onClick={() => setNewType(v)}
-                  className={`rounded-xl border p-2 text-left ${newType === v ? 'border-indigo-400 bg-white shadow-sm' : 'border-slate-200 bg-white/60 hover:bg-white'}`}>
-                  <span className={`block text-sm font-semibold ${newType === v ? 'text-indigo-700' : 'text-slate-700'}`}>{l}</span>
-                  <span className="block text-[10px] text-slate-500">{d}</span>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Which module should it own?</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {AGENT_MODULE_LIST.map((m) => (
+                <button key={m.type} type="button" onClick={() => setNewType(m.type)}
+                  className={`flex items-start gap-2 rounded-xl border p-2 text-left ${newType === m.type ? 'border-indigo-400 bg-white shadow-sm' : 'border-slate-200 bg-white/60 hover:bg-white'}`}>
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${m.chip}`}><m.Icon className="h-4 w-4" /></span>
+                  <span className="min-w-0">
+                    <span className={`block truncate text-[13px] font-semibold ${newType === m.type ? 'text-indigo-700' : 'text-slate-700'}`}>{m.module}</span>
+                    <span className="block text-[10px] text-slate-400">{m.built ? 'Ready' : 'Coming soon'}</span>
+                  </span>
                 </button>
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
-                placeholder={`Name (e.g. ${newType === 'crm' ? 'B2B Sales' : newType === 'store' ? 'Imports' : 'Weekend deals'})`}
+                placeholder={`Name (e.g. ${agentModule(newType).label} ${newType === 'crm' ? 'B2B' : 'team'})`}
                 onKeyDown={(e) => { if (e.key === 'Enter') createAgent(); if (e.key === 'Escape') setCreating(false); }}
                 className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-300" />
               <button type="button" onClick={createAgent} disabled={busy}
