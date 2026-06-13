@@ -33,7 +33,7 @@ export const AGENT_MODULES: Record<AgentModuleType, AgentModuleDef> = {
   bookings: { type: 'bookings', label: 'Bookings', module: 'Bookings', Icon: CalendarCheck, chip: 'bg-cyan-50 text-cyan-600', badge: 'bg-cyan-50 text-cyan-700', built: true, tasks: ['Today at a glance', 'Flag pending', 'Week ahead', 'Book a meeting', 'Prep advice'], chatExamples: ["What's coming up?", 'Book a meeting with name@email.com on 2026-06-20 at 3pm'] },
   hr: { type: 'hr', label: 'Staff', module: 'Staff & HR', Icon: UsersRound, chip: 'bg-indigo-50 text-indigo-600', badge: 'bg-indigo-50 text-indigo-700', built: true, tasks: ['Team overview', 'Attendance today', 'Approve leave', 'People advice'], chatExamples: ['How is my team?', "Who's off today?", 'Any leave to approve?'] },
   marketing: { type: 'marketing', label: 'Marketing', module: 'Marketing', Icon: Megaphone, chip: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', built: true, tasks: ['Draft posts', 'Seasonal ideas', 'On-brand copy', 'Product highlights'], chatExamples: ['Draft a post about winter wellness'] },
-  projects: { type: 'projects', label: 'Projects', module: 'Projects', Icon: FolderKanban, chip: 'bg-slate-100 text-slate-600', badge: 'bg-slate-100 text-slate-700', built: false, tasks: ['Break down tasks', 'Status updates', 'Track deadlines', 'Summaries'] },
+  projects: { type: 'projects', label: 'Projects', module: 'Projects', Icon: FolderKanban, chip: 'bg-slate-100 text-slate-600', badge: 'bg-slate-100 text-slate-700', built: true, tasks: ['Work overview', 'Spot overdue', 'Break down a goal', 'Focus advice'], chatExamples: ['What tasks are overdue?', "What's due this week?", 'Show my workload'] },
 };
 
 export const AGENT_MODULE_LIST: AgentModuleDef[] = Object.values(AGENT_MODULES);

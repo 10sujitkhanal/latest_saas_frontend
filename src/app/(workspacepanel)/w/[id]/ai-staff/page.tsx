@@ -13,6 +13,7 @@ import MarketingAgentCard from '@/components/agents/MarketingAgentCard';
 import LoyaltyAgentCard from '@/components/agents/LoyaltyAgentCard';
 import BookingsAgentCard from '@/components/agents/BookingsAgentCard';
 import StaffAgentCard from '@/components/agents/StaffAgentCard';
+import ProjectsAgentCard from '@/components/agents/ProjectsAgentCard';
 import AgentChat from '@/components/agents/AgentChat';
 import AgentShell from '@/components/agents/AgentShell';
 import { AGENT_MODULE_LIST, agentModule, type AgentModuleType } from '@/lib/agents/modules';
@@ -89,6 +90,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
     if (p.agent_type === 'loyalty') return <LoyaltyAgentCard workspaceId={workspaceId} embed />;
     if (p.agent_type === 'bookings') return <BookingsAgentCard workspaceId={workspaceId} embed />;
     if (p.agent_type === 'hr') return <StaffAgentCard workspaceId={workspaceId} embed />;
+    if (p.agent_type === 'projects') return <ProjectsAgentCard workspaceId={workspaceId} embed />;
     // Module owned + trainable; its automation is on the way.
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-center">

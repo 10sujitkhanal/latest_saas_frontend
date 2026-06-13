@@ -233,6 +233,28 @@ export const StaffAgent = {
       .then((r) => r.data),
 };
 
+export interface TaskKpis { open: number; in_progress: number; overdue: number; due_soon: number; done_this_week: number }
+export interface TaskRow { title: string; due: string; priority: string; status: string; assignee: string }
+export interface TasksSummaryData { kpis: TaskKpis; overdue: TaskRow[]; due_soon: TaskRow[]; insights: string }
+
+export const ProjectsAgent = {
+  /** Work overview: open/overdue/due-soon + AI focus note (read-only). */
+  summary: (workspaceId: Id) =>
+    apiClient
+      .post<ApiEnvelope<TasksSummaryData>>(`${base(workspaceId)}/projects/summary/`, {})
+      .then((r) => r.data),
+  /** Break a goal into draft task titles (no writes). */
+  breakdown: (workspaceId: Id, goal: string) =>
+    apiClient
+      .post<ApiEnvelope<{ titles: string[] }>>(`${base(workspaceId)}/projects/breakdown/`, { goal })
+      .then((r) => r.data),
+  /** Create open tasks from approved titles. */
+  createTasks: (workspaceId: Id, titles: string[]) =>
+    apiClient
+      .post<ApiEnvelope<{ created: number }>>(`${base(workspaceId)}/projects/create-tasks/`, { titles })
+      .then((r) => r.data),
+};
+
 export const MarketingAgent = {
   /** Draft a ready-to-publish marketing post for a goal/occasion (draft only). */
   draft: (workspaceId: Id, goal: string) =>
