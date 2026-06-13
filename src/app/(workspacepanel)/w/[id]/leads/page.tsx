@@ -9,6 +9,7 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import QuotaBadge from '@/components/QuotaBadge';
 import { OrganizationService } from '@/services/organization.service';
+import { LeadHoverCard } from '@/components/leads/LeadHoverCard';
 
 /**
  * Lead Pipeline (Kanban) — the default Leads page.
@@ -39,6 +40,10 @@ interface KanbanLead {
   stage_color: string | null;
   score: number;
   score_band: 'hot' | 'warm' | 'cold';
+  temperature?: string;
+  ai_recommendation?: string;
+  ai_summary?: string;
+  last_activity_at?: string | null;
   lifecycle_stage: string;
   assigned_to: number | null;
   assigned_to_email: string | null;
@@ -110,6 +115,22 @@ function LeadsPipelineInner({ wsIdString }: { wsIdString: string }) {
   const [showAddStage, setShowAddStage] = useState(false);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [pendingLost, setPendingLost] = useState<{ leadId: number; stageId: number } | null>(null);
+  // Hover preview — a single fixed-position card driven by which lead the mouse
+  // is over (positioned from the card's rect, so it escapes the column overflow).
+  const [hover, setHover] = useState<{ lead: KanbanLead; top: number; left: number } | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openHover = (lead: KanbanLead, el: HTMLElement) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    if (draggingId !== null) return;
+    const r = el.getBoundingClientRect();
+    const left = Math.min(r.right + 8, window.innerWidth - 300);
+    const top = Math.min(r.top, window.innerHeight - 240);
+    setHover({ lead, top: Math.max(8, top), left });
+  };
+  const closeHover = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHover(null), 140);
+  };
   // Source filter — passes ?source=<id>|none to the kanban endpoint so the
   // board can be sliced by which lead-source the cards came in from.
   const [sourceFilter, setSourceFilter] = useState<'' | 'none' | number>('');
@@ -452,8 +473,10 @@ function LeadsPipelineInner({ wsIdString }: { wsIdString: string }) {
                   href={`/w/${id}/leads/${lead.id}`}
                   key={lead.id}
                   draggable
-                  onDragStart={() => onDragStart(lead.id)}
+                  onDragStart={() => { setHover(null); onDragStart(lead.id); }}
                   onDragEnd={onDragEnd}
+                  onMouseEnter={(e) => openHover(lead, e.currentTarget)}
+                  onMouseLeave={closeHover}
                   onClick={(e) => { if (draggingId !== null) e.preventDefault(); }}
                   className={`block group rounded-xl border bg-[#0c1424] p-3 cursor-grab active:cursor-grabbing transition-colors ${
                     draggingId === lead.id ? 'opacity-40' : 'border-white/5 hover:border-emerald-500/30'
@@ -614,6 +637,16 @@ function LeadsPipelineInner({ wsIdString }: { wsIdString: string }) {
           pipelineId={activePipeline.id}
           onClose={() => setShowAddStage(false)}
           onCreated={() => { setShowAddStage(false); load(); }}
+        />
+      )}
+
+      {hover && (
+        <LeadHoverCard
+          wsId={id}
+          lead={hover.lead}
+          style={{ top: hover.top, left: hover.left }}
+          onMouseEnter={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }}
+          onMouseLeave={closeHover}
         />
       )}
     </div>
