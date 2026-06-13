@@ -309,7 +309,23 @@ export const CrmAgent = {
 
 export interface AgentChatReply { command: string; agent: string | null; reply: string; data?: unknown }
 
+/** One thing an agent did (or has pending) — a row in the per-agent report. */
+export interface AgentActivityItem {
+  id: number; agent_type: string; action: string; title: string; detail: string;
+  status: 'done' | 'pending' | 'failed'; ref_kind: string; ref_id: number | null;
+  actor: string; created_at: string;
+}
+export interface AgentActivityData { activities: AgentActivityItem[]; counts: Record<string, number>; pending: number }
+
 export const AgentsService = {
+  /** The per-agent activity report. Pass agentType to scope to one agent. */
+  activity: (workspaceId: Id, agentType?: string, limit = 30) =>
+    apiClient
+      .get<ApiEnvelope<AgentActivityData>>(`${base(workspaceId)}/activity/`, {
+        params: { agent_type: agentType || undefined, limit },
+      })
+      .then((r) => r.data),
+
   /** Chatroom: route a plain-language request to one agent action + run it.
    *  Pass `agentType` to keep a per-agent chat scoped to that agent's commands. */
   chat: (workspaceId: Id, message: string, agentType?: string) =>

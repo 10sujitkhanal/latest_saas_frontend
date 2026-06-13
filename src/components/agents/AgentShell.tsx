@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X, MessageSquare } from 'lucide-react';
+import { Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X, MessageSquare, Activity, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { AgentsService, type AgentProfile } from '@/services/agents.service';
+import { AgentsService, type AgentProfile, type AgentActivityItem } from '@/services/agents.service';
 import { OrganizationService } from '@/services/organization.service';
 import { agentModule } from '@/lib/agents/modules';
 import AgentChat from './AgentChat';
@@ -30,6 +30,23 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
   const meta = agentModule(profile.agent_type);
   const [training, setTraining] = useState(false);
   const [chatting, setChatting] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
+  const [activity, setActivity] = useState<AgentActivityItem[] | null>(null);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+
+  const toggleActivity = async () => {
+    const next = !showActivity;
+    setShowActivity(next);
+    if (next && activity === null && !loadingActivity) {
+      setLoadingActivity(true);
+      try {
+        const r = await AgentsService.activity(workspaceId, profile.agent_type, 20);
+        if (r.success) setActivity(r.data?.activities || []);
+        else toast.error(r.message || 'Could not load activity.');
+      } catch { toast.error('Could not load activity.'); }
+      finally { setLoadingActivity(false); }
+    }
+  };
   const [instructions, setInstructions] = useState(profile.instructions || '');
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -138,6 +155,11 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
               <MessageSquare className="h-3.5 w-3.5" /> Chat {chatting ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
           )}
+          {meta.built && (
+            <button type="button" onClick={toggleActivity} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${showActivity ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              <Activity className="h-3.5 w-3.5" /> Activity {showActivity ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          )}
           <button type="button" onClick={() => setTraining((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
             <GraduationCap className="h-3.5 w-3.5" /> Train {training ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
@@ -181,6 +203,34 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {dirty ? 'Save training' : 'Saved'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* What this agent has done — the per-agent report */}
+      {showActivity && meta.built && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+          {loadingActivity ? (
+            <p className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading what {profile.name} has done…</p>
+          ) : !activity || activity.length === 0 ? (
+            <p className="text-xs text-slate-500">Nothing yet — when this agent does something (or you approve its work), it shows up here as a report.</p>
+          ) : (
+            <ul className="space-y-2">
+              {activity.map((a) => (
+                <li key={a.id} className="flex items-start gap-2">
+                  <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md ${a.status === 'failed' ? 'bg-rose-50 text-rose-500' : a.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {a.status === 'failed' ? <AlertTriangle className="h-3 w-3" /> : a.status === 'pending' ? <Loader2 className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-slate-800">{a.title}</p>
+                    <p className="truncate text-[11px] text-slate-400">
+                      {a.detail}{a.detail && (a.actor || a.created_at) ? ' · ' : ''}
+                      {a.actor ? `${a.actor} · ` : ''}{new Date(a.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
