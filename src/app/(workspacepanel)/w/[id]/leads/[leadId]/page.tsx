@@ -560,7 +560,7 @@ function OverviewTab({
       </div>
 
       {/* Inline AI for Sales: read this lead + draft a message, right here. */}
-      <LeadAiAssist workspaceId={wsId} leadId={lead.id} canContact={!!(lead.email || lead.phone)} onUpdated={onChange} />
+      <LeadAiAssist workspaceId={wsId} leadId={lead.id} canContact={!!(lead.email || lead.phone)} aiRecommendation={lead.ai_recommendation} onUpdated={onChange} />
 
       {lead.ai_summary && (
         <section className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] via-cyan-500/[0.04] to-transparent p-5">

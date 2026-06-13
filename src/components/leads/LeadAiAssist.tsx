@@ -24,11 +24,12 @@ const TEMP_CLS: Record<string, string> = {
 };
 
 export default function LeadAiAssist({
-  workspaceId, leadId, canContact, onUpdated,
+  workspaceId, leadId, canContact, aiRecommendation, onUpdated,
 }: {
   workspaceId: string | number;
   leadId: number;
   canContact: boolean;
+  aiRecommendation?: string;   // persisted next-best-action (survives refetch)
   onUpdated?: () => void;
 }) {
   const [advising, setAdvising] = useState(false);
@@ -50,7 +51,7 @@ export default function LeadAiAssist({
         title: `Follow up: ${nextAction}`.slice(0, 200),
         due_at: due.toISOString(),
       });
-      if (r.success) { setScheduled(true); toast.success('Follow-up scheduled for 3 days from now.'); onUpdated?.(); }
+      if (r.success) { setScheduled(true); toast.success('Follow-up scheduled for 3 days from now.'); }
       else toast.error(r.message || 'Could not schedule the follow-up.');
     } catch (e) {
       toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not schedule the follow-up.');
@@ -142,19 +143,23 @@ export default function LeadAiAssist({
             {analysis.reason && <span className="text-[12px] text-slate-300">{analysis.reason}</span>}
           </div>
           {analysis.next_action && (
-            <>
-              <p className="text-[13px] text-slate-200">
-                <strong className="text-emerald-200">Next move:</strong> {analysis.next_action}
-              </p>
-              <button
-                type="button" onClick={() => scheduleFollowUp(analysis.next_action)} disabled={scheduling || scheduled}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 disabled:opacity-50">
-                {scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : scheduled ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <CalendarClock className="w-3.5 h-3.5" />}
-                {scheduled ? 'Follow-up scheduled' : 'Schedule follow-up (3 days)'}
-              </button>
-            </>
+            <p className="text-[13px] text-slate-200">
+              <strong className="text-emerald-200">Next move:</strong> {analysis.next_action}
+            </p>
           )}
         </div>
+      )}
+
+      {/* Schedule a follow-up from the next-best-action. Keyed off the PERSISTED
+          ai_recommendation (or the fresh analysis) so it survives the page
+          refetch that remounts this card. */}
+      {(analysis?.next_action || aiRecommendation) && (
+        <button
+          type="button" onClick={() => scheduleFollowUp(analysis?.next_action || aiRecommendation || '')} disabled={scheduling || scheduled}
+          className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 disabled:opacity-50">
+          {scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : scheduled ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <CalendarClock className="w-3.5 h-3.5" />}
+          {scheduled ? 'Follow-up scheduled' : 'Schedule follow-up (3 days)'}
+        </button>
       )}
 
       {/* Drafted message — copy into the reply/compose box. */}
