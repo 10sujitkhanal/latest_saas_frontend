@@ -93,6 +93,11 @@ function _mapStorefront(b: any): PublicStorefront {
     orderingEnabled: !!b.capabilities?.show_cart,
     bookingEnabled: _bookingOpen(b),
     galleryImages: [],
+    sellsGiftCards: !!sf.sell_gift_cards,
+    giftCardDenominations: Array.isArray(sf.gift_card_denominations)
+      ? sf.gift_card_denominations.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0)
+      : [],
+    giftCardMessage: sf.gift_card_message || "",
     memberships: Array.isArray(b.memberships)
       ? b.memberships.map((m: any): PublicMembershipPlan => ({
           id: String(m.id),
@@ -208,6 +213,10 @@ export interface PublicStorefront {
   };
   /** Published membership plans a shopper can join on this store. */
   memberships?: PublicMembershipPlan[];
+  /** Gift cards: whether the store sells them + the preset amounts + a blurb. */
+  sellsGiftCards?: boolean;
+  giftCardDenominations?: number[];
+  giftCardMessage?: string;
 }
 
 /** A membership plan as a shopper sees it on the storefront. */
@@ -1009,6 +1018,32 @@ export interface MembershipJoinResult {
  * Unlike the other public helpers, this does NOT mock on failure — the caller
  * needs the real outcome and any real error message.
  */
+export interface GiftCardBuyPayload {
+  amount: number;
+  name: string;
+  email: string;
+  phone?: string;
+  recipient?: string;
+  message?: string;
+}
+export interface GiftCardBuyResult { code: string; amount: string; currency: string; }
+
+/** Buy a gift card on this storefront (anonymous, public). Real outcome, no mock —
+ *  the buyer needs the issued code and any real error. */
+export async function buyGiftCard(slug: string, payload: GiftCardBuyPayload): Promise<GiftCardBuyResult> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/gift-card/`, {
+    amount: payload.amount,
+    recipient: payload.recipient ?? "",
+    message: payload.message ?? "",
+    customer: { name: payload.name, email: payload.email, phone: payload.phone ?? "" },
+  });
+  return {
+    code: String(data?.code ?? ""),
+    amount: String(data?.amount ?? ""),
+    currency: String(data?.currency ?? ""),
+  };
+}
+
 export async function joinMembership(slug: string, payload: MembershipJoinPayload): Promise<MembershipJoinResult> {
   const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/subscribe/`, {
     plan_id: payload.planId,

@@ -10,6 +10,7 @@ import {
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
 import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
+import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
 import { formatCurrencyMarket } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -399,6 +400,7 @@ export function HotelStorefrontClient({ storefront, items, offers, availability,
         {(storefront.memberships?.length ?? 0) > 0 && (
           <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
         )}
+        {storefront.sellsGiftCards && <GiftCardBuySection slug={storefront.slug} currency={storefront.currency ?? ""} denominations={storefront.giftCardDenominations ?? []} message={storefront.giftCardMessage} />}
 
         {/* Rooms section */}
         <section>

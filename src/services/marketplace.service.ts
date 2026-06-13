@@ -98,6 +98,9 @@ export interface StorefrontSettingsRow {
   collect_payment: boolean;
   sell_memberships: boolean;
   accept_gift_cards: boolean;
+  sell_gift_cards: boolean;
+  gift_card_denominations: number[];
+  gift_card_message: string;
   award_loyalty: boolean;
   loyalty_points_per_unit: string;
   title: string;

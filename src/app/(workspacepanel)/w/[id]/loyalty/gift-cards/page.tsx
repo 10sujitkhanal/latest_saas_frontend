@@ -67,6 +67,7 @@ function Inner({ wsId }: { wsId: string }) {
       <PageHeader title="Gift Cards" subtitle="Issue and redeem prepaid balances." action={<AddButton label="Issue gift card" onClick={() => { setFormError(null); setOpen(true); }} />} />
       <LoyaltyTabs wsId={wsId} />
       <GiftCardStorefrontPanel wsId={wsId} cards={rows} settings={settings} refreshSettings={loadSettings} onIssue={() => { setFormError(null); setOpen(true); }} />
+      <GiftCardSellPanel wsId={wsId} settings={settings} refreshSettings={loadSettings} />
       {loading ? <PageSkeleton kind="list" /> : error ? <ErrorBox message={error} onRetry={reload} /> : (
         <Card>
           <TableShell head={<tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Customer</th><th className="px-3 py-2 text-right">Initial</th><th className="px-3 py-2 text-right">Balance</th><th className="px-3 py-2 text-center">Status</th><th className="px-3 py-2 text-right">Actions</th></tr>}>
@@ -102,6 +103,81 @@ function Inner({ wsId }: { wsId: string }) {
         </form>
       </Modal>
     </div>
+  );
+}
+
+/**
+ * Sell gift cards on the storefront — the world-class half: customers BUY a gift
+ * card (preset amounts + a blurb) as a gift, the buy posts to the GL. Distinct
+ * from accepting/redeeming below.
+ */
+function GiftCardSellPanel({ wsId, settings, refreshSettings }: {
+  wsId: string; settings: StorefrontSettingsRow | null; refreshSettings: () => void;
+}) {
+  const [denoms, setDenoms] = useState('');
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  // Hydrate local editor from settings once loaded.
+  useEffect(() => {
+    if (!settings) return;
+    setDenoms((settings.gift_card_denominations || []).join(', '));
+    setMessage(settings.gift_card_message || '');
+  }, [settings]);
+
+  const sell = Boolean(settings?.sell_gift_cards);
+  const parseDenoms = (s: string) => Array.from(new Set(s.split(/[,\s]+/).map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0))).sort((a, b) => a - b).slice(0, 8);
+
+  const toggleSell = async (on: boolean) => {
+    setSaving(true);
+    try { const r = await MarketplaceService.updateStorefront(wsId, { sell_gift_cards: on }); if (r.success) refreshSettings(); }
+    catch (e) { alert(apiError(e, 'Could not update.')); }
+    finally { setSaving(false); }
+  };
+  const saveConfig = async () => {
+    setSaving(true); setSaved(false);
+    try {
+      const r = await MarketplaceService.updateStorefront(wsId, { gift_card_denominations: parseDenoms(denoms), gift_card_message: message });
+      if (r.success) { refreshSettings(); setSaved(true); setTimeout(() => setSaved(false), 1500); }
+      else alert(r.message || 'Could not save.');
+    } catch (e) { alert(apiError(e, 'Could not save.')); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-white">Sell gift cards on your store</h3>
+          <p className="mt-0.5 text-[12px] text-slate-400">Let customers buy a gift card as a present. Each purchase issues a code and posts to your books automatically.</p>
+        </div>
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-200">
+          <input type="checkbox" checked={sell} disabled={saving} onChange={(e) => toggleSell(e.target.checked)} className="h-4 w-4 accent-pink-500" />
+          {sell ? 'On' : 'Off'}
+        </label>
+      </div>
+      {sell && (
+        <div className="mt-4 space-y-3">
+          <Field label="Amounts offered">
+            <TextInput value={denoms} onChange={(e) => setDenoms(e.target.value)} placeholder="100, 250, 500" />
+            <span className="mt-1 block text-[11px] text-slate-500">Comma-separated. These are the buttons a customer picks from.</span>
+            {parseDenoms(denoms).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {parseDenoms(denoms).map((d) => <span key={d} className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-300">{money(d, settings?.currency)}</span>)}
+              </div>
+            )}
+          </Field>
+          <Field label="Blurb (shown on the store)">
+            <TextInput value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Give the gift of great coffee." />
+          </Field>
+          <div className="flex items-center justify-end gap-2">
+            {saved && <span className="text-[11px] text-emerald-300">Saved</span>}
+            <PrimaryButton onClick={saveConfig} disabled={saving}>{saving ? 'Saving…' : 'Save gift-card options'}</PrimaryButton>
+          </div>
+          {parseDenoms(denoms).length === 0 && <p className="text-[11px] text-amber-300">Add at least one amount so the gift-card section shows on your store.</p>}
+        </div>
+      )}
+    </Card>
   );
 }
 

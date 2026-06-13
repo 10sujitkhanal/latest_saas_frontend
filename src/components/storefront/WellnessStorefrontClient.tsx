@@ -17,6 +17,7 @@ import { loadPinnedItems, type CrossSellItem } from "@/lib/storefront/crossSellC
 import { WELLNESS_BLOG_POSTS } from "@/lib/storefront/wellnessBlogData";
 import { WellnessMarketplaceFooter } from "@/components/storefront/wellness/WellnessMarketplaceFooter";
 import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
+import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1098,6 +1099,7 @@ export function WellnessStorefrontClient({ storefront, items, offers, availabili
       {(storefront.memberships?.length ?? 0) > 0 && (
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
           <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
+          {storefront.sellsGiftCards && <GiftCardBuySection slug={storefront.slug} currency={storefront.currency ?? ""} denominations={storefront.giftCardDenominations ?? []} message={storefront.giftCardMessage} />}
         </div>
       )}
 
