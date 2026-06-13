@@ -1101,6 +1101,48 @@ export async function joinMembership(slug: string, payload: MembershipJoinPayloa
   };
 }
 
+/** Start a membership join. FREE plans activate immediately (free: true);
+ * PAID plans return a Stripe Checkout URL to redirect to. The backend charges on
+ * THIS business's Stripe (agency's own if connected, else platform). */
+export interface MembershipCheckoutStart {
+  free: boolean;
+  checkoutUrl?: string;
+  memberNo?: string;
+  plan?: string;
+  alreadyMember?: boolean;
+}
+
+export async function startMembershipCheckout(
+  slug: string,
+  payload: { planId: string; name: string; email: string; phone?: string; returnUrl: string },
+): Promise<MembershipCheckoutStart> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/membership-checkout/`, {
+    plan_id: payload.planId,
+    customer: { name: payload.name, email: payload.email, phone: payload.phone ?? "" },
+    return_url: payload.returnUrl,
+  });
+  return {
+    free: Boolean(data?.free),
+    checkoutUrl: data?.checkout_url,
+    memberNo: data?.member_no,
+    plan: data?.plan,
+    alreadyMember: Boolean(data?.already_member),
+  };
+}
+
+/** Confirm a returned Stripe Checkout session and activate the membership
+ * (idempotent). Called on the storefront's success-URL return. */
+export async function confirmMembershipCheckout(slug: string, sessionId: string): Promise<MembershipJoinResult> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/membership-confirm/`, {
+    session_id: sessionId,
+  });
+  return {
+    memberNo: String(data?.member_no ?? ""),
+    plan: String(data?.plan ?? ""),
+    alreadyMember: Boolean(data?.already_member),
+  };
+}
+
 // ─── Fika Loyalty Stamps ──────────────────────────────────────────────────────
 
 export interface StampState {

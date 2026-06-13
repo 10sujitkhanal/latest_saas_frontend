@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Shield, Check, Loader2, Sparkles } from "lucide-react";
-import { joinMembership, type PublicMembershipPlan } from "@/lib/storefront/storefrontPublicApi";
+import {
+  startMembershipCheckout,
+  confirmMembershipCheckout,
+  type PublicMembershipPlan,
+} from "@/lib/storefront/storefrontPublicApi";
 import { useMembershipJoinIntent } from "./useMembershipJoinIntent";
 
 /**
@@ -40,6 +44,30 @@ export default function MembershipJoinSection({
   const [error, setError] = useState<string | null>(null);
   // planId -> member number, once joined (or already a member).
   const [joined, setJoined] = useState<Record<string, { memberNo: string; already: boolean }>>({});
+  // Return from Stripe Checkout (?membership_session=…): confirm + show outcome.
+  const [returning, setReturning] = useState<
+    null | { status: "confirming" | "done" | "error"; memberNo?: string; already?: boolean; error?: string }
+  >(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const sessionId = sp.get("membership_session");
+    if (!sessionId) return;
+    // Strip the param so a refresh won't re-run (confirm is idempotent regardless).
+    sp.delete("membership_session");
+    window.history.replaceState({}, "", window.location.pathname + (sp.toString() ? `?${sp}` : ""));
+    setReturning({ status: "confirming" });
+    (async () => {
+      try {
+        const r = await confirmMembershipCheckout(slug, sessionId);
+        setReturning({ status: "done", memberNo: r.memberNo, already: r.alreadyMember });
+        setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+      } catch (e) {
+        setReturning({ status: "error", error: e instanceof Error ? e.message : "Could not confirm your payment." });
+      }
+    })();
+  }, [slug, sectionRef]);
 
   if (!memberships || memberships.length === 0) return null;
 
@@ -54,13 +82,20 @@ export default function MembershipJoinSection({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await joinMembership(slug, {
+      const res = await startMembershipCheckout(slug, {
         planId: plan.id,
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
+        // Stripe returns here; the backend appends ?membership_session=<id>.
+        returnUrl: window.location.origin + window.location.pathname,
       });
-      setJoined((j) => ({ ...j, [plan.id]: { memberNo: res.memberNo, already: res.alreadyMember } }));
+      if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl; // paid plan → Stripe-hosted payment
+        return;
+      }
+      // free plan → activated immediately
+      setJoined((j) => ({ ...j, [plan.id]: { memberNo: res.memberNo ?? "", already: Boolean(res.alreadyMember) } }));
       setOpenPlanId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not complete sign-up. Please try again.");
@@ -77,6 +112,28 @@ export default function MembershipJoinSection({
       <p className="mb-3 text-sm text-slate-500">
         Join this business&apos;s membership and your benefits apply automatically when you shop.
       </p>
+
+      {returning && (
+        <div
+          className={`mb-3 rounded-xl border p-3 text-[13px] ${
+            returning.status === "error"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {returning.status === "confirming" && (
+            <p className="flex items-center gap-1.5"><Loader2 className="h-4 w-4 animate-spin" /> Confirming your payment…</p>
+          )}
+          {returning.status === "done" && (
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Check className="h-4 w-4" />
+              {returning.already ? "You're already a member" : "Payment received — you're a member!"}
+              {returning.memberNo ? ` · ${returning.memberNo}` : ""}
+            </p>
+          )}
+          {returning.status === "error" && <p>{returning.error}</p>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {memberships.map((plan) => {
@@ -156,7 +213,9 @@ export default function MembershipJoinSection({
                         type="submit" disabled={submitting}
                         className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
                       >
-                        {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Joining…</> : "Join now"}
+                        {submitting
+                          ? <><Loader2 className="h-4 w-4 animate-spin" /> {parseFloat(plan.price) > 0 ? "Redirecting…" : "Joining…"}</>
+                          : (parseFloat(plan.price) > 0 ? "Continue to payment" : "Join now")}
                       </button>
                       <button
                         type="button" onClick={() => { setOpenPlanId(null); setError(null); }}
