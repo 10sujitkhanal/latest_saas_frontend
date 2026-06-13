@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Banknote, Wand2, Loader2, AlertTriangle, TrendingUp, ArrowRight, Lightbulb, Mail, Check, Send, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
-import { FinanceAgent, BillingAgent, type FinanceKpis, type OverdueInvoice, type BillingSchedule } from '@/services/agents.service';
+import { FinanceAgent, BillingAgent, type FinanceKpis, type OverdueInvoice, type BillingSchedule, type MembershipRecurring } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 
 /**
@@ -21,6 +21,7 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
   const [remindingId, setRemindingId] = useState<number | null>(null);
   const [reminded, setReminded] = useState<Set<number>>(new Set());
   const [schedules, setSchedules] = useState<BillingSchedule[] | null>(null);
+  const [memberships, setMemberships] = useState<MembershipRecurring[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
 
   const loadSchedules = async () => {
@@ -28,7 +29,7 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
     setLoadingSchedules(true);
     try {
       const r = await BillingAgent.list(workspaceId);
-      if (r.success) setSchedules(r.data?.schedules || []);
+      if (r.success) { setSchedules(r.data?.schedules || []); setMemberships(r.data?.memberships || []); }
       else toast.error(r.message || 'Could not load recurring billing.');
     } catch { toast.error('Could not load recurring billing.'); }
     finally { setLoadingSchedules(false); }
@@ -101,32 +102,60 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
         <Link href={`/w/${workspaceId}/accounting/invoices`} className="text-sm font-semibold text-slate-500 hover:text-amber-700">Open Finance</Link>
       </div>
 
-      {/* Recurring schedules — set them up from chat ("bill jane@acme.com $50 a month"); they auto-generate. */}
+      {/* Recurring revenue — BOTH streams: auto-renew memberships (post to the GL
+          automatically) + invoice schedules (drafts you send, set up from chat). */}
       {schedules && (
-        schedules.length === 0 ? (
+        schedules.length === 0 && memberships.length === 0 ? (
           <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center text-sm text-slate-500">
-            No recurring billing yet. Tell the agent: <span className="font-semibold text-slate-700">&ldquo;bill jane@acme.com $50 a month&rdquo;</span>.
+            No recurring revenue yet. Tell the agent: <span className="font-semibold text-slate-700">&ldquo;bill jane@acme.com $50 a month&rdquo;</span>, or sell a membership plan.
           </p>
         ) : (
-          <ul className="mt-4 space-y-2">
-            {schedules.map((s) => (
-              <li key={s.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${s.is_active ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}><Repeat className="h-4 w-4" /></span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <span className="truncate">{s.who || s.description}</span>
-                    {!s.is_active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">paused</span>}
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    {s.currency} {(parseFloat(s.amount) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} every {s.frequency_label}
-                    {s.is_active && s.next_run_date ? ` · next ${s.next_run_date}` : ''}
-                    {s.generated_count ? ` · ${s.generated_count} issued` : ''}
-                  </div>
-                </div>
-                <Link href={`/w/${workspaceId}/accounting/invoices`} className="shrink-0 text-xs font-semibold text-amber-700 hover:underline">View</Link>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 space-y-3">
+            {memberships.length > 0 && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Membership renewals · auto-posted to your books</p>
+                <ul className="mt-1.5 space-y-2">
+                  {memberships.map((m, i) => (
+                    <li key={`m${i}`} className="flex items-center gap-3 rounded-xl border border-pink-100 bg-pink-50/40 p-3">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-pink-100 text-pink-600"><Repeat className="h-4 w-4" /></span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-slate-800">{m.plan} <span className="text-slate-400">· {m.members} member{m.members === 1 ? '' : 's'}</span></div>
+                        <div className="text-xs text-slate-400">
+                          {m.currency} {(parseFloat(m.price) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} every {m.frequency_label}
+                          {m.next_run_date ? ` · next renewal ${m.next_run_date}` : ''}
+                        </div>
+                      </div>
+                      <Link href={`/w/${workspaceId}/loyalty/memberships`} className="shrink-0 text-xs font-semibold text-pink-700 hover:underline">View</Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {schedules.length > 0 && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recurring invoices · drafts you review &amp; send</p>
+                <ul className="mt-1.5 space-y-2">
+                  {schedules.map((s) => (
+                    <li key={s.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${s.is_active ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}><Repeat className="h-4 w-4" /></span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                          <span className="truncate">{s.who || s.description}</span>
+                          {!s.is_active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">paused</span>}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {s.currency} {(parseFloat(s.amount) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} every {s.frequency_label}
+                          {s.is_active && s.next_run_date ? ` · next ${s.next_run_date}` : ''}
+                          {s.generated_count ? ` · ${s.generated_count} issued` : ''}
+                        </div>
+                      </div>
+                      <Link href={`/w/${workspaceId}/accounting/invoices`} className="shrink-0 text-xs font-semibold text-amber-700 hover:underline">View</Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )
       )}
 

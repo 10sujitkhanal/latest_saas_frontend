@@ -153,6 +153,9 @@ export interface BillingSchedule {
   is_active: boolean; generated_count: number; doc_type: string;
 }
 
+/** Recurring revenue from auto-renew memberships (posts to the GL automatically). */
+export interface MembershipRecurring { plan: string; price: string; currency: string; interval: string; frequency_label: string; members: number; next_run_date: string }
+
 export const BillingAgent = {
   /** Set up a recurring invoice schedule (the daily task generates the invoices). */
   create: (workspaceId: Id, draft: BillingDraft) =>
@@ -161,10 +164,10 @@ export const BillingAgent = {
         email: draft.email, amount: draft.amount, frequency: draft.frequency, description: draft.description || '',
       })
       .then((r) => r.data),
-  /** This workspace's recurring schedules (active first). */
+  /** Both recurring-revenue streams: invoice schedules + auto-renew memberships. */
   list: (workspaceId: Id) =>
     apiClient
-      .get<ApiEnvelope<{ schedules: BillingSchedule[] }>>(`${base(workspaceId)}/billing/list/`)
+      .get<ApiEnvelope<{ schedules: BillingSchedule[]; memberships: MembershipRecurring[] }>>(`${base(workspaceId)}/billing/list/`)
       .then((r) => r.data),
 };
 
