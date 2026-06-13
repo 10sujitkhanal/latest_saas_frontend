@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Package, Tag, Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch } from 'lucide-react';
+import { Users, Package, Tag, Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentProfile } from '@/services/agents.service';
 import { OrganizationService } from '@/services/organization.service';
@@ -37,7 +37,19 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pipelines, setPipelines] = useState<PipelineLite[]>([]);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(profile.name);
   const dirty = instructions !== (profile.instructions || '');
+
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    if (!name || name === profile.name) { setRenaming(false); return; }
+    setBusy(true);
+    try {
+      const r = await AgentsService.updateProfile(workspaceId, profile.id, { name });
+      if (r.success) { toast.success('Renamed.'); setRenaming(false); onChanged(); } else toast.error(r.message || 'Could not rename.');
+    } catch { toast.error('Could not rename.'); } finally { setBusy(false); }
+  };
 
   // CRM agents can be scoped to a pipeline (the leads they work).
   useEffect(() => {
@@ -94,7 +106,20 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${meta.chip}`}><meta.Icon className="h-5 w-5" /></span>
-        <h2 className="text-base font-semibold text-slate-900">{profile.name}</h2>
+        {renaming ? (
+          <span className="flex items-center gap-1">
+            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setRenaming(false); setNameDraft(profile.name); } }}
+              className="w-40 rounded-lg border border-slate-300 px-2 py-1 text-base font-semibold text-slate-900 outline-none focus:border-emerald-400" />
+            <button type="button" onClick={saveName} disabled={busy} className="rounded-lg bg-emerald-600 p-1 text-white hover:bg-emerald-700"><Check className="h-3.5 w-3.5" /></button>
+            <button type="button" onClick={() => { setRenaming(false); setNameDraft(profile.name); }} className="rounded-lg border border-slate-200 p-1 text-slate-500"><X className="h-3.5 w-3.5" /></button>
+          </span>
+        ) : (
+          <button type="button" onClick={() => { setNameDraft(profile.name); setRenaming(true); }} className="group inline-flex items-center gap-1.5">
+            <h2 className="text-base font-semibold text-slate-900">{profile.name}</h2>
+            <Pencil className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500" />
+          </button>
+        )}
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${meta.badge}`}>{meta.label}</span>
         {profile.is_default
           ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"><Check className="h-3 w-3" /> In use</span>
