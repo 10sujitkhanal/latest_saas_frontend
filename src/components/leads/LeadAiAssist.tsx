@@ -12,9 +12,10 @@
  */
 
 import { useState } from 'react';
-import { Bot, Sparkles, MessageSquare, Loader2, Copy, Check } from 'lucide-react';
+import { Bot, Sparkles, MessageSquare, Loader2, Copy, Check, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { CrmAgent, type LeadAnalysis } from '@/services/agents.service';
+import { OrganizationService } from '@/services/organization.service';
 
 const TEMP_CLS: Record<string, string> = {
   hot: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
@@ -35,6 +36,26 @@ export default function LeadAiAssist({
   const [drafting, setDrafting] = useState(false);
   const [draft, setDraft] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduled, setScheduled] = useState(false);
+
+  const scheduleFollowUp = async (nextAction: string) => {
+    if (scheduling) return;
+    setScheduling(true);
+    try {
+      const due = new Date(); due.setDate(due.getDate() + 3);
+      const r = await OrganizationService.createLeadFollowUp(leadId, {
+        status: 'pending',
+        kind: 'task',
+        title: `Follow up: ${nextAction}`.slice(0, 200),
+        due_at: due.toISOString(),
+      });
+      if (r.success) { setScheduled(true); toast.success('Follow-up scheduled for 3 days from now.'); onUpdated?.(); }
+      else toast.error(r.message || 'Could not schedule the follow-up.');
+    } catch (e) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not schedule the follow-up.');
+    } finally { setScheduling(false); }
+  };
 
   const advise = async () => {
     if (advising) return;
@@ -121,9 +142,17 @@ export default function LeadAiAssist({
             {analysis.reason && <span className="text-[12px] text-slate-300">{analysis.reason}</span>}
           </div>
           {analysis.next_action && (
-            <p className="text-[13px] text-slate-200">
-              <strong className="text-emerald-200">Next move:</strong> {analysis.next_action}
-            </p>
+            <>
+              <p className="text-[13px] text-slate-200">
+                <strong className="text-emerald-200">Next move:</strong> {analysis.next_action}
+              </p>
+              <button
+                type="button" onClick={() => scheduleFollowUp(analysis.next_action)} disabled={scheduling || scheduled}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 disabled:opacity-50">
+                {scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : scheduled ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <CalendarClock className="w-3.5 h-3.5" />}
+                {scheduled ? 'Follow-up scheduled' : 'Schedule follow-up (3 days)'}
+              </button>
+            </>
           )}
         </div>
       )}
