@@ -8,7 +8,7 @@ import {
   Search, Columns, Eye, Pencil, Trash2, MoreHorizontal, Mail, Phone,
   Building2, Tag, TrendingUp, User as UserIcon, X, Save, Calendar,
   Activity, ChevronDown, ChevronLeft, ChevronRight, AlertTriangle,
-  CheckCircle2, Users, Check,
+  CheckCircle2, Users, Check, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
@@ -31,6 +31,9 @@ interface WorkspaceLead {
   company_name?: string | null;
   status: string;
   score?: number;
+  temperature?: string;
+  ai_recommendation?: string;
+  last_activity_at?: string | null;
   source?: number | null;
   source_name?: string | null;
   source_color?: string | null;
@@ -668,6 +671,12 @@ function LeadRow({
           </div>
           <div className="min-w-0">
             <div className="text-white font-semibold truncate">{lead.full_name || '—'}</div>
+            {lead.ai_recommendation && (
+              <div className="flex items-center gap-1 text-[10px] text-emerald-300/80 mt-0.5" title={lead.ai_recommendation}>
+                <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                <span className="truncate max-w-[220px]">{lead.ai_recommendation}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-0.5">
               {typeof lead.score === 'number' && (
                 <span className="text-[10px] text-slate-500 inline-flex items-center gap-0.5">
