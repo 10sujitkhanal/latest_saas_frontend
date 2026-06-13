@@ -12,7 +12,7 @@ import {
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
 } from '@/components/accounting/kit';
 
-const TYPES = [{ v: 'percent', l: 'Percent %' }, { v: 'flat', l: 'Flat amount' }, { v: 'free_delivery', l: 'Free delivery' }, { v: 'buy_x_get_y', l: 'Buy X get Y' }];
+const TYPES = [{ v: 'percent', l: 'Percent % off' }, { v: 'flat', l: 'Flat amount off' }, { v: 'free_delivery', l: 'Free delivery' }, { v: 'buy_x_get_y', l: 'Buy X get Y (BOGO)' }];
 const STATUSES = ['active', 'scheduled', 'paused', 'expired'];
 const today = () => new Date().toISOString().slice(0, 10);
 const plus = (d: number) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
@@ -82,7 +82,7 @@ function Inner({ wsId }: { wsId: string }) {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Deals & Coupons" subtitle="Discount codes — percent, flat, and more. (Consumer deals marketplace is a later phase.)" action={<AddButton label="New coupon" onClick={openCreate} />} />
+      <PageHeader title="Offers & Coupons" subtitle="Create offers your customers redeem — % off, flat amount, free delivery, or Buy X get Y (BOGO) campaigns." action={<AddButton label="New offer" onClick={openCreate} />} />
 
       <DealsStorefrontPanel wsId={wsId} coupons={rows} settings={settings} refreshSettings={loadSettings} reloadCoupons={reload} onCreateCoupon={openCreate} onEditCoupon={openEdit} />
 
@@ -119,7 +119,7 @@ function Inner({ wsId }: { wsId: string }) {
         </Card>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit coupon' : 'New coupon'}>
+      <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit offer' : 'New offer'}>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Code"><TextInput required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SAVE10" /></Field>
