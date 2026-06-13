@@ -9,9 +9,21 @@ import { OrganizationService } from '@/services/organization.service';
 type PipelineLite = { id: number; name: string };
 
 const TYPE = {
-  crm: { label: 'CRM', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700' },
-  store: { label: 'Store', Icon: Package, chip: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700' },
-  offers: { label: 'Offers', Icon: Tag, chip: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700' },
+  crm: {
+    label: 'CRM', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700',
+    module: 'CRM & Leads',
+    tasks: ['Find leads', 'Score & prioritise', 'Draft outreach', 'Handle replies', 'Move pipeline stages'],
+  },
+  store: {
+    label: 'Store', Icon: Package, chip: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700',
+    module: 'Inventory & Store',
+    tasks: ['Build catalogue', 'Barcode lookup', 'Import from website', 'Suggest products', 'Draft listings'],
+  },
+  offers: {
+    label: 'Offers', Icon: Tag, chip: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700',
+    module: 'Offers & Deals',
+    tasks: ['Draft promotions', 'Create coupons', 'Plan campaigns'],
+  },
 } as const;
 
 const PLACEHOLDER = `Teach this agent how to work, e.g.
@@ -141,6 +153,16 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
           </button>
           <button type="button" onClick={clone} disabled={busy} title="Clone" className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-50"><Copy className="h-3.5 w-3.5" /></button>
           {!profile.is_default && <button type="button" onClick={remove} disabled={busy} title="Delete" className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
+        </div>
+      </div>
+
+      {/* Module ownership + capabilities — what this agent is responsible for */}
+      <div className="mt-2.5">
+        <p className="text-[11px] text-slate-500"><span className="font-semibold text-slate-600">Owns the {meta.module} module.</span> Handles:</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {meta.tasks.map((t) => (
+            <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{t}</span>
+          ))}
         </div>
       </div>
 
