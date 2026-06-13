@@ -893,6 +893,7 @@ interface ThreadMessage {
   channel_account?: string | null;
   delivery_status?: 'queued' | 'sent' | 'failed' | null;
   delivery_meta?: { error?: string; [k: string]: unknown } | null;
+  attachments?: { name?: string; url?: string; mime?: string; size?: number }[];
 }
 
 interface SendableChannel {
@@ -954,6 +955,7 @@ function ConversationsTab({
   const [loading, setLoading] = useState(false);
   const [reply, setReply] = useState('');
   const [subject, setSubject] = useState('');   // email subject for new conversations
+  const [files, setFiles] = useState<File[]>([]);  // attachments for new conversations
   const [sending, setSending] = useState(false);
 
   // Channel picker state. Used by both the empty-state composer AND
@@ -1194,12 +1196,13 @@ function ConversationsTab({
         channel_id: pickedChannelId,
         body: reply,
         subject: pickedFamily === 'email' ? subject : undefined,
+        attachments: files.length ? files : undefined,
       });
       if (res?.success) {
         if (pickedFamily) localStorage.setItem(LAST_FAMILY_KEY(wsId), pickedFamily);
         localStorage.setItem(LAST_CHANNEL_KEY(wsId), String(pickedChannelId));
         toast.success('Message sent');
-        setReply(''); setSubject('');
+        setReply(''); setSubject(''); setFiles([]);
         setComposeOpen(false);
         const newConvId = res.data?.conversation_id as number | undefined;
         const newMsg = res.data?.message as ThreadMessage | undefined;
@@ -1286,6 +1289,8 @@ function ConversationsTab({
             onChange={setReply}
             subject={subject}
             onSubjectChange={setSubject}
+            files={files}
+            onFilesChange={setFiles}
             onSend={sendNew}
             sending={sending}
             placeholder={pickedChannel
@@ -1363,6 +1368,8 @@ function ConversationsTab({
                 onChange={setReply}
                 subject={subject}
                 onSubjectChange={setSubject}
+                files={files}
+                onFilesChange={setFiles}
                 onSend={sendNew}
                 sending={sending}
                 placeholder={pickedChannel
@@ -1410,6 +1417,17 @@ function ConversationsTab({
                         : 'bg-white/[0.04] border border-white/10 text-white rounded-bl-md'
                     }`}>
                       {m.body}
+                      {m.attachments && m.attachments.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {m.attachments.map((a, ai) => (
+                            <a key={ai} href={a.url || '#'} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-black/20 hover:bg-black/30 border border-white/10 px-2 py-1 text-[11px] normal-case tracking-normal">
+                              <Paperclip className="w-3 h-3 opacity-70" />
+                              <span className="max-w-[160px] truncate">{a.name || 'attachment'}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-1 flex items-center gap-1.5 text-[9px] uppercase tracking-wider opacity-70">
                         <span>{m.author}</span>
                         <span>·</span>
@@ -1510,7 +1528,7 @@ function ConversationsTab({
 function Composer({
   wsId, leadId, channels, pickedFamily, pickedChannelId,
   onPickFamily, onPickChannel,
-  value, onChange, subject, onSubjectChange, onSend, sending, placeholder,
+  value, onChange, subject, onSubjectChange, files, onFilesChange, onSend, sending, placeholder,
 }: {
   wsId: string;
   leadId?: number;
@@ -1523,6 +1541,8 @@ function Composer({
   onChange: (s: string) => void;
   subject?: string;
   onSubjectChange?: (s: string) => void;
+  files?: File[];
+  onFilesChange?: (f: File[]) => void;
   onSend: () => void;
   sending: boolean;
   placeholder: string;
@@ -1647,8 +1667,30 @@ function Composer({
         placeholder={placeholder}
         className="w-full rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-y min-h-[120px]"
       />
+      {/* Selected attachments (cap 4). */}
+      {onFilesChange && files && files.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {files.map((f, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-[11px] text-slate-300">
+              <Paperclip className="w-3 h-3 text-slate-500" />
+              <span className="max-w-[160px] truncate">{f.name}</span>
+              <button type="button" onClick={() => onFilesChange(files.filter((_, j) => j !== i))} className="text-slate-500 hover:text-rose-400"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
+          {onFilesChange && (
+            <label className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-semibold px-2.5 py-2.5 text-xs cursor-pointer" title="Attach files (up to 4)">
+              <Paperclip className="w-3.5 h-3.5" />
+              <input type="file" multiple className="hidden" onChange={(e) => {
+                const picked = Array.from(e.target.files || []);
+                onFilesChange([...(files || []), ...picked].slice(0, 4));
+                e.currentTarget.value = '';
+              }} />
+            </label>
+          )}
           <TemplatePicker workspaceId={wsId} leadId={leadId} channel={pickedFamily || undefined}
             onPick={(f) => { onChange(f.body); if (onSubjectChange && f.subject) onSubjectChange(f.subject); }} />
           {pickedFamily === 'sms' && <span className="text-[11px] text-slate-500">{value.length} chars · {Math.ceil(value.length / 160) || 0} SMS</span>}
