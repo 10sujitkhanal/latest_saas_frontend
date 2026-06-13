@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck } from 'lucide-react';
-import { AgentsService, CrmAgent, BookingsAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft } from '@/services/agents.service';
+import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat } from 'lucide-react';
+import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; actionDone?: boolean };
 
 const EXAMPLES = ["Who's overdue?", 'Draft a post for the weekend', 'Analyse my finances', "How's my loyalty?"];
 
@@ -89,6 +89,28 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
     onActed?.();
   };
 
+  // Approval-in-chat: set up the recurring schedule (reuses RecurringSchedule).
+  const confirmBilling = async (idx: number, draft: BillingDraft) => {
+    if (actingIdx !== null) return;
+    const label = draft.frequency_label || draft.frequency;
+    if (!confirm(`Set up recurring billing: ${draft.currency || ''} ${draft.amount} to ${draft.email} every ${label}?`)) return;
+    setActingIdx(idx);
+    try {
+      const r = await BillingAgent.create(workspaceId, draft);
+      setMsgs((x) => x.map((mm, i) => (i === idx ? { ...mm, actionDone: true } : mm)));
+      if (r.success && r.data) {
+        const d = r.data;
+        setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: `Recurring billing set up — ${d.currency} ${d.amount} to ${d.email} every ${d.frequency_label}. First invoice drafts on ${d.next_run_date}; you review and send each one.` }]);
+      } else {
+        setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: r.message || 'Could not set up recurring billing.' }]);
+      }
+    } catch {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: 'Could not set up recurring billing right now.' }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   const send = async (text?: string) => {
     const m = (text ?? input).trim();
     if (!m || busy) return;
@@ -108,11 +130,15 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         const booking = d.command === 'bookings_create'
           ? (d.data as { draft?: BookingDraft } | undefined)?.draft
           : undefined;
+        const billing = d.command === 'billing_create'
+          ? (d.data as { billing?: BillingDraft } | undefined)?.billing
+          : undefined;
         setMsgs((x) => [...x, {
           role: 'agent', text: d.reply, agent: d.agent,
           overdue: overdue && overdue.length ? overdue : undefined,
           businesses: businesses && businesses.length ? businesses : undefined,
           booking: booking && booking.email ? booking : undefined,
+          billing: billing && billing.email && billing.amount ? billing : undefined,
         }]);
         onActed?.();
       } else {
@@ -183,6 +209,17 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                       className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarCheck className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Booking…' : 'Confirm booking & email'}
+                    </button>
+                  )
+                )}
+                {m.billing && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Recurring billing set up</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmBilling(i, m.billing!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Setting up…' : 'Set up recurring billing'}
                     </button>
                   )
                 )}

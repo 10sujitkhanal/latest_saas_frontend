@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Banknote, Wand2, Loader2, AlertTriangle, TrendingUp, ArrowRight, Lightbulb, Mail, Check, Send } from 'lucide-react';
+import { Banknote, Wand2, Loader2, AlertTriangle, TrendingUp, ArrowRight, Lightbulb, Mail, Check, Send, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
-import { FinanceAgent, type FinanceKpis, type OverdueInvoice } from '@/services/agents.service';
+import { FinanceAgent, BillingAgent, type FinanceKpis, type OverdueInvoice, type BillingSchedule } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 
 /**
@@ -20,6 +20,19 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
   const [overdue, setOverdue] = useState<OverdueInvoice[] | null>(null);
   const [remindingId, setRemindingId] = useState<number | null>(null);
   const [reminded, setReminded] = useState<Set<number>>(new Set());
+  const [schedules, setSchedules] = useState<BillingSchedule[] | null>(null);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+
+  const loadSchedules = async () => {
+    if (loadingSchedules) return;
+    setLoadingSchedules(true);
+    try {
+      const r = await BillingAgent.list(workspaceId);
+      if (r.success) setSchedules(r.data?.schedules || []);
+      else toast.error(r.message || 'Could not load recurring billing.');
+    } catch { toast.error('Could not load recurring billing.'); }
+    finally { setLoadingSchedules(false); }
+  };
 
   const chase = async () => {
     if (chasing) return;
@@ -81,8 +94,41 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
           className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
           {chasing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Chase overdue
         </button>
+        <button type="button" onClick={loadSchedules} disabled={loadingSchedules}
+          className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+          {loadingSchedules ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />} Recurring billing
+        </button>
         <Link href={`/w/${workspaceId}/accounting/invoices`} className="text-sm font-semibold text-slate-500 hover:text-amber-700">Open Finance</Link>
       </div>
+
+      {/* Recurring schedules — set them up from chat ("bill jane@acme.com $50 a month"); they auto-generate. */}
+      {schedules && (
+        schedules.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center text-sm text-slate-500">
+            No recurring billing yet. Tell the agent: <span className="font-semibold text-slate-700">&ldquo;bill jane@acme.com $50 a month&rdquo;</span>.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {schedules.map((s) => (
+              <li key={s.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${s.is_active ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}><Repeat className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <span className="truncate">{s.who || s.description}</span>
+                    {!s.is_active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">paused</span>}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {s.currency} {(parseFloat(s.amount) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} every {s.frequency_label}
+                    {s.is_active && s.next_run_date ? ` · next ${s.next_run_date}` : ''}
+                    {s.generated_count ? ` · ${s.generated_count} issued` : ''}
+                  </div>
+                </div>
+                <Link href={`/w/${workspaceId}/accounting/invoices`} className="shrink-0 text-xs font-semibold text-amber-700 hover:underline">View</Link>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
 
       {/* Overdue list — chase each via the existing reminder (dunning) */}
       {overdue && (

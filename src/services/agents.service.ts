@@ -144,6 +144,30 @@ export const FinanceAgent = {
       .then((r) => r.data),
 };
 
+/** A drafted recurring-billing setup, awaiting the owner's one-click confirm. */
+export interface BillingDraft { email: string; amount: string; frequency: string; frequency_label?: string; currency?: string; description?: string }
+/** A live recurring schedule (reuses accounting.RecurringSchedule). */
+export interface BillingSchedule {
+  id: number; description: string; who: string; amount: string; currency: string;
+  frequency: string; frequency_label: string; next_run_date: string;
+  is_active: boolean; generated_count: number; doc_type: string;
+}
+
+export const BillingAgent = {
+  /** Set up a recurring invoice schedule (the daily task generates the invoices). */
+  create: (workspaceId: Id, draft: BillingDraft) =>
+    apiClient
+      .post<ApiEnvelope<BillingSchedule & { email: string; customer: string }>>(`${base(workspaceId)}/billing/create/`, {
+        email: draft.email, amount: draft.amount, frequency: draft.frequency, description: draft.description || '',
+      })
+      .then((r) => r.data),
+  /** This workspace's recurring schedules (active first). */
+  list: (workspaceId: Id) =>
+    apiClient
+      .get<ApiEnvelope<{ schedules: BillingSchedule[] }>>(`${base(workspaceId)}/billing/list/`)
+      .then((r) => r.data),
+};
+
 export interface LoyaltyKpis {
   active_members: number; total_members: number; lapsed_members: number; expiring_soon: number; total_points: number;
 }
