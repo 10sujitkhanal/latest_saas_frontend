@@ -12,7 +12,7 @@ import { createPublicOrder, createPublicBooking } from "@/lib/storefront/storefr
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
 import { getIndustryCapabilities, type BookingType } from "@/lib/industry/config";
 import { BusinessMembershipPanel } from "@/components/moredealsx/BusinessMembershipPanel";
-import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
+import MembershipJoinSection from "@/components/storefront/membership/MembershipJoinSection";
 import type { MdxBusiness } from "@/lib/moredealsx/types";
 import { formatCurrencyMarket, buildSwishLink, getVatLabel, isPriceInclusive } from "@/lib/utils/currency";
 import { WellnessStorefrontClient } from "@/components/storefront/WellnessStorefrontClient";

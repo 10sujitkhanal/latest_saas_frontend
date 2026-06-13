@@ -16,7 +16,7 @@ import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
 import { loadPinnedItems, type CrossSellItem } from "@/lib/storefront/crossSellCatalogue";
 import { WELLNESS_BLOG_POSTS } from "@/lib/storefront/wellnessBlogData";
 import { WellnessMarketplaceFooter } from "@/components/storefront/wellness/WellnessMarketplaceFooter";
-import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
+import MembershipJoinSection from "@/components/storefront/membership/MembershipJoinSection";
 import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
 import LoyaltyRewardsSection from "@/components/storefront/LoyaltyRewardsSection";
 

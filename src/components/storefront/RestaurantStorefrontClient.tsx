@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicOrder } from "@/lib/storefront/storefrontPublicApi";
-import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
+import MembershipJoinSection from "@/components/storefront/membership/MembershipJoinSection";
 import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
 import LoyaltyRewardsSection from "@/components/storefront/LoyaltyRewardsSection";
 import { formatCurrencyMarket, buildSwishLink } from "@/lib/utils/currency";

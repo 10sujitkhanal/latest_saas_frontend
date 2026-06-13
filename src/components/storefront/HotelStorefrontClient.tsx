@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
 import { createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
-import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
+import MembershipJoinSection from "@/components/storefront/membership/MembershipJoinSection";
 import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
 import LoyaltyRewardsSection from "@/components/storefront/LoyaltyRewardsSection";
 import { formatCurrencyMarket } from "@/lib/utils/currency";

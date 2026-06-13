@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Shield, Check, Loader2, Sparkles } from "lucide-react";
 import { joinMembership, type PublicMembershipPlan } from "@/lib/storefront/storefrontPublicApi";
+import { useMembershipJoinIntent } from "./useMembershipJoinIntent";
 
 /**
  * Public storefront membership join (the scan-QR → become-a-member flow).
+ *
+ * Reusable across ALL industry storefront clients — each one drops in
+ * `<MembershipJoinSection slug=… memberships={storefront.memberships} joinIntent=… />`
+ * after its hero; the per-industry layout keeps its own design around it.
  *
  * Workspace-scoped by construction: it only joins plans belonging to THIS
  * business's storefront, via the public `/subscribe/` endpoint. The backend is
@@ -28,23 +33,13 @@ export default function MembershipJoinSection({
   joinIntent?: boolean;
   planId?: string;
 }) {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const sectionRef = useMembershipJoinIntent(joinIntent);
   const [openPlanId, setOpenPlanId] = useState<string | null>(planId ?? null);
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // planId -> member number, once joined (or already a member).
   const [joined, setJoined] = useState<Record<string, { memberNo: string; already: boolean }>>({});
-
-  // QR deep-link: focus this section (and a specific plan, if a plan-QR).
-  useEffect(() => {
-    if (!joinIntent) return;
-    const t = setTimeout(() => {
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 250);
-    if (planId) setOpenPlanId(planId);
-    return () => clearTimeout(t);
-  }, [joinIntent, planId]);
 
   if (!memberships || memberships.length === 0) return null;
 
