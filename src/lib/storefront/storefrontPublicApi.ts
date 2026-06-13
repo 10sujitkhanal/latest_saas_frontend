@@ -1143,6 +1143,69 @@ export async function confirmMembershipCheckout(slug: string, sessionId: string)
   };
 }
 
+// ─── Order online payment (Stripe Checkout) ───────────────────────────────────
+
+/** Start an order payment. Free / fully-gift-covered orders are placed
+ * immediately (free: true); otherwise returns a Stripe Checkout URL to redirect
+ * to. Charges on THIS business's Stripe (agency's own if connected, else platform). */
+export interface OrderCheckoutStart {
+  free: boolean;
+  checkoutUrl?: string;
+  orderNumber?: string;
+  total?: string;
+}
+
+export async function startOrderCheckout(
+  slug: string,
+  payload: {
+    items: { listingId: string; quantity: number }[];
+    customerName: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    couponCode?: string;
+    giftCardCode?: string;
+    tradeAccountCode?: string;
+    returnUrl: string;
+    workspaceId?: string | number;
+  },
+): Promise<OrderCheckoutStart> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/order-checkout/`, {
+    items: payload.items.map((i) => ({ listing_id: i.listingId, qty: i.quantity })),
+    customer: { name: payload.customerName, email: payload.customerEmail ?? "", phone: payload.customerPhone ?? "" },
+    coupon_code: payload.couponCode ?? "",
+    gift_card_code: payload.giftCardCode ?? "",
+    trade_account_code: payload.tradeAccountCode ?? "",
+    return_url: payload.returnUrl,
+    workspace_id: payload.workspaceId,
+  });
+  return {
+    free: Boolean(data?.free),
+    checkoutUrl: data?.checkout_url,
+    orderNumber: data?.order_no,
+    total: data?.total,
+  };
+}
+
+export interface OrderConfirmResult {
+  orderNumber: string;
+  status: string;
+  total: string;
+  alreadyDone: boolean;
+}
+
+/** Confirm a returned Stripe order session and place the order (idempotent). */
+export async function confirmOrderCheckout(slug: string, sessionId: string): Promise<OrderConfirmResult> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/order-confirm/`, {
+    session_id: sessionId,
+  });
+  return {
+    orderNumber: String(data?.order_no ?? ""),
+    status: String(data?.status ?? ""),
+    total: String(data?.total ?? ""),
+    alreadyDone: Boolean(data?.already_done),
+  };
+}
+
 // ─── Fika Loyalty Stamps ──────────────────────────────────────────────────────
 
 export interface StampState {
