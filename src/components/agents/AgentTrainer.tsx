@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Bot, Plus, Copy, Trash2, Loader2, Save, GraduationCap, ChevronUp, ChevronDown } from 'lucide-react';
+import { Bot, Plus, Copy, Trash2, Loader2, Save, GraduationCap, ChevronUp, ChevronDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentProfile } from '@/services/agents.service';
 
@@ -84,6 +84,17 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
     finally { setBusy(false); }
   };
 
+  const useAgent = async () => {
+    if (!active || active.is_default || busy) return;
+    setBusy(true);
+    try {
+      const r = await AgentsService.updateProfile(workspaceId, active.id, { is_default: true });
+      if (r.success) { toast.success(`"${active.name}" is now the agent in use.`); await load(active.id); }
+      else toast.error(r.message || 'Could not switch agent.');
+    } catch { toast.error('Could not switch agent.'); }
+    finally { setBusy(false); }
+  };
+
   const remove = async () => {
     if (!active || active.is_default || busy) return;
     setBusy(true);
@@ -144,7 +155,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
                     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${p.id === activeId ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-slate-400'}`}><Bot className="w-4 h-4" /></span>
                     <span className="min-w-0">
                       <span className={`block truncate text-xs font-semibold ${p.id === activeId ? 'text-emerald-100' : 'text-slate-200'}`}>{p.name}</span>
-                      <span className="block truncate text-[10px] text-slate-500">{p.is_default ? 'Default' : p.pipeline_name ? p.pipeline_name : 'Custom'}</span>
+                      <span className={`block truncate text-[10px] ${p.is_default ? 'text-emerald-300 font-semibold' : 'text-slate-500'}`}>{p.is_default ? '● In use' : p.pipeline_name ? p.pipeline_name : 'Not in use'}</span>
                     </span>
                   </button>
                 ))}
@@ -160,6 +171,13 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
                 className="w-full rounded-lg bg-slate-800 border border-white/5 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-emerald-500/40 resize-y" />
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
+                  {active.is_default ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-200"><Check className="w-3.5 h-3.5" /> In use</span>
+                  ) : (
+                    <button type="button" onClick={useAgent} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                      <Check className="w-3.5 h-3.5" /> Use this agent
+                    </button>
+                  )}
                   <button type="button" onClick={clone} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-slate-200 disabled:opacity-50">
                     <Copy className="w-3.5 h-3.5" /> Clone
                   </button>
@@ -173,7 +191,12 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {dirty ? 'Save training' : 'Saved'}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500">The CRM agent uses this when it drafts outreach and replies. {active.pipeline_name ? `Scoped to ${active.pipeline_name}.` : 'Applies to all pipelines.'}</p>
+              <p className="text-[11px] text-slate-500">
+                {active.is_default
+                  ? 'This is the agent your CRM agent uses right now when it drafts outreach and replies.'
+                  : 'Train it, then tap “Use this agent” to make the CRM agent work this way. '}
+                {active.pipeline_name ? `Scoped to ${active.pipeline_name}.` : ''}
+              </p>
             </>
           )}
         </div>
