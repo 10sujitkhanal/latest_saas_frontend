@@ -106,6 +106,15 @@ export function setFavicon(url: string) {
     safe = 'https://' + safe.slice('http://'.length);
   }
   const href = `${safe}${safe.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  // Next.js renders its OWN <link rel="icon"> first in <head>, and browsers use
+  // the FIRST icon link — so appending a tenant link alone loses (the favicon
+  // "flickers" to ours then reverts to Next's default). Point EVERY existing
+  // icon link at the tenant favicon so whichever the browser picks is ours. We
+  // only set .href (never removeChild), so there's no React reconciliation crash.
+  document
+    .querySelectorAll<HTMLLinkElement>('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+    .forEach((el) => { el.href = href; });
+  // Ensure our own tenant links exist too (so there's always at least one).
   for (const rel of ['icon', 'apple-touch-icon']) {
     const id = `tenant-fav-${rel}`;
     let link = document.getElementById(id) as HTMLLinkElement | null;
