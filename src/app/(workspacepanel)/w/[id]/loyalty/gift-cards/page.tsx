@@ -8,7 +8,8 @@ import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type GiftCardRow } from '@/services/loyalty.service';
 import { MarketplaceService, type StorefrontSettingsRow } from '@/services/marketplace.service';
 import { AccountingService } from '@/services/accounting.service';
-import { ShieldCheck, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, ArrowRight, ExternalLink, Sparkles, Loader2 } from 'lucide-react';
+import { AgentsService } from '@/services/agents.service';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
@@ -128,6 +129,15 @@ function GiftCardSellPanel({ wsId, settings, refreshSettings }: {
   const sell = Boolean(settings?.sell_gift_cards);
   const parseDenoms = (s: string) => Array.from(new Set(s.split(/[,\s]+/).map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0))).sort((a, b) => a - b).slice(0, 8);
 
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestBlurb = async () => {
+    if (suggesting) return;
+    setSuggesting(true);
+    try { const r = await AgentsService.suggestGiftCardBlurb(wsId); if (r.success && r.data?.text) setMessage(r.data.text); }
+    catch { /* best-effort */ }
+    finally { setSuggesting(false); }
+  };
+
   const toggleSell = async (on: boolean) => {
     setSaving(true);
     try { const r = await MarketplaceService.updateStorefront(wsId, { sell_gift_cards: on }); if (r.success) refreshSettings(); }
@@ -168,7 +178,13 @@ function GiftCardSellPanel({ wsId, settings, refreshSettings }: {
             )}
           </Field>
           <Field label="Blurb (shown on the store)">
-            <TextInput value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Give the gift of great coffee." />
+            <div className="flex gap-2">
+              <TextInput value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Give the gift of great coffee." />
+              <button type="button" onClick={suggestBlurb} disabled={suggesting} title="Suggest with AI"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50">
+                {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} AI
+              </button>
+            </div>
           </Field>
           <div className="flex items-center justify-end gap-2">
             {saved && <span className="text-[11px] text-emerald-300">Saved</span>}

@@ -4,6 +4,8 @@ import { useCallback, useState, use as reactUse } from 'react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type LoyaltyRewardRow, type RewardType } from '@/services/loyalty.service';
+import { AgentsService } from '@/services/agents.service';
+import { Sparkles, Loader2 } from 'lucide-react';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
@@ -32,7 +34,21 @@ function Inner({ wsId }: { wsId: string }) {
   const [editing, setEditing] = useState<LoyaltyRewardRow | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const rewardSummary = () => form.reward_type === 'discount_percent' ? `${form.value}% off` : form.reward_type === 'discount_amount' ? `${form.value} off` : `${form.value} gift card`;
+  const suggestDescription = async () => {
+    if (suggesting) return;
+    if (!form.name.trim()) { setFormError('Name the reward first.'); return; }
+    setSuggesting(true); setFormError(null);
+    try {
+      const r = await AgentsService.suggestRewardDescription(wsId, { name: form.name, reward: rewardSummary() });
+      if (r.success && r.data?.text) setForm((f) => ({ ...f, description: r.data.text }));
+      else setFormError(r.message || 'Could not draft a description.');
+    } catch (e) { setFormError(apiError(e, 'Could not draft a description.')); }
+    finally { setSuggesting(false); }
+  };
 
   const openCreate = () => { setEditing(null); setForm(empty); setFormError(null); setOpen(true); };
   const openEdit = (r: LoyaltyRewardRow) => {
@@ -90,7 +106,15 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Reward type"><SelectInput value={form.reward_type} onChange={(e) => setForm({ ...form, reward_type: e.target.value as RewardType })}>{TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}</SelectInput></Field>
             <Field label={form.reward_type === 'discount_percent' ? 'Percent (%)' : 'Amount'}><TextInput type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></Field>
           </div>
-          <Field label="Description (optional)"><TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Shown on your store" /></Field>
+          <Field label="Description (optional)">
+            <div className="flex gap-2">
+              <TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Shown on your store" />
+              <button type="button" onClick={suggestDescription} disabled={suggesting} title="Suggest with AI"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50">
+                {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} AI
+              </button>
+            </div>
+          </Field>
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="h-4 w-4 accent-pink-500" /> Active</label>
             <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} className="h-4 w-4 accent-pink-500" /> Show on storefront</label>
