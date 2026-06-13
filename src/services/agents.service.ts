@@ -209,6 +209,18 @@ export const AgentsService = {
       .post<ApiEnvelope<{ text: string }>>(`${base(workspaceId)}/suggest/product-description/`, ctx)
       .then((r) => r.data),
 
+  /** Copilot: draft a short promotional line for an offer (deal = "20% off"). */
+  suggestOfferCopy: (workspaceId: Id, ctx: { deal: string; code?: string }) =>
+    apiClient
+      .post<ApiEnvelope<{ text: string }>>(`${base(workspaceId)}/suggest/offer-copy/`, ctx)
+      .then((r) => r.data),
+
+  /** Copilot: draft a short storefront tagline. */
+  suggestStoreTagline: (workspaceId: Id, ctx: { title?: string }) =>
+    apiClient
+      .post<ApiEnvelope<{ text: string }>>(`${base(workspaceId)}/suggest/store-tagline/`, ctx)
+      .then((r) => r.data),
+
   /** Ask the Offers Agent to draft an offer → saved as a proposed task. */
   draftOffer: (workspaceId: Id, goal: string) =>
     apiClient

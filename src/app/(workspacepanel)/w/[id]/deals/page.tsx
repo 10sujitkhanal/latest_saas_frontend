@@ -6,7 +6,8 @@ import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { DealsService, type CouponRow } from '@/services/deals.service';
 import { MarketplaceService, type StorefrontSettingsRow } from '@/services/marketplace.service';
-import { ShieldCheck, AlertTriangle, ArrowRight, ExternalLink, Copy, Check } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, Loader2 } from 'lucide-react';
+import { AgentsService } from '@/services/agents.service';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
@@ -17,6 +18,10 @@ const STATUSES = ['active', 'scheduled', 'paused', 'expired'];
 // Python weekday() order: 0=Mon … 6=Sun (matches the backend active_days check).
 const WEEKDAYS = [{ v: 0, l: 'Mon' }, { v: 1, l: 'Tue' }, { v: 2, l: 'Wed' }, { v: 3, l: 'Thu' }, { v: 4, l: 'Fri' }, { v: 5, l: 'Sat' }, { v: 6, l: 'Sun' }];
 const valueLabel = (t: string) => t === 'percent' ? 'Percent off (%)' : t === 'flat' ? 'Amount off' : t === 'free_delivery' ? 'Delivery fee waived' : 'Value';
+// Human summary of the deal — fed to the copilot to draft promotional copy.
+const dealSummary = (f: { type: string; value: string; buy_qty: string; get_qty: string }) =>
+  f.type === 'percent' ? `${f.value}% off` : f.type === 'flat' ? `${f.value} off`
+  : f.type === 'free_delivery' ? 'Free delivery' : `Buy ${f.buy_qty} get ${f.get_qty} free`;
 const today = () => new Date().toISOString().slice(0, 10);
 const plus = (d: number) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
 const emptyForm = { auto: false, code: '', description: '', type: 'percent', value: '10', min_order_amount: '0', max_discount: '', usage_limit: '', start_date: today(), end_date: plus(30), start_time: '', end_time: '', active_days: [] as number[], buy_qty: '1', get_qty: '1', status: 'active', first_time_only: false, stackable: false };
@@ -37,8 +42,21 @@ function Inner({ wsId }: { wsId: string }) {
   const [editing, setEditing] = useState<CouponRow | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [suggestingCopy, setSuggestingCopy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [settings, setSettings] = useState<StorefrontSettingsRow | null>(null);
+
+  // Copilot: draft a promotional description from the offer's mechanics.
+  const suggestCopy = async () => {
+    if (suggestingCopy) return;
+    setSuggestingCopy(true);
+    try {
+      const r = await AgentsService.suggestOfferCopy(wsId, { deal: dealSummary(form), code: form.auto ? '' : form.code });
+      if (r.success && r.data?.text) setForm((f) => ({ ...f, description: r.data.text }));
+      else setFormError(r.message || 'Could not draft copy just now.');
+    } catch (e) { setFormError(apiError(e, 'Could not draft copy.')); }
+    finally { setSuggestingCopy(false); }
+  };
   const loadSettings = useCallback(() => {
     MarketplaceService.getStorefront(wsId).then((r) => { if (r.success) setSettings(r.data); }).catch(() => {});
   }, [wsId]);
@@ -160,7 +178,15 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Start date"><TextInput type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></Field>
             <Field label="End date"><TextInput type="date" required value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></Field>
             <Field label="Status"><SelectInput value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</SelectInput></Field>
-            <Field label="Description"><TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+            <Field label="Description">
+              <div className="flex gap-2">
+                <TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Shown on your store" />
+                <button type="button" onClick={suggestCopy} disabled={suggestingCopy} title="Suggest with AI"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50">
+                  {suggestingCopy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} AI
+                </button>
+              </div>
+            </Field>
           </div>
 
           {/* When the offer is active — optional happy-hour window + weekday limits */}

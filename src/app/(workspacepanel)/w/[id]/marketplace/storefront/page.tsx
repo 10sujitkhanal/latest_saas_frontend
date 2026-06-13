@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Globe, Package, Ticket, Gift, Star, CalendarDays, CalendarCheck, Users, ShoppingCart, Sparkles,
-  QrCode, Download, Copy, Check, CheckCircle2, AlertTriangle, Circle, ArrowRight, Eye,
+  QrCode, Download, Copy, Check, CheckCircle2, AlertTriangle, Circle, ArrowRight, Eye, Loader2,
 } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { MarketplaceService, type StorefrontSettingsRow, type IndustryCapabilities, type StorefrontReadiness } from '@/services/marketplace.service';
+import { AgentsService } from '@/services/agents.service';
 import { PageHeader, Card, ErrorBox, Field, TextInput, apiError } from '@/components/accounting/kit';
 
 function MarketplaceTabs({ wsId }: { wsId: string }) {
@@ -96,6 +97,18 @@ function Inner({ wsId }: { wsId: string }) {
   };
 
   const [previewing, setPreviewing] = useState(false);
+  const [suggestingTagline, setSuggestingTagline] = useState(false);
+
+  // Copilot: draft a storefront tagline from the store name + industry.
+  const suggestTagline = async () => {
+    if (!s || suggestingTagline) return;
+    setSuggestingTagline(true);
+    try {
+      const r = await AgentsService.suggestStoreTagline(wsId, { title: s.title });
+      if (r.success && r.data?.text) { setS({ ...s, tagline: r.data.text }); await patch({ tagline: r.data.text }); }
+    } catch { /* best-effort draft */ }
+    finally { setSuggestingTagline(false); }
+  };
 
   const storeHref = (() => {
     if (typeof window === 'undefined') return null;
@@ -304,7 +317,15 @@ function Inner({ wsId }: { wsId: string }) {
             <h3 className="text-sm font-semibold text-white px-1 pb-3">Presentation</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Store title"><TextInput value={s.title} onChange={(e) => setS({ ...s, title: e.target.value })} onBlur={() => patch({ title: s.title })} /></Field>
-              <Field label="Tagline"><TextInput value={s.tagline} onChange={(e) => setS({ ...s, tagline: e.target.value })} onBlur={() => patch({ tagline: s.tagline })} /></Field>
+              <Field label="Tagline">
+                <div className="flex gap-2">
+                  <TextInput value={s.tagline} onChange={(e) => setS({ ...s, tagline: e.target.value })} onBlur={() => patch({ tagline: s.tagline })} placeholder="A short line under your store name" />
+                  <button type="button" onClick={suggestTagline} disabled={suggestingTagline} title="Suggest with AI"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50">
+                    {suggestingTagline ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} AI
+                  </button>
+                </div>
+              </Field>
               <Field label="Currency"><TextInput value={s.currency} onChange={(e) => setS({ ...s, currency: e.target.value })} onBlur={() => patch({ currency: s.currency })} /></Field>
               <Field label="Loyalty points per 1 currency unit"><TextInput type="number" step="0.01" value={s.loyalty_points_per_unit} onChange={(e) => setS({ ...s, loyalty_points_per_unit: e.target.value })} onBlur={() => patch({ loyalty_points_per_unit: s.loyalty_points_per_unit })} /></Field>
             </div>
