@@ -75,6 +75,12 @@ export const StoreAgent = {
       .post<ApiEnvelope<{ products: ProductDraft[] }>>(`${base(workspaceId)}/store/suggest/`, { hint })
       .then((r) => r.data),
 
+  /** Crawl a shop website URL → extracted product-catalogue draft (reviewable). */
+  importUrl: (workspaceId: Id, url: string) =>
+    apiClient
+      .post<ApiEnvelope<{ products: ProductDraft[]; source_url?: string }>>(`${base(workspaceId)}/store/import-url/`, { url })
+      .then((r) => r.data),
+
   /** Create draft Item + Listing for each product (no publish). */
   build: (workspaceId: Id, products: ProductDraft[]) =>
     apiClient
