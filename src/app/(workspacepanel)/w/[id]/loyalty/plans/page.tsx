@@ -7,7 +7,8 @@ import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { LoyaltyService, type MembershipPlanRow } from '@/services/loyalty.service';
 import { MarketplaceService, type StorefrontSettingsRow } from '@/services/marketplace.service';
-import { ShieldCheck, AlertTriangle, QrCode, Copy, Check, ArrowRight, ExternalLink, Lock } from 'lucide-react';
+import { AgentsService } from '@/services/agents.service';
+import { ShieldCheck, AlertTriangle, QrCode, Copy, Check, ArrowRight, ExternalLink, Lock, Sparkles, Loader2 } from 'lucide-react';
 import {
   PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, useList, apiError, LoyaltyTabs,
@@ -35,7 +36,26 @@ function Inner({ wsId }: { wsId: string }) {
   const [editing, setEditing] = useState<MembershipPlanRow | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Copilot: draft perks from the plan name/price so the owner starts from
+  // something, not a blank box. Merges with whatever they've already typed.
+  const suggestPerks = async () => {
+    if (suggesting) return;
+    setSuggesting(true);
+    try {
+      const r = await AgentsService.suggestPerks(wsId, { name: form.name, price: form.price, interval: form.interval });
+      if (r.success && r.data?.perks?.length) {
+        const existing = perksToArray(form.perks);
+        const merged = Array.from(new Set([...existing, ...r.data.perks])).slice(0, 20);
+        setForm((f) => ({ ...f, perks: merged.join('\n') }));
+      } else {
+        setFormError(r.message || 'The assistant could not draft perks just now.');
+      }
+    } catch (e) { setFormError(apiError(e, 'Could not draft perks.')); }
+    finally { setSuggesting(false); }
+  };
   const [settings, setSettings] = useState<StorefrontSettingsRow | null>(null);
   const loadSettings = useCallback(() => {
     MarketplaceService.getStorefront(wsId).then((r) => { if (r.success) setSettings(r.data); }).catch(() => {});
@@ -95,6 +115,13 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
           </div>
           <Field label="What members get">
+            <div className="mb-2 flex justify-end">
+              <button type="button" onClick={suggestPerks} disabled={suggesting}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50">
+                {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {suggesting ? 'Drafting…' : 'Suggest with AI'}
+              </button>
+            </div>
             <textarea
               value={form.perks}
               onChange={(e) => setForm({ ...form, perks: e.target.value })}

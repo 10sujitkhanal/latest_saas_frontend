@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
 import Link from 'next/link';
-import { ImageIcon, Upload } from 'lucide-react';
+import { ImageIcon, Upload, Sparkles, Loader2 } from 'lucide-react';
 import { businessCurrency } from '@/lib/currency';
+import { AgentsService } from '@/services/agents.service';
 import { MarketplaceService } from '@/services/marketplace.service';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
@@ -14,7 +15,7 @@ import {
 } from '@/components/inventory/kit';
 
 const UNITS = ['pcs', 'kg', 'g', 'l', 'ml', 'box', 'pack', 'hour'];
-const emptyForm = { sku: '', name: '', category: '', unit: 'pcs', cost_price: '0', selling_price: '0', reorder_point: '0', reorder_qty: '0', currency: businessCurrency(), barcode: '', opening_stock: '0' };
+const emptyForm = { sku: '', name: '', category: '', unit: 'pcs', cost_price: '0', selling_price: '0', reorder_point: '0', reorder_qty: '0', currency: businessCurrency(), barcode: '', description: '', opening_stock: '0' };
 // Drop a Decimal(…,4) string's trailing zeros for display: "1100.0000" -> "1100".
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? String(n) : '0'; };
 
@@ -57,7 +58,7 @@ function Inner({ wsId }: { wsId: string }) {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(''); setFormError(null); setOpen(true); };
   const openEdit = (i: ItemRow) => {
     setEditing(i);
-    setForm({ sku: i.sku, name: i.name, category: i.category ? String(i.category) : '', unit: i.unit, cost_price: num(i.cost_price), selling_price: num(i.selling_price), reorder_point: num(i.reorder_point), reorder_qty: num(i.reorder_qty), currency: i.currency, barcode: i.barcode || '', opening_stock: '0' });
+    setForm({ sku: i.sku, name: i.name, category: i.category ? String(i.category) : '', unit: i.unit, cost_price: num(i.cost_price), selling_price: num(i.selling_price), reorder_point: num(i.reorder_point), reorder_qty: num(i.reorder_qty), currency: i.currency, barcode: i.barcode || '', description: i.description || '', opening_stock: '0' });
     setImageFile(null); setImagePreview(i.image_display || '');
     setFormError(null); setOpen(true);
   };
@@ -69,6 +70,21 @@ function Inner({ wsId }: { wsId: string }) {
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
     setFormError(null);
+  };
+
+  const [suggestingDesc, setSuggestingDesc] = useState(false);
+  // Copilot: draft a product description from the name + category.
+  const suggestDescription = async () => {
+    if (suggestingDesc) return;
+    if (!form.name.trim()) { setFormError('Enter the product name first.'); return; }
+    setSuggestingDesc(true);
+    try {
+      const catName = categories.find((c) => String(c.id) === form.category)?.name || '';
+      const r = await AgentsService.suggestProductDescription(wsId, { name: form.name, category: catName });
+      if (r.success && r.data?.text) setForm((f) => ({ ...f, description: r.data.text }));
+      else setFormError(r.message || 'The assistant could not draft a description just now.');
+    } catch (e) { setFormError(apiError(e, 'Could not draft a description.')); }
+    finally { setSuggestingDesc(false); }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -158,6 +174,20 @@ function Inner({ wsId }: { wsId: string }) {
                 <span className="text-[11px] text-slate-500">JPG/PNG/WEBP, up to 5 MB.</span>
               </div>
             </div>
+          </Field>
+
+          {/* Description — shows on the storefront; the agent can draft it */}
+          <Field label="Description">
+            <div className="mb-2 flex justify-end">
+              <button type="button" onClick={suggestDescription} disabled={suggestingDesc}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50">
+                {suggestingDesc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {suggestingDesc ? 'Drafting…' : 'Suggest with AI'}
+              </button>
+            </div>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3}
+              placeholder="A short, appealing description customers see on your store."
+              className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-pink-500/40" />
           </Field>
           {!editing && <p className="text-xs text-slate-500">Set the starting quantity in “Opening stock”. After that, quantity changes only via the Stock Movements tab.</p>}
           {editing && <p className="text-xs text-slate-500">Quantity on hand is changed on the Stock Movements tab, not here.</p>}

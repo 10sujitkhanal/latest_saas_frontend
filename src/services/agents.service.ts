@@ -197,6 +197,18 @@ export const CrmAgent = {
 };
 
 export const AgentsService = {
+  /** Copilot: draft membership perks for a plan (the agent fills the blank field). */
+  suggestPerks: (workspaceId: Id, ctx: { name?: string; price?: string; interval?: string }) =>
+    apiClient
+      .post<ApiEnvelope<{ perks: string[] }>>(`${base(workspaceId)}/suggest/membership-perks/`, ctx)
+      .then((r) => r.data),
+
+  /** Copilot: draft a short product description from the name + category. */
+  suggestProductDescription: (workspaceId: Id, ctx: { name: string; category?: string }) =>
+    apiClient
+      .post<ApiEnvelope<{ text: string }>>(`${base(workspaceId)}/suggest/product-description/`, ctx)
+      .then((r) => r.data),
+
   /** Ask the Offers Agent to draft an offer → saved as a proposed task. */
   draftOffer: (workspaceId: Id, goal: string) =>
     apiClient
