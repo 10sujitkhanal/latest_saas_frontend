@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { AgentsService, type OfferProposal, type AgentTask } from '@/services/agents.service';
 import StoreAgentCard from '@/components/agents/StoreAgentCard';
 import CrmAgentCard from '@/components/agents/CrmAgentCard';
+import AgentTrainer from '@/components/agents/AgentTrainer';
 
 /**
  * AI Staff — your AI team. Each agent drafts work; you approve it. Every
@@ -125,6 +126,9 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           <p className="text-sm text-slate-500">Your AI team drafts the work — you approve it. Every decision is logged.</p>
         </div>
       </div>
+
+      {/* Train your agents — freeform instructions each agent uses (Phase C) */}
+      <AgentTrainer workspaceId={workspaceId} />
 
       {/* CRM Agent — score leads + suggest the next move (advisor) */}
       <CrmAgentCard workspaceId={workspaceId} />

@@ -221,4 +221,27 @@ export const AgentsService = {
     apiClient
       .post<ApiEnvelope<{ task: AgentTask }>>(`${base(workspaceId)}/tasks/${taskId}/reject/`)
       .then((r) => r.data),
+
+  // ── Trainable agent profiles (Phase C) ──
+  listProfiles: (workspaceId: Id, agentType?: string) =>
+    apiClient.get<ApiEnvelope<AgentProfile[]>>(`${base(workspaceId)}/profiles/`, { params: agentType ? { agent_type: agentType } : {} }).then((r) => r.data),
+  createProfile: (workspaceId: Id, payload: Partial<AgentProfile>) =>
+    apiClient.post<ApiEnvelope<AgentProfile>>(`${base(workspaceId)}/profiles/`, payload).then((r) => r.data),
+  updateProfile: (workspaceId: Id, id: number, payload: Partial<AgentProfile>) =>
+    apiClient.patch<ApiEnvelope<AgentProfile>>(`${base(workspaceId)}/profiles/${id}/`, payload).then((r) => r.data),
+  deleteProfile: (workspaceId: Id, id: number) =>
+    apiClient.delete<ApiEnvelope<unknown>>(`${base(workspaceId)}/profiles/${id}/`).then((r) => r.data),
+  cloneProfile: (workspaceId: Id, id: number, payload?: { name?: string; pipeline?: number | null }) =>
+    apiClient.post<ApiEnvelope<AgentProfile>>(`${base(workspaceId)}/profiles/${id}/clone/`, payload || {}).then((r) => r.data),
 };
+
+export interface AgentProfile {
+  id: number;
+  agent_type: 'crm' | 'offers' | 'store';
+  name: string;
+  pipeline: number | null;
+  pipeline_name: string | null;
+  instructions: string;
+  is_active: boolean;
+  is_default: boolean;
+}
