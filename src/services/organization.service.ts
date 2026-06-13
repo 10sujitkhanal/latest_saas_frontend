@@ -1115,8 +1115,8 @@ export const OrganizationService = {
     const { data } = await apiClient.get(`/organization/leads/conversations/${conversationId}/messages/`);
     return data;
   },
-  conversationReply: async (conversationId: number, body: string) => {
-    const { data } = await apiClient.post(`/organization/leads/conversations/${conversationId}/messages/`, { body });
+  conversationReply: async (conversationId: number, body: string, subject?: string) => {
+    const { data } = await apiClient.post(`/organization/leads/conversations/${conversationId}/messages/`, { body, subject });
     return data;
   },
   /**
@@ -1146,12 +1146,13 @@ export const OrganizationService = {
    */
   startLeadConversation: async (
     leadId: number,
-    payload: { channel_id: number; body: string; attachments?: File[] },
+    payload: { channel_id: number; body: string; subject?: string; attachments?: File[] },
   ) => {
     if (payload.attachments && payload.attachments.length > 0) {
       const form = new FormData();
       form.append('channel_id', String(payload.channel_id));
       form.append('body', payload.body);
+      if (payload.subject) form.append('subject', payload.subject);
       payload.attachments.forEach((f) => form.append('attachments', f));
       const { data } = await apiClient.post(
         `/organization/leads/${leadId}/conversations/start/`,
@@ -1162,7 +1163,7 @@ export const OrganizationService = {
     }
     const { data } = await apiClient.post(
       `/organization/leads/${leadId}/conversations/start/`,
-      { channel_id: payload.channel_id, body: payload.body },
+      { channel_id: payload.channel_id, body: payload.body, subject: payload.subject },
     );
     return data;
   },

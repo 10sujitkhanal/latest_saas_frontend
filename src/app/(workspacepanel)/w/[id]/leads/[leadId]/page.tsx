@@ -953,6 +953,7 @@ function ConversationsTab({
   const [thread, setThread] = useState<ThreadMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [reply, setReply] = useState('');
+  const [subject, setSubject] = useState('');   // email subject for new conversations
   const [sending, setSending] = useState(false);
 
   // Channel picker state. Used by both the empty-state composer AND
@@ -1192,12 +1193,13 @@ function ConversationsTab({
       const res = await OrganizationService.startLeadConversation(leadId, {
         channel_id: pickedChannelId,
         body: reply,
+        subject: pickedFamily === 'email' ? subject : undefined,
       });
       if (res?.success) {
         if (pickedFamily) localStorage.setItem(LAST_FAMILY_KEY(wsId), pickedFamily);
         localStorage.setItem(LAST_CHANNEL_KEY(wsId), String(pickedChannelId));
         toast.success('Message sent');
-        setReply('');
+        setReply(''); setSubject('');
         setComposeOpen(false);
         const newConvId = res.data?.conversation_id as number | undefined;
         const newMsg = res.data?.message as ThreadMessage | undefined;
@@ -1282,6 +1284,8 @@ function ConversationsTab({
             onPickChannel={setPickedChannelId}
             value={reply}
             onChange={setReply}
+            subject={subject}
+            onSubjectChange={setSubject}
             onSend={sendNew}
             sending={sending}
             placeholder={pickedChannel
@@ -1357,6 +1361,8 @@ function ConversationsTab({
                 onPickChannel={setPickedChannelId}
                 value={reply}
                 onChange={setReply}
+                subject={subject}
+                onSubjectChange={setSubject}
                 onSend={sendNew}
                 sending={sending}
                 placeholder={pickedChannel
@@ -1504,7 +1510,7 @@ function ConversationsTab({
 function Composer({
   wsId, leadId, channels, pickedFamily, pickedChannelId,
   onPickFamily, onPickChannel,
-  value, onChange, onSend, sending, placeholder,
+  value, onChange, subject, onSubjectChange, onSend, sending, placeholder,
 }: {
   wsId: string;
   leadId?: number;
@@ -1515,6 +1521,8 @@ function Composer({
   onPickChannel: (id: number) => void;
   value: string;
   onChange: (s: string) => void;
+  subject?: string;
+  onSubjectChange?: (s: string) => void;
   onSend: () => void;
   sending: boolean;
   placeholder: string;
@@ -1622,22 +1630,35 @@ function Composer({
         )}
       </div>
 
-      <div className="flex items-end gap-2">
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-          rows={3}
-          placeholder={placeholder}
-          className="flex-1 rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-none"
+      {/* Subject — email only. */}
+      {pickedFamily === 'email' && onSubjectChange && (
+        <input
+          value={subject || ''}
+          onChange={(e) => onSubjectChange(e.target.value)}
+          placeholder="Subject"
+          className="w-full rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
         />
-        <TemplatePicker workspaceId={wsId} leadId={leadId} channel={pickedFamily || undefined} onPick={(f) => onChange(f.body)} />
+      )}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); onSend(); } }}
+        rows={6}
+        placeholder={placeholder}
+        className="w-full rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-y min-h-[120px]"
+      />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <TemplatePicker workspaceId={wsId} leadId={leadId} channel={pickedFamily || undefined}
+            onPick={(f) => { onChange(f.body); if (onSubjectChange && f.subject) onSubjectChange(f.subject); }} />
+          {pickedFamily === 'sms' && <span className="text-[11px] text-slate-500">{value.length} chars · {Math.ceil(value.length / 160) || 0} SMS</span>}
+        </div>
         <button
           onClick={onSend}
           disabled={sending || !value.trim() || !pickedChannelId}
-          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"
         >
-          <Send className="w-3.5 h-3.5" />
+          <Send className="w-4 h-4" />
           {sending ? 'Sending…' : 'Send'}
         </button>
       </div>
