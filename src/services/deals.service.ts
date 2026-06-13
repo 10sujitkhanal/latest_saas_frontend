@@ -20,6 +20,11 @@ export interface CouponRow {
   used_count: number;
   start_date: string;
   end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  active_days?: number[];
+  buy_qty?: number;
+  get_qty?: number;
   status: 'active' | 'scheduled' | 'expired' | 'paused';
   first_time_only: boolean;
   stackable: boolean;

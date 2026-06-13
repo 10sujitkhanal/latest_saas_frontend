@@ -113,9 +113,17 @@ export default function MembershipJoinSection({
                 </div>
               )}
 
-              {plan.benefits && (
+              {plan.perks && plan.perks.length > 0 ? (
+                <ul className="mt-3 space-y-1.5">
+                  {plan.perks.map((perk, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[13px] text-slate-700">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> <span>{perk}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : plan.benefits ? (
                 <p className="mt-2 whitespace-pre-line text-[13px] text-slate-600">{plan.benefits}</p>
-              )}
+              ) : null}
 
               <div className="mt-auto pt-3">
                 {done ? (

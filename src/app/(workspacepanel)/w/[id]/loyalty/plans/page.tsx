@@ -14,7 +14,10 @@ import {
 } from '@/components/loyalty/kit';
 import { membershipReadiness } from '@/lib/membershipReadiness';
 
-const empty = { name: '', price: '0', currency: businessCurrency(), interval: 'monthly', benefits: '', member_discount_percent: '0', description: '', is_active: true, is_public: false };
+const empty = { name: '', price: '0', currency: businessCurrency(), interval: 'monthly', benefits: '', perks: '', member_discount_percent: '0', description: '', is_active: true, is_public: false };
+// "What you get" lines → a clean string[] (and a legacy one-line summary for any
+// storefront client still reading the old free-text benefits field).
+const perksToArray = (s: string) => s.split('\n').map((p) => p.trim()).filter(Boolean).slice(0, 20);
 
 export default function MembershipPlansPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -40,12 +43,14 @@ function Inner({ wsId }: { wsId: string }) {
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
   const openCreate = () => { setEditing(null); setForm(empty); setFormError(null); setOpen(true); };
-  const openEdit = (p: MembershipPlanRow) => { setEditing(p); setForm({ name: p.name, price: String(p.price), currency: p.currency, interval: p.interval, benefits: p.benefits || '', member_discount_percent: String(p.member_discount_percent ?? '0'), description: p.description || '', is_active: p.is_active, is_public: Boolean(p.is_public) }); setFormError(null); setOpen(true); };
+  const openEdit = (p: MembershipPlanRow) => { setEditing(p); setForm({ name: p.name, price: String(p.price), currency: p.currency, interval: p.interval, benefits: p.benefits || '', perks: (p.perks || []).join('\n'), member_discount_percent: String(p.member_discount_percent ?? '0'), description: p.description || '', is_active: p.is_active, is_public: Boolean(p.is_public) }); setFormError(null); setOpen(true); };
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault(); setSaving(true); setFormError(null);
     try {
-      const res = editing ? await LoyaltyService.plans.update(wsId, editing.id, form) : await LoyaltyService.plans.create(wsId, form);
+      const perks = perksToArray(form.perks);
+      const payload = { ...form, perks, benefits: perks.join(' • ') || form.benefits };
+      const res = editing ? await LoyaltyService.plans.update(wsId, editing.id, payload) : await LoyaltyService.plans.create(wsId, payload);
       if (!res.success) { setFormError(res.message || 'Could not save.'); return; }
       setOpen(false); reload();
     } catch (err) { setFormError(apiError(err, 'Could not save.')); }
@@ -89,7 +94,23 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Price"><TextInput type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field>
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
           </div>
-          <Field label="Benefits"><TextInput value={form.benefits} onChange={(e) => setForm({ ...form, benefits: e.target.value })} /></Field>
+          <Field label="What members get">
+            <textarea
+              value={form.perks}
+              onChange={(e) => setForm({ ...form, perks: e.target.value })}
+              rows={5}
+              placeholder={"One perk per line, e.g.\n15% off every order\nFree delivery\nEarly access to new drops\nBirthday gift"}
+              className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-pink-500/40"
+            />
+            <span className="mt-1 block text-[11px] text-slate-500">One per line — these show as a checklist on the membership card customers see.</span>
+            {perksToArray(form.perks).length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {perksToArray(form.perks).map((p, i) => (
+                  <li key={i} className="flex items-center gap-2 text-[12px] text-slate-300"><Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" /> {p}</li>
+                ))}
+              </ul>
+            )}
+          </Field>
           <Field label="Member discount %">
             <TextInput type="number" step="0.01" min="0" max="100" value={form.member_discount_percent} onChange={(e) => setForm({ ...form, member_discount_percent: e.target.value })} />
             <span className="mt-1 block text-[11px] text-slate-500">Automatic % off storefront orders for active members (0 = none).</span>

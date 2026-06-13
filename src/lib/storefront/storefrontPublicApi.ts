@@ -102,6 +102,7 @@ function _mapStorefront(b: any): PublicStorefront {
           currency: m.currency || sf.currency || "",
           interval: m.interval || "monthly",
           benefits: m.benefits || "",
+          perks: Array.isArray(m.perks) ? m.perks.map((p: any) => String(p)) : [],
           memberDiscountPercent: Number(m.member_discount_percent ?? 0),
         }))
       : [],
@@ -218,6 +219,8 @@ export interface PublicMembershipPlan {
   currency: string;
   interval: string;
   benefits: string;
+  /** Structured "what you get" lines, rendered as a checklist on the card. */
+  perks: string[];
   /** Automatic % off storefront orders for active members of this plan (0 = none). */
   memberDiscountPercent: number;
 }

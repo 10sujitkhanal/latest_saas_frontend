@@ -14,9 +14,12 @@ import {
 
 const TYPES = [{ v: 'percent', l: 'Percent % off' }, { v: 'flat', l: 'Flat amount off' }, { v: 'free_delivery', l: 'Free delivery' }, { v: 'buy_x_get_y', l: 'Buy X get Y (BOGO)' }];
 const STATUSES = ['active', 'scheduled', 'paused', 'expired'];
+// Python weekday() order: 0=Mon … 6=Sun (matches the backend active_days check).
+const WEEKDAYS = [{ v: 0, l: 'Mon' }, { v: 1, l: 'Tue' }, { v: 2, l: 'Wed' }, { v: 3, l: 'Thu' }, { v: 4, l: 'Fri' }, { v: 5, l: 'Sat' }, { v: 6, l: 'Sun' }];
+const valueLabel = (t: string) => t === 'percent' ? 'Percent off (%)' : t === 'flat' ? 'Amount off' : t === 'free_delivery' ? 'Delivery fee waived' : 'Value';
 const today = () => new Date().toISOString().slice(0, 10);
 const plus = (d: number) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
-const emptyForm = { code: '', description: '', type: 'percent', value: '10', min_order_amount: '0', max_discount: '', usage_limit: '', start_date: today(), end_date: plus(30), status: 'active', first_time_only: false, stackable: false };
+const emptyForm = { auto: false, code: '', description: '', type: 'percent', value: '10', min_order_amount: '0', max_discount: '', usage_limit: '', start_date: today(), end_date: plus(30), start_time: '', end_time: '', active_days: [] as number[], buy_qty: '1', get_qty: '1', status: 'active', first_time_only: false, stackable: false };
 
 export default function DealsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -48,7 +51,7 @@ function Inner({ wsId }: { wsId: string }) {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
   const openEdit = (c: CouponRow) => {
     setEditing(c);
-    setForm({ code: c.code, description: c.description || '', type: c.type, value: String(c.value), min_order_amount: String(c.min_order_amount), max_discount: c.max_discount ? String(c.max_discount) : '', usage_limit: c.usage_limit != null ? String(c.usage_limit) : '', start_date: c.start_date, end_date: c.end_date, status: c.status, first_time_only: c.first_time_only, stackable: c.stackable });
+    setForm({ auto: !c.code, code: c.code, description: c.description || '', type: c.type, value: String(c.value), min_order_amount: String(c.min_order_amount), max_discount: c.max_discount ? String(c.max_discount) : '', usage_limit: c.usage_limit != null ? String(c.usage_limit) : '', start_date: c.start_date, end_date: c.end_date, start_time: (c.start_time || '').slice(0, 5), end_time: (c.end_time || '').slice(0, 5), active_days: c.active_days || [], buy_qty: String(c.buy_qty ?? 1), get_qty: String(c.get_qty ?? 1), status: c.status, first_time_only: c.first_time_only, stackable: c.stackable });
     setFormError(null); setOpen(true);
   };
 
@@ -56,10 +59,12 @@ function Inner({ wsId }: { wsId: string }) {
     e.preventDefault(); setSaving(true); setFormError(null);
     try {
       const payload: Record<string, unknown> = {
-        code: form.code, description: form.description, type: form.type, value: numberValue(form.value),
+        code: form.auto ? '' : form.code, description: form.description, type: form.type, value: numberValue(form.value),
         min_order_amount: numberValue(form.min_order_amount), start_date: form.start_date, end_date: form.end_date,
+        start_time: form.start_time || null, end_time: form.end_time || null, active_days: form.active_days,
         status: form.status, first_time_only: form.first_time_only, stackable: form.stackable,
       };
+      if (form.type === 'buy_x_get_y') { payload.buy_qty = Number(form.buy_qty) || 1; payload.get_qty = Number(form.get_qty) || 1; }
       payload.max_discount = form.max_discount ? numberValue(form.max_discount) : null;
       payload.usage_limit = form.usage_limit ? Number(form.usage_limit) : null;
       const res = editing ? await DealsService.update(wsId, editing.id, payload) : await DealsService.create(wsId, payload);
@@ -101,12 +106,16 @@ function Inner({ wsId }: { wsId: string }) {
           <TableShell head={<tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Type</th><th className="px-3 py-2 text-right">Value</th><th className="px-3 py-2 text-right">Min order</th><th className="px-3 py-2 text-center">Used</th><th className="px-3 py-2">Window</th><th className="px-3 py-2 text-center">Status</th><th className="px-3 py-2 text-right">Actions</th></tr>}>
             {rows.map((c) => (
               <tr key={c.id} className="text-slate-300">
-                <td className="px-3 py-2 font-mono text-white">{c.code}</td>
-                <td className="px-3 py-2">{c.type === 'percent' ? '%' : c.type === 'flat' ? 'Flat' : c.type}</td>
-                <td className="px-3 py-2 text-right">{c.type === 'percent' ? `${c.value}%` : money(c.value)}</td>
+                <td className="px-3 py-2 font-mono text-white">{c.code || <span className="rounded bg-pink-500/15 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-pink-200">Automatic</span>}</td>
+                <td className="px-3 py-2">{c.type === 'percent' ? '%' : c.type === 'flat' ? 'Flat' : c.type === 'free_delivery' ? 'Free delivery' : 'BOGO'}</td>
+                <td className="px-3 py-2 text-right">{c.type === 'percent' ? `${c.value}%` : c.type === 'buy_x_get_y' ? `Buy ${c.buy_qty ?? 1} get ${c.get_qty ?? 1}` : money(c.value)}</td>
                 <td className="px-3 py-2 text-right">{money(c.min_order_amount)}</td>
                 <td className="px-3 py-2 text-center">{c.used_count}{c.usage_limit != null ? `/${c.usage_limit}` : ''}</td>
-                <td className="px-3 py-2 text-xs">{c.start_date} → {c.end_date}</td>
+                <td className="px-3 py-2 text-xs">
+                  <div>{c.start_date} → {c.end_date}</div>
+                  {(c.start_time && c.end_time) && <div className="text-slate-500">{c.start_time.slice(0, 5)}–{c.end_time.slice(0, 5)}</div>}
+                  {c.active_days && c.active_days.length > 0 && <div className="text-slate-500">{c.active_days.map((d) => WEEKDAYS[d]?.l).join(', ')}</div>}
+                </td>
                 <td className="px-3 py-2 text-center"><Pill>{c.status}</Pill></td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(c)} className="text-xs font-medium text-cyan-300 hover:text-cyan-200">Edit</button>
@@ -119,12 +128,32 @@ function Inner({ wsId }: { wsId: string }) {
         </Card>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit offer' : 'New offer'}>
+      <Modal open={open} onClose={() => setOpen(false)} title={`${editing ? 'Edit' : 'New'} ${form.auto ? 'offer' : 'coupon'}`}>
         <form onSubmit={submit} className="space-y-4">
+          {/* Delivery mode — the difference between an Offer and a Coupon */}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setForm({ ...form, auto: true })}
+              className={`rounded-lg border p-3 text-left ${form.auto ? 'border-pink-500/50 bg-pink-500/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/5'}`}>
+              <p className={`text-sm font-semibold ${form.auto ? 'text-pink-200' : 'text-slate-200'}`}>Offer — applies automatically</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">No code. Shows on your store and applies at checkout for everyone.</p>
+            </button>
+            <button type="button" onClick={() => setForm({ ...form, auto: false })}
+              className={`rounded-lg border p-3 text-left ${!form.auto ? 'border-cyan-500/50 bg-cyan-500/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/5'}`}>
+              <p className={`text-sm font-semibold ${!form.auto ? 'text-cyan-200' : 'text-slate-200'}`}>Coupon — customer types a code</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">A code like SAVE10 that customers enter to redeem.</p>
+            </button>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Code"><TextInput required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SAVE10" /></Field>
+            {!form.auto && <Field label="Code"><TextInput required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SAVE10" /></Field>}
             <Field label="Type"><SelectInput value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}</SelectInput></Field>
-            <Field label="Value"><TextInput type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></Field>
+            {form.type === 'buy_x_get_y' ? (
+              <>
+                <Field label="Buy quantity (X)"><TextInput type="number" min="1" step="1" value={form.buy_qty} onChange={(e) => setForm({ ...form, buy_qty: e.target.value })} /></Field>
+                <Field label="Get free (Y)"><TextInput type="number" min="1" step="1" value={form.get_qty} onChange={(e) => setForm({ ...form, get_qty: e.target.value })} /></Field>
+              </>
+            ) : (
+              <Field label={valueLabel(form.type)}><TextInput type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></Field>
+            )}
             <Field label="Min order amount"><TextInput type="number" step="0.01" value={form.min_order_amount} onChange={(e) => setForm({ ...form, min_order_amount: e.target.value })} /></Field>
             <Field label="Max discount (optional)"><TextInput type="number" step="0.01" value={form.max_discount} onChange={(e) => setForm({ ...form, max_discount: e.target.value })} /></Field>
             <Field label="Usage limit (optional)"><TextInput type="number" value={form.usage_limit} onChange={(e) => setForm({ ...form, usage_limit: e.target.value })} /></Field>
@@ -133,6 +162,29 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Status"><SelectInput value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</SelectInput></Field>
             <Field label="Description"><TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           </div>
+
+          {/* When the offer is active — optional happy-hour window + weekday limits */}
+          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">When it&apos;s active <span className="font-normal normal-case text-slate-500">(optional — leave empty for all day, every day)</span></p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="From time"><TextInput type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} /></Field>
+              <Field label="To time"><TextInput type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} /></Field>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {WEEKDAYS.map((d) => {
+                const on = form.active_days.includes(d.v);
+                return (
+                  <button key={d.v} type="button"
+                    onClick={() => setForm({ ...form, active_days: on ? form.active_days.filter((x) => x !== d.v) : [...form.active_days, d.v].sort((a, b) => a - b) })}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold border ${on ? 'bg-pink-500/15 border-pink-500/40 text-pink-200' : 'bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/5'}`}>
+                    {d.l}
+                  </button>
+                );
+              })}
+              {form.active_days.length > 0 && <button type="button" onClick={() => setForm({ ...form, active_days: [] })} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-300">Clear</button>}
+            </div>
+          </div>
+
           <div className="flex gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={form.first_time_only} onChange={(e) => setForm({ ...form, first_time_only: e.target.checked })} className="h-4 w-4 rounded border-white/20 bg-black/20" /> First-time only</label>
             <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={form.stackable} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} className="h-4 w-4 rounded border-white/20 bg-black/20" /> Stackable</label>
@@ -140,7 +192,7 @@ function Inner({ wsId }: { wsId: string }) {
           {formError && <p className="text-xs text-red-300">{formError}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10">Cancel</button>
-            <PrimaryButton type="submit" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Create coupon'}</PrimaryButton>
+            <PrimaryButton type="submit" disabled={saving}>{saving ? 'Saving…' : `${editing ? 'Save' : 'Create'} ${form.auto ? 'offer' : 'coupon'}`}</PrimaryButton>
           </div>
         </form>
       </Modal>
