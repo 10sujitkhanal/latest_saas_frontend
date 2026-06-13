@@ -257,7 +257,13 @@ export const CrmAgent = {
       .then((r) => r.data),
 };
 
+export interface AgentChatReply { command: string; agent: string | null; reply: string; data?: unknown }
+
 export const AgentsService = {
+  /** Chatroom: route a plain-language request to one agent action + run it. */
+  chat: (workspaceId: Id, message: string) =>
+    apiClient.post<ApiEnvelope<AgentChatReply>>(`${base(workspaceId)}/chat/`, { message }).then((r) => r.data),
+
   /** Copilot: draft membership perks for a plan (the agent fills the blank field). */
   suggestPerks: (workspaceId: Id, ctx: { name?: string; price?: string; interval?: string }) =>
     apiClient

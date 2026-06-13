@@ -11,6 +11,7 @@ import OffersAgentCard from '@/components/agents/OffersAgentCard';
 import FinanceAgentCard from '@/components/agents/FinanceAgentCard';
 import MarketingAgentCard from '@/components/agents/MarketingAgentCard';
 import LoyaltyAgentCard from '@/components/agents/LoyaltyAgentCard';
+import AgentChat from '@/components/agents/AgentChat';
 import AgentShell from '@/components/agents/AgentShell';
 import { AGENT_MODULE_LIST, agentModule, type AgentModuleType } from '@/lib/agents/modules';
 
@@ -110,6 +111,11 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           </span>
           <p className="mt-1 text-[10px] text-slate-400">Your private AI. Bring-your-own model coming soon.</p>
         </div>
+      </div>
+
+      {/* Chatroom — ask your AI staff in plain words; it routes to the right agent */}
+      <div className="mt-5">
+        <AgentChat workspaceId={workspaceId} onActed={refresh} />
       </div>
 
       {/* New agent */}
