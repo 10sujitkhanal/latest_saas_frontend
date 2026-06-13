@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Mail, Check, UserPlus } from 'lucide-react';
-import { AgentsService, CrmAgent, type OverdueInvoice, type FoundBusiness } from '@/services/agents.service';
+import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck } from 'lucide-react';
+import { AgentsService, CrmAgent, BookingsAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; actionDone?: boolean };
 
 const EXAMPLES = ["Who's overdue?", 'Draft a post for the weekend', 'Analyse my finances', "How's my loyalty?"];
 
@@ -14,8 +14,16 @@ const EXAMPLES = ["Who's overdue?", 'Draft a post for the weekend', 'Analyse my 
  * Ask-your-AI-staff chatroom. A plain-language request is routed (backend) to ONE
  * agent's action and run; the reply names the agent that handled it. Read-only /
  * draft / propose only — sends + money changes stay one-click on the agent cards.
+ *
+ * When `agentType` is set the chat is scoped to that ONE agent (its commands only) —
+ * this is the per-agent chat embedded in each agent card.
  */
-export default function AgentChat({ workspaceId, onActed }: { workspaceId: string | number; onActed?: () => void }) {
+export default function AgentChat({ workspaceId, onActed, agentType, title, placeholder, examples }: {
+  workspaceId: string | number; onActed?: () => void;
+  agentType?: string; title?: string; placeholder?: string; examples?: string[];
+}) {
+  const scoped = !!agentType;
+  const exampleChips = examples ?? EXAMPLES;
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,6 +66,27 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
     onActed?.();
   };
 
+  // Approval-in-chat: actually create the booking + email the customer.
+  const confirmBooking = async (idx: number, draft: BookingDraft) => {
+    if (actingIdx !== null) return;
+    if (!confirm(`Book a meeting with ${draft.email} on ${draft.pretty || draft.date} and email them it's being arranged?`)) return;
+    setActingIdx(idx);
+    try {
+      const r = await BookingsAgent.create(workspaceId, draft);
+      setMsgs((x) => x.map((mm, i) => (i === idx ? { ...mm, actionDone: true } : mm)));
+      if (r.success && r.data) {
+        const d = r.data;
+        setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: `Booked ${d.booking_no} for ${d.email} on ${draft.pretty || d.date}. ${d.email_sent ? 'Email sent ✓' : "Couldn't send the email — check your email settings."}` }]);
+      } else {
+        setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: r.message || 'Could not create the booking.' }]);
+      }
+    } catch {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: 'Could not create the booking right now.' }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   const send = async (text?: string) => {
     const m = (text ?? input).trim();
     if (!m || busy) return;
@@ -65,7 +94,7 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
     setMsgs((x) => [...x, { role: 'user', text: m }]);
     setBusy(true);
     try {
-      const r = await AgentsService.chat(workspaceId, m);
+      const r = await AgentsService.chat(workspaceId, m, agentType);
       if (r.success && r.data) {
         const d = r.data;
         const overdue = d.command === 'finance_overdue'
@@ -74,10 +103,14 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
         const businesses = d.command === 'crm_find'
           ? ((d.data as { businesses?: FoundBusiness[] } | undefined)?.businesses || [])
           : undefined;
+        const booking = d.command === 'bookings_create'
+          ? (d.data as { draft?: BookingDraft } | undefined)?.draft
+          : undefined;
         setMsgs((x) => [...x, {
           role: 'agent', text: d.reply, agent: d.agent,
           overdue: overdue && overdue.length ? overdue : undefined,
           businesses: businesses && businesses.length ? businesses : undefined,
+          booking: booking && booking.email ? booking : undefined,
         }]);
         onActed?.();
       } else {
@@ -94,8 +127,10 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
     <div className="rounded-2xl border border-indigo-200 bg-gradient-to-b from-indigo-50/50 to-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <Bot className="h-4 w-4 text-indigo-600" />
-        <h2 className="text-sm font-semibold text-slate-900">Ask your AI staff</h2>
-        <span className="ml-auto hidden text-[11px] text-slate-400 sm:block">Type a task — it routes to the right agent</span>
+        <h2 className="text-sm font-semibold text-slate-900">{title || 'Ask your AI staff'}</h2>
+        <span className="ml-auto hidden text-[11px] text-slate-400 sm:block">
+          {scoped ? 'Talk to this agent directly' : 'Type a task — it routes to the right agent'}
+        </span>
       </div>
 
       {msgs.length > 0 && (
@@ -138,6 +173,17 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
                     </button>
                   )
                 )}
+                {m.booking && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Booked & emailed</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmBooking(i, m.booking!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarCheck className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Booking…' : 'Confirm booking & email'}
+                    </button>
+                  )
+                )}
               </div>
             </div>
           ))}
@@ -148,7 +194,7 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
 
       {msgs.length === 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {EXAMPLES.map((e) => (
+          {exampleChips.map((e) => (
             <button key={e} type="button" onClick={() => send(e)} className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:border-indigo-300 hover:text-indigo-700">{e}</button>
           ))}
         </div>
@@ -156,7 +202,7 @@ export default function AgentChat({ workspaceId, onActed }: { workspaceId: strin
 
       <div className="mt-3 flex items-center gap-2">
         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
-          placeholder="e.g. who's overdue? · draft a post · analyse my finances"
+          placeholder={placeholder || "e.g. who's overdue? · draft a post · analyse my finances"}
           className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-300" />
         <button type="button" onClick={() => send()} disabled={busy || !input.trim()}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">

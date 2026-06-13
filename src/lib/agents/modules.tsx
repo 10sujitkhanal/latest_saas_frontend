@@ -20,17 +20,19 @@ export interface AgentModuleDef {
   badge: string;
   tasks: string[];
   built: boolean;
+  /** Example prompts for the per-agent chat embedded in the card. */
+  chatExamples?: string[];
 }
 
 export const AGENT_MODULES: Record<AgentModuleType, AgentModuleDef> = {
-  crm: { type: 'crm', label: 'CRM', module: 'CRM & Leads', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700', built: true, tasks: ['Find leads', 'Score & prioritise', 'Draft outreach', 'Handle replies', 'Move pipeline stages'] },
-  store: { type: 'store', label: 'Store', module: 'Inventory & Store', Icon: Package, chip: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700', built: true, tasks: ['Build catalogue', 'Barcode lookup', 'Import from website', 'Suggest products', 'Draft listings'] },
-  offers: { type: 'offers', label: 'Offers', module: 'Offers & Deals', Icon: Tag, chip: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700', built: true, tasks: ['Draft promotions', 'Create coupons', 'Plan campaigns'] },
-  finance: { type: 'finance', label: 'Finance', module: 'Finance & Accounting', Icon: Banknote, chip: 'bg-amber-50 text-amber-600', badge: 'bg-amber-50 text-amber-700', built: true, tasks: ['Money summary', 'Spot overdue', 'Top debtors', 'Cash advice'] },
-  loyalty: { type: 'loyalty', label: 'Loyalty', module: 'Loyalty & Members', Icon: Star, chip: 'bg-pink-50 text-pink-600', badge: 'bg-pink-50 text-pink-700', built: true, tasks: ['Member health', 'Flag expiring', 'Best members', 'Retention advice'] },
-  bookings: { type: 'bookings', label: 'Bookings', module: 'Bookings', Icon: CalendarCheck, chip: 'bg-cyan-50 text-cyan-600', badge: 'bg-cyan-50 text-cyan-700', built: true, tasks: ['Today at a glance', 'Flag pending', 'Week ahead', 'Prep advice'] },
+  crm: { type: 'crm', label: 'CRM', module: 'CRM & Leads', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700', built: true, tasks: ['Find leads', 'Score & prioritise', 'Draft outreach', 'Handle replies', 'Move pipeline stages'], chatExamples: ['Find gyms in Stockholm', 'Analyse my newest leads'] },
+  store: { type: 'store', label: 'Store', module: 'Inventory & Store', Icon: Package, chip: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700', built: true, tasks: ['Build catalogue', 'Barcode lookup', 'Import from website', 'Suggest products', 'Draft listings'], chatExamples: ['Suggest a starter catalogue'] },
+  offers: { type: 'offers', label: 'Offers', module: 'Offers & Deals', Icon: Tag, chip: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700', built: true, tasks: ['Draft promotions', 'Create coupons', 'Plan campaigns'], chatExamples: ['Draft a weekend 20% off deal'] },
+  finance: { type: 'finance', label: 'Finance', module: 'Finance & Accounting', Icon: Banknote, chip: 'bg-amber-50 text-amber-600', badge: 'bg-amber-50 text-amber-700', built: true, tasks: ['Money summary', 'Spot overdue', 'Top debtors', 'Cash advice'], chatExamples: ["Who's overdue?", 'How are my finances?'] },
+  loyalty: { type: 'loyalty', label: 'Loyalty', module: 'Loyalty & Members', Icon: Star, chip: 'bg-pink-50 text-pink-600', badge: 'bg-pink-50 text-pink-700', built: true, tasks: ['Member health', 'Flag expiring', 'Best members', 'Retention advice'], chatExamples: ["How's my loyalty?", "Who's expiring soon?"] },
+  bookings: { type: 'bookings', label: 'Bookings', module: 'Bookings', Icon: CalendarCheck, chip: 'bg-cyan-50 text-cyan-600', badge: 'bg-cyan-50 text-cyan-700', built: true, tasks: ['Today at a glance', 'Flag pending', 'Week ahead', 'Book a meeting', 'Prep advice'], chatExamples: ["What's coming up?", 'Book a meeting with name@email.com on 2026-06-20'] },
   hr: { type: 'hr', label: 'Staff', module: 'Staff & HR', Icon: UsersRound, chip: 'bg-indigo-50 text-indigo-600', badge: 'bg-indigo-50 text-indigo-700', built: false, tasks: ['Shift reminders', 'Onboarding', 'Leave requests', 'Reviews'] },
-  marketing: { type: 'marketing', label: 'Marketing', module: 'Marketing', Icon: Megaphone, chip: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', built: true, tasks: ['Draft posts', 'Seasonal ideas', 'On-brand copy', 'Product highlights'] },
+  marketing: { type: 'marketing', label: 'Marketing', module: 'Marketing', Icon: Megaphone, chip: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', built: true, tasks: ['Draft posts', 'Seasonal ideas', 'On-brand copy', 'Product highlights'], chatExamples: ['Draft a post about winter wellness'] },
   projects: { type: 'projects', label: 'Projects', module: 'Projects', Icon: FolderKanban, chip: 'bg-slate-100 text-slate-600', badge: 'bg-slate-100 text-slate-700', built: false, tasks: ['Break down tasks', 'Status updates', 'Track deadlines', 'Summaries'] },
 };
 

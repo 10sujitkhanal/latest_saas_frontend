@@ -168,11 +168,22 @@ export interface BookingsSummaryData {
   insights: string;
 }
 
+export interface BookingDraft { email: string; date: string; pretty?: string; note?: string; service?: string }
+export interface BookingCreated { booking_no: string; date: string; email: string; service: string; email_sent: boolean }
+
 export const BookingsAgent = {
   /** Upcoming bookings (today/pending/week) + AI prep note (read-only). */
   summary: (workspaceId: Id) =>
     apiClient
       .post<ApiEnvelope<BookingsSummaryData>>(`${base(workspaceId)}/bookings/summary/`, {})
+      .then((r) => r.data),
+
+  /** Create a pending booking + email the customer it's being arranged (approval). */
+  create: (workspaceId: Id, draft: BookingDraft) =>
+    apiClient
+      .post<ApiEnvelope<BookingCreated>>(`${base(workspaceId)}/bookings/create/`, {
+        email: draft.email, date: draft.date, note: draft.note || '', service: draft.service || '',
+      })
       .then((r) => r.data),
 };
 
@@ -274,9 +285,12 @@ export const CrmAgent = {
 export interface AgentChatReply { command: string; agent: string | null; reply: string; data?: unknown }
 
 export const AgentsService = {
-  /** Chatroom: route a plain-language request to one agent action + run it. */
-  chat: (workspaceId: Id, message: string) =>
-    apiClient.post<ApiEnvelope<AgentChatReply>>(`${base(workspaceId)}/chat/`, { message }).then((r) => r.data),
+  /** Chatroom: route a plain-language request to one agent action + run it.
+   *  Pass `agentType` to keep a per-agent chat scoped to that agent's commands. */
+  chat: (workspaceId: Id, message: string, agentType?: string) =>
+    apiClient.post<ApiEnvelope<AgentChatReply>>(`${base(workspaceId)}/chat/`, {
+      message, agent_type: agentType || undefined,
+    }).then((r) => r.data),
 
   /** Copilot: draft membership perks for a plan (the agent fills the blank field). */
   suggestPerks: (workspaceId: Id, ctx: { name?: string; price?: string; interval?: string }) =>

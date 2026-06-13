@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X } from 'lucide-react';
+import { Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp, GitBranch, Pencil, X, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentProfile } from '@/services/agents.service';
 import { OrganizationService } from '@/services/organization.service';
 import { agentModule } from '@/lib/agents/modules';
+import AgentChat from './AgentChat';
 
 type PipelineLite = { id: number; name: string };
 
@@ -28,6 +29,7 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
 }) {
   const meta = agentModule(profile.agent_type);
   const [training, setTraining] = useState(false);
+  const [chatting, setChatting] = useState(false);
   const [instructions, setInstructions] = useState(profile.instructions || '');
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -131,6 +133,11 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
           ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"><Check className="h-3 w-3" /> In use</span>
           : <button type="button" onClick={useThis} disabled={busy} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Use this agent</button>}
         <div className="ml-auto flex items-center gap-1">
+          {meta.built && (
+            <button type="button" onClick={() => setChatting((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${chatting ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              <MessageSquare className="h-3.5 w-3.5" /> Chat {chatting ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          )}
           <button type="button" onClick={() => setTraining((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
             <GraduationCap className="h-3.5 w-3.5" /> Train {training ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
@@ -174,6 +181,20 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {dirty ? 'Save training' : 'Saved'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Talk to this agent directly — scoped to its module's commands */}
+      {chatting && meta.built && (
+        <div className="mt-3">
+          <AgentChat
+            workspaceId={workspaceId}
+            agentType={profile.agent_type}
+            title={`Chat with ${profile.name}`}
+            placeholder={`Ask ${profile.name}…`}
+            examples={meta.chatExamples}
+            onActed={onChanged}
+          />
         </div>
       )}
 
