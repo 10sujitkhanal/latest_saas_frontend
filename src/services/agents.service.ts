@@ -116,6 +116,24 @@ export interface FoundBusiness {
   category: string;
 }
 
+export interface FinanceKpis {
+  currency: string;
+  outstanding: string;
+  overdue: string;
+  overdue_count: number;
+  paid_this_month: string;
+  open_count: number;
+  top_overdue: { customer: string; amount: string }[];
+}
+
+export const FinanceAgent = {
+  /** Read the books → receivables KPIs + an AI advisor note (read-only). */
+  summary: (workspaceId: Id) =>
+    apiClient
+      .post<ApiEnvelope<{ kpis: FinanceKpis; insights: string }>>(`${base(workspaceId)}/finance/summary/`, {})
+      .then((r) => r.data),
+};
+
 export const CrmAgent = {
   /** Find B2B businesses by category + country/city/area (OSM, preview only). */
   findLeads: (

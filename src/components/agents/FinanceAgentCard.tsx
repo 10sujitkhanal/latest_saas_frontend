@@ -1,0 +1,106 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { Banknote, Wand2, Loader2, AlertTriangle, TrendingUp, ArrowRight, Lightbulb } from 'lucide-react';
+import { toast } from 'sonner';
+import { FinanceAgent, type FinanceKpis } from '@/services/agents.service';
+
+/**
+ * Finance Agent work surface — reads the books and gives a money summary +
+ * practical advice. Read-only (advisor); never posts. Self-contained so it
+ * renders inside the per-agent AgentShell.
+ */
+export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: string | number; embed?: boolean }) {
+  const [loading, setLoading] = useState(false);
+  const [kpis, setKpis] = useState<FinanceKpis | null>(null);
+  const [insights, setInsights] = useState('');
+
+  const money = (v: string, cur: string) => {
+    const n = parseFloat(v) || 0;
+    return `${cur} ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  };
+
+  const analyse = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const r = await FinanceAgent.summary(workspaceId);
+      if (r.success && r.data) { setKpis(r.data.kpis); setInsights(r.data.insights || ''); }
+      else toast.error(r.message || 'Could not read your finances.');
+    } catch (e) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not read your finances right now.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const bullets = insights.split('\n').map((l) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+
+  return (
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+      <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
+        Reads your invoices and payments, then tells you where the money is — what&apos;s outstanding,
+        what&apos;s overdue, and the next action. <strong>Read-only</strong> — it never changes your books.
+      </p>
+
+      <div className="mt-4 flex items-center gap-2">
+        <button type="button" onClick={analyse} disabled={loading}
+          className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-600 disabled:opacity-50">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+          {loading ? 'Reading the books…' : 'Analyse my finances'}
+        </button>
+        <Link href={`/w/${workspaceId}/accounting/invoices`} className="text-sm font-semibold text-slate-500 hover:text-amber-700">Open Finance</Link>
+      </div>
+
+      {kpis && (
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <Kpi label="Outstanding" value={money(kpis.outstanding, kpis.currency)} sub={`${kpis.open_count} open`} />
+            <Kpi label="Overdue" value={money(kpis.overdue, kpis.currency)} sub={`${kpis.overdue_count} invoice${kpis.overdue_count === 1 ? '' : 's'}`} tone={Number(kpis.overdue) > 0 ? 'rose' : 'slate'} />
+            <Kpi label="Collected this month" value={money(kpis.paid_this_month, kpis.currency)} tone="emerald" />
+          </div>
+
+          {kpis.top_overdue.length > 0 && (
+            <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> Biggest overdue</p>
+              <ul className="mt-1.5 space-y-1">
+                {kpis.top_overdue.map((t, i) => (
+                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-700">
+                    <span className="truncate">{t.customer}</span>
+                    <span className="font-semibold">{money(t.amount, kpis.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href={`/w/${workspaceId}/accounting/invoices`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-rose-700 hover:underline">
+                Chase these <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
+
+          {bullets.length > 0 && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
+              <ul className="mt-1.5 space-y-1">
+                {bullets.map((b, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-700"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /> {b}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Kpi({ label, value, sub, tone = 'slate' }: { label: string; value: string; sub?: string; tone?: 'slate' | 'rose' | 'emerald' }) {
+  const cls = tone === 'rose' ? 'text-rose-700' : tone === 'emerald' ? 'text-emerald-700' : 'text-slate-900';
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-0.5 text-lg font-bold ${cls}`}>{value}</p>
+      {sub && <p className="text-[11px] text-slate-400">{sub}</p>}
+    </div>
+  );
+}
