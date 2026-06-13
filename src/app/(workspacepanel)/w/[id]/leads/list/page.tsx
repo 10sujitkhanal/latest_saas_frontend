@@ -16,6 +16,7 @@ import PermissionGuard from '@/components/workspace/PermissionGuard';
 import QuotaBadge from '@/components/QuotaBadge';
 import { useIsAdmin } from '@/hooks/usePermission';
 import { OrganizationService } from '@/services/organization.service';
+import { LeadHoverCard } from '@/components/leads/LeadHoverCard';
 
 /** Workspace leads — paginated, inline assignment, view/edit/delete drawer. */
 
@@ -109,6 +110,18 @@ function WorkspaceLeadsListInner({ id }: { id: string }) {
   const isAdmin = useIsAdmin();
   const [leads, setLeads] = useState<WorkspaceLead[]>([]);
   const [total, setTotal] = useState(0);
+  // Hover preview (same as the pipeline) — quick read + quick-compose on hover.
+  const [hover, setHover] = useState<{ lead: WorkspaceLead; top: number; left: number } | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openHover = (lead: WorkspaceLead, el: HTMLElement) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    const r = el.getBoundingClientRect();
+    setHover({ lead, top: Math.max(8, Math.min(r.top, window.innerHeight - 240)), left: Math.min(r.left + 60, window.innerWidth - 300) });
+  };
+  const closeHover = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHover(null), 140);
+  };
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   // Plan-cap meta returned by the backend — drives the "X latest
@@ -397,6 +410,8 @@ function WorkspaceLeadsListInner({ id }: { id: string }) {
                       onCloseAssign={() => setOpenAssignId(null)}
                       onAssign={(uid) => assign(l, uid)}
                       onView={() => router.push(`/w/${id}/leads/${l.id}`)}
+                      onHover={(el) => openHover(l, el)}
+                      onHoverEnd={closeHover}
                       onQuickPreview={() => setDrawer({ mode: 'view', lead: l })}
                       onEdit={() => setDrawer({ mode: 'edit', lead: l })}
                       onDelete={() => remove(l)}
@@ -448,6 +463,16 @@ function WorkspaceLeadsListInner({ id }: { id: string }) {
             setDrawer({ mode: 'view', lead: { ...drawer.lead, ...updated } });
             toast.success('Lead updated');
           }}
+        />
+      )}
+
+      {hover && (
+        <LeadHoverCard
+          wsId={id}
+          lead={hover.lead}
+          style={{ top: hover.top, left: hover.left }}
+          onMouseEnter={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }}
+          onMouseLeave={closeHover}
         />
       )}
     </div>
@@ -595,7 +620,7 @@ function AssignOption({
 
 function LeadRow({
   lead, members, menuOpen, assignOpen, onOpenMenu, onCloseMenu, onOpenAssign, onCloseAssign,
-  onAssign, onView, onQuickPreview, onEdit, onDelete,
+  onAssign, onView, onHover, onHoverEnd, onQuickPreview, onEdit, onDelete,
 }: {
   lead: WorkspaceLead;
   members: MemberLite[];
@@ -607,6 +632,8 @@ function LeadRow({
   onCloseAssign: () => void;
   onAssign: (uid: number | null) => void;
   onView: () => void;
+  onHover?: (el: HTMLElement) => void;
+  onHoverEnd?: () => void;
   onQuickPreview: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -625,6 +652,8 @@ function LeadRow({
     <tr
       className="group border-t border-white/5 transition-colors cursor-pointer"
       onClick={onView}
+      onMouseEnter={(e) => onHover?.(e.currentTarget)}
+      onMouseLeave={onHoverEnd}
     >
       <td
         className={`px-4 py-3 sticky left-0 z-10 ${stickyCellBase}`}
