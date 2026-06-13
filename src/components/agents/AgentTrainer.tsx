@@ -133,15 +133,22 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
         <div className="py-6 text-center text-slate-500 text-sm"><Loader2 className="w-4 h-4 animate-spin inline mr-1" /> Loading…</div>
       ) : (
         <div className="space-y-3">
-          {/* Agent tabs */}
-          {profiles.length > 1 && (
-            <div className="flex flex-wrap gap-1.5">
-              {profiles.map((p) => (
-                <button key={p.id} type="button" onClick={() => select(p.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border ${p.id === activeId ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-100' : 'bg-white/[0.02] border-white/10 text-slate-300 hover:bg-white/5'}`}>
-                  <Bot className="w-3.5 h-3.5" /> {p.name}{p.is_default && <span className="text-[9px] text-slate-500">default</span>}
-                </button>
-              ))}
+          {/* Your agents — always visible so a newly created agent is obvious */}
+          {profiles.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your agents ({profiles.length})</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {profiles.map((p) => (
+                  <button key={p.id} type="button" onClick={() => select(p.id)}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left ${p.id === activeId ? 'bg-emerald-500/15 border-emerald-500/50 ring-1 ring-emerald-500/30' : 'bg-white/[0.02] border-white/10 hover:bg-white/5'}`}>
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${p.id === activeId ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-slate-400'}`}><Bot className="w-4 h-4" /></span>
+                    <span className="min-w-0">
+                      <span className={`block truncate text-xs font-semibold ${p.id === activeId ? 'text-emerald-100' : 'text-slate-200'}`}>{p.name}</span>
+                      <span className="block truncate text-[10px] text-slate-500">{p.is_default ? 'Default' : p.pipeline_name ? p.pipeline_name : 'Custom'}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

@@ -373,7 +373,7 @@ function MoreTechAICard() {
                 )}
               </div>
               <p className="text-[12px] text-slate-300 mt-1 max-w-md">
-                Our managed Qwen model — private, hosted on our own servers.
+                Our managed AI model — private, hosted on our own servers.
                 Select <span className="text-violet-200">MoreTech AI</span> as the model on any Knowledge Base.
               </p>
               {!included && renews && (

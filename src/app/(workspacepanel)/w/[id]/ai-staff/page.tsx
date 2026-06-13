@@ -127,9 +127,9 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         </div>
         <div className="ml-auto shrink-0 text-right">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
-            <Sparkles className="h-3.5 w-3.5" /> Qwen 3 · self-hosted
+            <Sparkles className="h-3.5 w-3.5" /> Powered by MoreTech AI
           </span>
-          <p className="mt-1 text-[10px] text-slate-400">Private &amp; free. Bring-your-own model (ChatGPT) coming next.</p>
+          <p className="mt-1 text-[10px] text-slate-400">Your private AI. Bring-your-own model coming soon.</p>
         </div>
       </div>
 

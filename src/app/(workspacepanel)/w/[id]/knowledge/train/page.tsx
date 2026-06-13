@@ -38,7 +38,7 @@ type QAPair = { questions: string; answer: string };
 const LLM_OPTIONS: Array<{
   id: string; name: string; hint: string; provider: string;
 }> = [
-  { id: 'moretech_ai',             name: 'MoreTech AI',        hint: 'Managed Qwen · private',     provider: 'moretech_ai' },
+  { id: 'moretech_ai',             name: 'MoreTech AI',        hint: 'Managed · private',     provider: 'moretech_ai' },
   { id: 'gpt-4o-mini',             name: 'GPT-4o mini',        hint: 'Fast + cheap (recommended)', provider: 'openai' },
   { id: 'gpt-4o',                  name: 'GPT-4o',             hint: 'Best quality, slower',       provider: 'openai' },
   { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',      hint: 'Nuanced, long context',      provider: 'anthropic' },

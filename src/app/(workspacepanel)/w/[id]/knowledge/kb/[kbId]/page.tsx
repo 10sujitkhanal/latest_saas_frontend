@@ -72,7 +72,7 @@ const LLM_OPTIONS = [
   // MoreTech AI first -- the platform's own managed Qwen. ``provider:
   // 'moretech_ai'`` is gated by the subscription (not a Channel), so
   // the picker only includes it when the workspace has unlocked it.
-  { id: 'moretech_ai',             name: 'MoreTech AI',      hint: 'Managed Qwen · private', provider: 'moretech_ai' },
+  { id: 'moretech_ai',             name: 'MoreTech AI',      hint: 'Managed · private', provider: 'moretech_ai' },
   { id: 'gpt-4o-mini',             name: 'GPT-4o mini',      hint: 'Fast + cheap', provider: 'openai' },
   { id: 'gpt-4o',                  name: 'GPT-4o',           hint: 'Best quality', provider: 'openai' },
   { id: 'claude-3-5-sonnet',       name: 'Claude Sonnet',    hint: 'Nuanced',      provider: 'anthropic' },

@@ -100,7 +100,7 @@ export default function MoreTechAIPromo({
     ? 'Renew now so your AI model keeps working without interruption.'
     : expired
       ? 'Your AI model will not work until you renew. Renew to restore MoreTech AI.'
-      : 'Our own managed Qwen model — unlimited tokens, private inference, no API key to manage. Subscribe once and use it as the model on any Knowledge Base.';
+      : 'Our own managed AI model — unlimited tokens, private inference, no API key to manage. Subscribe once and use it as the model on any Knowledge Base.';
   const buttonLabel = isRenew ? `Renew · ${cur}${monthly}/mo` : `Unlock from ${cur}${monthly}/mo`;
 
   const handlePurchased = async () => {
@@ -156,7 +156,7 @@ export default function MoreTechAIPromo({
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 mt-1">
-                Managed Qwen · unlimited tokens · no API key. Tap to unlock from {cur}{monthly}/mo.
+                Managed AI · unlimited tokens · no API key. Tap to unlock from {cur}{monthly}/mo.
               </p>
             </div>
           </div>
@@ -248,7 +248,7 @@ function PurchaseModal({
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">Unlock MoreTech AI</h2>
-            <p className="text-[12px] text-slate-400">Our managed Qwen model · unlimited tokens</p>
+            <p className="text-[12px] text-slate-400">Our managed AI model · unlimited tokens</p>
           </div>
         </div>
 
