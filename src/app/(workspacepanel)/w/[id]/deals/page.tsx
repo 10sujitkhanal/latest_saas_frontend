@@ -164,24 +164,37 @@ function Inner({ wsId }: { wsId: string }) {
           </div>
 
           {/* When the offer is active — optional happy-hour window + weekday limits */}
-          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">When it&apos;s active <span className="font-normal normal-case text-slate-500">(optional — leave empty for all day, every day)</span></p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="From time"><TextInput type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} /></Field>
-              <Field label="To time"><TextInput type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} /></Field>
+          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">When it&apos;s active <span className="font-normal normal-case text-slate-500">· optional, defaults to all day every day</span></p>
+
+            {/* Time-of-day window — compact From–To pair */}
+            <div>
+              <label className="mb-1.5 block text-[11px] font-medium text-slate-400">Time of day</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1"><TextInput type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} /></div>
+                <span className="shrink-0 text-xs text-slate-500">to</span>
+                <div className="flex-1"><TextInput type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} /></div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {WEEKDAYS.map((d) => {
-                const on = form.active_days.includes(d.v);
-                return (
-                  <button key={d.v} type="button"
-                    onClick={() => setForm({ ...form, active_days: on ? form.active_days.filter((x) => x !== d.v) : [...form.active_days, d.v].sort((a, b) => a - b) })}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold border ${on ? 'bg-pink-500/15 border-pink-500/40 text-pink-200' : 'bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/5'}`}>
-                    {d.l}
-                  </button>
-                );
-              })}
-              {form.active_days.length > 0 && <button type="button" onClick={() => setForm({ ...form, active_days: [] })} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-300">Clear</button>}
+
+            {/* Weekday selector — even 7-across row */}
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-[11px] font-medium text-slate-400">Days of week</label>
+                {form.active_days.length > 0 && <button type="button" onClick={() => setForm({ ...form, active_days: [] })} className="text-[11px] text-slate-500 hover:text-slate-300">Reset to every day</button>}
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {WEEKDAYS.map((d) => {
+                  const on = form.active_days.includes(d.v);
+                  return (
+                    <button key={d.v} type="button"
+                      onClick={() => setForm({ ...form, active_days: on ? form.active_days.filter((x) => x !== d.v) : [...form.active_days, d.v].sort((a, b) => a - b) })}
+                      className={`rounded-lg border py-1.5 text-xs font-semibold transition ${on ? 'border-pink-500/40 bg-pink-500/15 text-pink-200' : 'border-white/10 bg-white/[0.02] text-slate-400 hover:bg-white/5'}`}>
+                      {d.l}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
