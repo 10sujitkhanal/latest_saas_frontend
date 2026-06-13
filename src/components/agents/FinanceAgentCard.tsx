@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Banknote, Wand2, Loader2, AlertTriangle, TrendingUp, ArrowRight, Lightbulb } from 'lucide-react';
+import { Banknote, Wand2, Loader2, AlertTriangle, TrendingUp, ArrowRight, Lightbulb, Mail, Check, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { FinanceAgent, type FinanceKpis } from '@/services/agents.service';
+import { FinanceAgent, type FinanceKpis, type OverdueInvoice } from '@/services/agents.service';
+import { AccountingService } from '@/services/accounting.service';
 
 /**
  * Finance Agent work surface — reads the books and gives a money summary +
@@ -15,6 +16,32 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
   const [loading, setLoading] = useState(false);
   const [kpis, setKpis] = useState<FinanceKpis | null>(null);
   const [insights, setInsights] = useState('');
+  const [chasing, setChasing] = useState(false);
+  const [overdue, setOverdue] = useState<OverdueInvoice[] | null>(null);
+  const [remindingId, setRemindingId] = useState<number | null>(null);
+  const [reminded, setReminded] = useState<Set<number>>(new Set());
+
+  const chase = async () => {
+    if (chasing) return;
+    setChasing(true);
+    try {
+      const r = await FinanceAgent.overdue(workspaceId);
+      if (r.success) setOverdue(r.data?.invoices || []);
+      else toast.error(r.message || 'Could not load overdue invoices.');
+    } catch { toast.error('Could not load overdue invoices.'); }
+    finally { setChasing(false); }
+  };
+
+  const remind = async (inv: OverdueInvoice) => {
+    if (remindingId || !inv.email) return;
+    setRemindingId(inv.id);
+    try {
+      const r = await AccountingService.remindInvoice(workspaceId, inv.id);
+      if (r.success) { setReminded((s) => new Set(s).add(inv.id)); toast.success(`Reminder emailed for ${inv.invoice_no}.`); }
+      else toast.error(r.message || 'Could not send the reminder.');
+    } catch (e) { toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not send the reminder.'); }
+    finally { setRemindingId(null); }
+  };
 
   const money = (v: string, cur: string) => {
     const n = parseFloat(v) || 0;
@@ -44,14 +71,50 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
         what&apos;s overdue, and the next action. <strong>Read-only</strong> — it never changes your books.
       </p>
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" onClick={analyse} disabled={loading}
           className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-600 disabled:opacity-50">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           {loading ? 'Reading the books…' : 'Analyse my finances'}
         </button>
+        <button type="button" onClick={chase} disabled={chasing}
+          className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+          {chasing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Chase overdue
+        </button>
         <Link href={`/w/${workspaceId}/accounting/invoices`} className="text-sm font-semibold text-slate-500 hover:text-amber-700">Open Finance</Link>
       </div>
+
+      {/* Overdue list — chase each via the existing reminder (dunning) */}
+      {overdue && (
+        overdue.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center text-sm text-emerald-600">Nothing overdue — you&apos;re all caught up. 🎉</p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {overdue.map((inv) => {
+              const done = reminded.has(inv.id);
+              return (
+                <li key={inv.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <span className="truncate">{inv.customer}</span>
+                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">{inv.days_overdue}d overdue</span>
+                    </div>
+                    <div className="text-xs text-slate-400">{inv.invoice_no} · {inv.currency} {(parseFloat(inv.amount_due) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} due{inv.email ? '' : ' · no email on file'}</div>
+                  </div>
+                  {done ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Reminded</span>
+                  ) : (
+                    <button type="button" onClick={() => remind(inv)} disabled={remindingId === inv.id || !inv.email} title={inv.email ? '' : 'This customer has no email'}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
+                      {remindingId === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Send reminder
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )
+      )}
 
       {kpis && (
         <div className="mt-4 space-y-3">

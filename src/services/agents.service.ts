@@ -126,11 +126,21 @@ export interface FinanceKpis {
   top_overdue: { customer: string; amount: string }[];
 }
 
+export interface OverdueInvoice {
+  id: number; invoice_no: string; customer: string; email: string;
+  amount_due: string; currency: string; days_overdue: number;
+}
+
 export const FinanceAgent = {
   /** Read the books → receivables KPIs + an AI advisor note (read-only). */
   summary: (workspaceId: Id) =>
     apiClient
       .post<ApiEnvelope<{ kpis: FinanceKpis; insights: string }>>(`${base(workspaceId)}/finance/summary/`, {})
+      .then((r) => r.data),
+  /** Overdue invoices to chase (send reminders via AccountingService.remindInvoice). */
+  overdue: (workspaceId: Id) =>
+    apiClient
+      .get<ApiEnvelope<{ invoices: OverdueInvoice[] }>>(`${base(workspaceId)}/finance/overdue/`)
       .then((r) => r.data),
 };
 
