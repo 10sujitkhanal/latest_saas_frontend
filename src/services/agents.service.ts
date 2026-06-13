@@ -162,6 +162,20 @@ export const LoyaltyAgent = {
       .then((r) => r.data),
 };
 
+export interface BookingsSummaryData {
+  kpis: { today: number; pending: number; this_week: number; upcoming: number };
+  upcoming: { customer: string; service: string; date: string; time: string; status: string }[];
+  insights: string;
+}
+
+export const BookingsAgent = {
+  /** Upcoming bookings (today/pending/week) + AI prep note (read-only). */
+  summary: (workspaceId: Id) =>
+    apiClient
+      .post<ApiEnvelope<BookingsSummaryData>>(`${base(workspaceId)}/bookings/summary/`, {})
+      .then((r) => r.data),
+};
+
 export const MarketingAgent = {
   /** Draft a ready-to-publish marketing post for a goal/occasion (draft only). */
   draft: (workspaceId: Id, goal: string) =>
