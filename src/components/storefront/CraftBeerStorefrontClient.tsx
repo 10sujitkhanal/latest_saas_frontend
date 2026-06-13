@@ -11,6 +11,7 @@ import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } fr
 import { createPublicOrder, createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
 import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
+import LoyaltyRewardsSection from "@/components/storefront/LoyaltyRewardsSection";
 import { formatCurrencyMarket, buildSwishLink, isPriceInclusive, getVatLabel } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -1052,6 +1053,7 @@ export function CraftBeerStorefrontClient({ storefront, items, offers, availabil
         <div className="mx-auto max-w-6xl px-4 pt-8">
           <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
           {storefront.sellsGiftCards && <GiftCardBuySection slug={storefront.slug} currency={storefront.currency ?? ""} denominations={storefront.giftCardDenominations ?? []} message={storefront.giftCardMessage} />}
+          {(storefront.rewards?.length ?? 0) > 0 && <LoyaltyRewardsSection slug={storefront.slug} currency={storefront.currency ?? ""} earnRate={storefront.loyaltyEarnRate} rewards={storefront.rewards ?? []} />}
         </div>
       )}
 

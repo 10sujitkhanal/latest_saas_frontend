@@ -10,6 +10,7 @@ import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } fr
 import { createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
 import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
+import LoyaltyRewardsSection from "@/components/storefront/LoyaltyRewardsSection";
 import { formatCurrencyMarket } from "@/lib/utils/currency";
 import { getIndustryCapabilities } from "@/lib/industry/config";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
@@ -329,6 +330,7 @@ export function TrekkingStorefrontClient({ storefront, items, offers, joinIntent
           <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
         )}
         {storefront.sellsGiftCards && <GiftCardBuySection slug={storefront.slug} currency={storefront.currency ?? ""} denominations={storefront.giftCardDenominations ?? []} message={storefront.giftCardMessage} />}
+          {(storefront.rewards?.length ?? 0) > 0 && <LoyaltyRewardsSection slug={storefront.slug} currency={storefront.currency ?? ""} earnRate={storefront.loyaltyEarnRate} rewards={storefront.rewards ?? []} />}
 
         {/* Packages */}
         <section>

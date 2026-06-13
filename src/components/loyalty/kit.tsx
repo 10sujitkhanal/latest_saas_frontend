@@ -11,6 +11,7 @@ const TABS: Array<{ label: string; seg: string }> = [
   { label: 'Memberships', seg: 'memberships' },
   { label: 'Plans', seg: 'plans' },
   { label: 'Points', seg: 'accounts' },
+  { label: 'Rewards', seg: 'rewards' },
 ];
 
 export function LoyaltyTabs({ wsId }: { wsId: string }) {

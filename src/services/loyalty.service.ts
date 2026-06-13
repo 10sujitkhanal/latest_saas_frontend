@@ -19,6 +19,11 @@ export interface MembershipRow {
 export interface LoyaltyAccountRow {
   id: number; customer: number; customer_name?: string | null; points: number; lifetime_points: number; tier: string;
 }
+export type RewardType = 'discount_percent' | 'discount_amount' | 'gift_card';
+export interface LoyaltyRewardRow {
+  id: number; name: string; description?: string; points_cost: number;
+  reward_type: RewardType; value: string; is_active: boolean; is_public: boolean;
+}
 export interface MembershipInsights {
   currency: string;
   active_members: number;
@@ -48,6 +53,7 @@ function crud<T>(res: string) {
 export const LoyaltyService = {
   giftCards: { ...crud<GiftCardRow>('gift-cards'), redeem: (ws: Id, id: Id, amount: number | string) => p<GiftCardRow>(`${base(ws)}/gift-cards/${id}/redeem/`, { amount }) },
   plans: crud<MembershipPlanRow>('plans'),
+  rewards: crud<LoyaltyRewardRow>('rewards'),
   memberships: {
     ...crud<MembershipRow>('memberships'),
     renew: (ws: Id, id: Id, collectPayment: boolean) =>

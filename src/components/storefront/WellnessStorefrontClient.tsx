@@ -18,6 +18,7 @@ import { WELLNESS_BLOG_POSTS } from "@/lib/storefront/wellnessBlogData";
 import { WellnessMarketplaceFooter } from "@/components/storefront/wellness/WellnessMarketplaceFooter";
 import MembershipJoinSection from "@/components/storefront/MembershipJoinSection";
 import GiftCardBuySection from "@/components/storefront/GiftCardBuySection";
+import LoyaltyRewardsSection from "@/components/storefront/LoyaltyRewardsSection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1100,6 +1101,7 @@ export function WellnessStorefrontClient({ storefront, items, offers, availabili
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
           <MembershipJoinSection slug={storefront.slug} memberships={storefront.memberships ?? []} joinIntent={joinIntent} />
           {storefront.sellsGiftCards && <GiftCardBuySection slug={storefront.slug} currency={storefront.currency ?? ""} denominations={storefront.giftCardDenominations ?? []} message={storefront.giftCardMessage} />}
+          {(storefront.rewards?.length ?? 0) > 0 && <LoyaltyRewardsSection slug={storefront.slug} currency={storefront.currency ?? ""} earnRate={storefront.loyaltyEarnRate} rewards={storefront.rewards ?? []} />}
         </div>
       )}
 

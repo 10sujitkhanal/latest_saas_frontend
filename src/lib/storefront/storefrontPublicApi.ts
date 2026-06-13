@@ -98,6 +98,18 @@ function _mapStorefront(b: any): PublicStorefront {
       ? sf.gift_card_denominations.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0)
       : [],
     giftCardMessage: sf.gift_card_message || "",
+    loyaltyEnabled: !!sf.award_loyalty,
+    loyaltyEarnRate: _num(sf.loyalty_points_per_unit),
+    rewards: Array.isArray(b.rewards)
+      ? b.rewards.map((r: any): PublicLoyaltyReward => ({
+          id: String(r.id),
+          name: r.name || "",
+          description: r.description || "",
+          pointsCost: _num(r.points_cost),
+          rewardType: r.reward_type || "discount_percent",
+          value: String(r.value ?? "0"),
+        }))
+      : [],
     memberships: Array.isArray(b.memberships)
       ? b.memberships.map((m: any): PublicMembershipPlan => ({
           id: String(m.id),
@@ -217,6 +229,20 @@ export interface PublicStorefront {
   sellsGiftCards?: boolean;
   giftCardDenominations?: number[];
   giftCardMessage?: string;
+  /** Loyalty: points earn rate + the rewards a customer can redeem points for. */
+  loyaltyEnabled?: boolean;
+  loyaltyEarnRate?: number;
+  rewards?: PublicLoyaltyReward[];
+}
+
+/** A loyalty reward as a shopper sees it (redeem N points for this). */
+export interface PublicLoyaltyReward {
+  id: string;
+  name: string;
+  description: string;
+  pointsCost: number;
+  rewardType: "discount_percent" | "discount_amount" | "gift_card";
+  value: string;
 }
 
 /** A membership plan as a shopper sees it on the storefront. */
@@ -1041,6 +1067,25 @@ export async function buyGiftCard(slug: string, payload: GiftCardBuyPayload): Pr
     code: String(data?.code ?? ""),
     amount: String(data?.amount ?? ""),
     currency: String(data?.currency ?? ""),
+  };
+}
+
+/** Look up a shopper's loyalty points by email (public). */
+export async function checkLoyaltyPoints(slug: string, email: string): Promise<{ found: boolean; points: number; tier: string }> {
+  const data = await _pubGet(`/public/storefront/${encodeURIComponent(slug)}/loyalty/points/?email=${encodeURIComponent(email)}`);
+  return { found: !!data?.found, points: Number(data?.points ?? 0), tier: String(data?.tier ?? "") };
+}
+
+export interface RedeemRewardResult { code: string; reward: string; rewardType: string; value: string; pointsRemaining: number; }
+/** Redeem points for a reward (public). Issues a coupon/gift-card code. */
+export async function redeemReward(slug: string, email: string, rewardId: string): Promise<RedeemRewardResult> {
+  const data = await _pubPost(`/public/storefront/${encodeURIComponent(slug)}/loyalty/redeem/`, { email, reward_id: rewardId });
+  return {
+    code: String(data?.code ?? ""),
+    reward: String(data?.reward ?? ""),
+    rewardType: String(data?.reward_type ?? ""),
+    value: String(data?.value ?? ""),
+    pointsRemaining: Number(data?.points_remaining ?? 0),
   };
 }
 
