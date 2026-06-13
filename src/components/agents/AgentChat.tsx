@@ -8,6 +8,11 @@ import { agentModule } from '@/lib/agents/modules';
 
 type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; actionDone?: boolean };
 
+/** Pull the backend's helpful message out of an axios error (e.g. the booking
+ *  conflict reason), falling back to a generic line. */
+const serverMessage = (e: unknown, fallback: string) =>
+  (e as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
+
 const EXAMPLES = ["Who's overdue?", 'Draft a post for the weekend', 'Analyse my finances', "How's my loyalty?"];
 
 /**
@@ -83,8 +88,8 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
       } else {
         setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: r.message || 'Could not create the booking.' }]);
       }
-    } catch {
-      setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: 'Could not create the booking right now.' }]);
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'bookings', text: serverMessage(e, 'Could not create the booking right now.') }]);
     }
     setActingIdx(null);
     onActed?.();
@@ -105,8 +110,8 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
       } else {
         setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: r.message || 'Could not set up recurring billing.' }]);
       }
-    } catch {
-      setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: 'Could not set up recurring billing right now.' }]);
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: serverMessage(e, 'Could not set up recurring billing right now.') }]);
     }
     setActingIdx(null);
     onActed?.();
