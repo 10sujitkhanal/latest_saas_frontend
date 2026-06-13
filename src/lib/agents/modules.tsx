@@ -30,7 +30,7 @@ export const AGENT_MODULES: Record<AgentModuleType, AgentModuleDef> = {
   loyalty: { type: 'loyalty', label: 'Loyalty', module: 'Loyalty & Members', Icon: Star, chip: 'bg-pink-50 text-pink-600', badge: 'bg-pink-50 text-pink-700', built: false, tasks: ['Design rewards', 'Win back lapsed', 'Membership perks', 'Points campaigns'] },
   bookings: { type: 'bookings', label: 'Bookings', module: 'Bookings', Icon: CalendarCheck, chip: 'bg-cyan-50 text-cyan-600', badge: 'bg-cyan-50 text-cyan-700', built: false, tasks: ['Confirm bookings', 'Send reminders', 'Fill open slots', 'Reschedule'] },
   hr: { type: 'hr', label: 'Staff', module: 'Staff & HR', Icon: UsersRound, chip: 'bg-indigo-50 text-indigo-600', badge: 'bg-indigo-50 text-indigo-700', built: false, tasks: ['Shift reminders', 'Onboarding', 'Leave requests', 'Reviews'] },
-  marketing: { type: 'marketing', label: 'Marketing', module: 'Marketing', Icon: Megaphone, chip: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', built: false, tasks: ['Draft posts', 'Email campaigns', 'Seasonal ideas', 'Audience segments'] },
+  marketing: { type: 'marketing', label: 'Marketing', module: 'Marketing', Icon: Megaphone, chip: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', built: true, tasks: ['Draft posts', 'Seasonal ideas', 'On-brand copy', 'Product highlights'] },
   projects: { type: 'projects', label: 'Projects', module: 'Projects', Icon: FolderKanban, chip: 'bg-slate-100 text-slate-600', badge: 'bg-slate-100 text-slate-700', built: false, tasks: ['Break down tasks', 'Status updates', 'Track deadlines', 'Summaries'] },
 };
 

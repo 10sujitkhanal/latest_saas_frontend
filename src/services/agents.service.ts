@@ -144,6 +144,14 @@ export const FinanceAgent = {
       .then((r) => r.data),
 };
 
+export const MarketingAgent = {
+  /** Draft a ready-to-publish marketing post for a goal/occasion (draft only). */
+  draft: (workspaceId: Id, goal: string) =>
+    apiClient
+      .post<ApiEnvelope<{ text: string }>>(`${base(workspaceId)}/marketing/draft/`, { goal })
+      .then((r) => r.data),
+};
+
 export const CrmAgent = {
   /** Find B2B businesses by category + country/city/area (OSM, preview only). */
   findLeads: (
