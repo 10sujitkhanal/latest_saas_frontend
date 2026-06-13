@@ -18,6 +18,7 @@ import { useIsAdmin } from '@/hooks/usePermission';
 import { OrganizationService } from '@/services/organization.service';
 import { CrmAgent } from '@/services/agents.service';
 import LeadAiAssist from '@/components/leads/LeadAiAssist';
+import { TemplatePicker } from '@/components/leads/MessageTemplates';
 import { resolveApiV1Base } from '@/lib/apiBase';
 
 /**
@@ -1267,6 +1268,7 @@ function ConversationsTab({
         ) : (
           <Composer
             wsId={wsId}
+            leadId={leadId}
             channels={channels}
             pickedFamily={pickedFamily}
             pickedChannelId={pickedChannelId}
@@ -1343,6 +1345,7 @@ function ConversationsTab({
             ) : (
               <Composer
                 wsId={wsId}
+                leadId={leadId}
                 channels={channels}
                 pickedFamily={pickedFamily}
                 pickedChannelId={pickedChannelId}
@@ -1464,6 +1467,7 @@ function ConversationsTab({
                 placeholder="Reply…"
                 className="flex-1 rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-none"
               />
+              <TemplatePicker workspaceId={wsId} leadId={leadId} onPick={(f) => setReply(f.body)} />
               <button onClick={suggestReply} disabled={suggesting} title="Let AI draft a reply to the latest message"
                 className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-semibold disabled:opacity-40 inline-flex items-center gap-1.5 shrink-0">
                 <Sparkles className={`w-3.5 h-3.5 ${suggesting ? 'animate-pulse' : ''}`} />
@@ -1498,11 +1502,12 @@ function ConversationsTab({
 // so the same composer renders consistently from both the empty state
 // and the "+ New" view.
 function Composer({
-  wsId, channels, pickedFamily, pickedChannelId,
+  wsId, leadId, channels, pickedFamily, pickedChannelId,
   onPickFamily, onPickChannel,
   value, onChange, onSend, sending, placeholder,
 }: {
   wsId: string;
+  leadId?: number;
   channels: SendableChannel[];
   pickedFamily: Family | null;
   pickedChannelId: number | null;
@@ -1626,6 +1631,7 @@ function Composer({
           placeholder={placeholder}
           className="flex-1 rounded-xl bg-[#080e1c] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-none"
         />
+        <TemplatePicker workspaceId={wsId} leadId={leadId} channel={pickedFamily || undefined} onPick={(f) => onChange(f.body)} />
         <button
           onClick={onSend}
           disabled={sending || !value.trim() || !pickedChannelId}

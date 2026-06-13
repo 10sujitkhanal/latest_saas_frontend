@@ -1376,6 +1376,32 @@ export const OrganizationService = {
     const { data } = await apiClient.delete(`/organization/leads/custom-fields/${id}/`);
     return data;
   },
+  // ── Message templates (reusable email/SMS/WhatsApp with {{placeholders}}) ──
+  listMessageTemplates: async (opts?: { workspace?: number | string; channel?: string; active?: boolean }) => {
+    const params: Record<string, string> = {};
+    if (opts?.workspace) params.workspace = String(opts.workspace);
+    if (opts?.channel) params.channel = opts.channel;
+    if (opts?.active) params.active = '1';
+    const { data } = await apiClient.get('/organization/leads/templates/', { params });
+    return data;
+  },
+  createMessageTemplate: async (payload: Record<string, unknown>) => {
+    const { data } = await apiClient.post('/organization/leads/templates/', payload);
+    return data;
+  },
+  updateMessageTemplate: async (id: number, payload: Record<string, unknown>) => {
+    const { data } = await apiClient.patch(`/organization/leads/templates/${id}/`, payload);
+    return data;
+  },
+  deleteMessageTemplate: async (id: number) => {
+    const { data } = await apiClient.delete(`/organization/leads/templates/${id}/`);
+    return data;
+  },
+  /** Fill a template's {{placeholders}} for a lead → { subject, body }. */
+  renderMessageTemplate: async (id: number, leadId?: number) => {
+    const { data } = await apiClient.post(`/organization/leads/templates/${id}/render/`, { lead_id: leadId });
+    return data;
+  },
   /** Download the ready-to-fill sample import CSV (headers + example rows). */
   downloadImportTemplate: async () => {
     const response = await apiClient.get('/organization/leads/import/template/', { responseType: 'blob' });
