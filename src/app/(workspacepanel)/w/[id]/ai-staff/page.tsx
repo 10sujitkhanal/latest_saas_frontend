@@ -28,6 +28,12 @@ const EXAMPLE_GOALS = [
   'Welcome offer for first-time customers',
 ];
 
+const TEAM_META: Record<string, { to: string; chip: string; desc: string }> = {
+  crm: { to: 'agent-crm', chip: 'bg-sky-50 text-sky-600', desc: 'Finds, scores & messages leads' },
+  store: { to: 'agent-store', chip: 'bg-emerald-50 text-emerald-600', desc: 'Builds your catalogue' },
+  offers: { to: 'agent-offers', chip: 'bg-violet-50 text-violet-600', desc: 'Drafts your promotions' },
+};
+
 const STATUS_META: Record<AgentTask['status'], { label: string; cls: string; Icon: typeof Clock }> = {
   proposed: { label: 'Awaiting you', cls: 'bg-amber-50 text-amber-700', Icon: Clock },
   executed: { label: 'Created', cls: 'bg-emerald-50 text-emerald-700', Icon: CheckCircle2 },
@@ -55,7 +61,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
 
   const loadProfiles = useCallback(async () => {
     try {
-      const res = await AgentsService.listProfiles(workspaceId, 'crm');
+      const res = await AgentsService.listProfiles(workspaceId);
       if (res.success) setProfiles(res.data || []);
     } catch { /* non-fatal */ }
   }, [workspaceId]);
@@ -146,37 +152,26 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         </div>
       </div>
 
-      {/* Your AI team — every agent as a card (built-in + the ones you train) */}
+      {/* Your AI team — every agent (built-in defaults + the ones you create) as a
+          card. Clicking jumps to that agent's work surface. */}
       <div className="mt-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Your AI team</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {[
-            { key: 'crm', name: 'CRM Agent', desc: 'Finds, scores & messages leads', to: 'agent-crm', tone: 'sky' as const },
-            { key: 'store', name: 'Store Agent', desc: 'Builds your catalogue', to: 'agent-store', tone: 'emerald' as const },
-            { key: 'offers', name: 'Offers Agent', desc: 'Drafts your promotions', to: 'agent-offers', tone: 'violet' as const },
-          ].map((a) => (
-            <button key={a.key} type="button" onClick={() => goTo(a.to)}
-              className="flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-slate-300 hover:shadow">
-              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${a.tone === 'sky' ? 'bg-sky-50 text-sky-600' : a.tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}><Bot className="h-4 w-4" /></span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-slate-900">{a.name}</span>
-                <span className="block text-[11px] text-slate-500">{a.desc}</span>
-              </span>
-            </button>
-          ))}
-          {/* Agents you trained */}
-          {profiles.map((p) => (
-            <button key={p.id} type="button" onClick={() => goTo('agent-trainer')}
-              className="flex items-start gap-2.5 rounded-2xl border border-violet-200 bg-violet-50/40 p-3 text-left shadow-sm hover:border-violet-300 hover:shadow">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700"><Bot className="h-4 w-4" /></span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-slate-900">{p.name}</span>
-                <span className="block text-[11px]">
-                  {p.is_default ? <span className="font-semibold text-emerald-600">● In use</span> : <span className="text-slate-500">CRM specialist · train it</span>}
+          {[...profiles].sort((a, b) => (a.agent_type.localeCompare(b.agent_type)) || (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0)).map((p) => {
+            const meta = TEAM_META[p.agent_type] ?? TEAM_META.crm;
+            return (
+              <button key={p.id} type="button" onClick={() => goTo(meta.to)}
+                className="flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-slate-300 hover:shadow">
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${meta.chip}`}><Bot className="h-4 w-4" /></span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-slate-900">{p.name}</span>
+                  <span className="block truncate text-[11px] text-slate-500">
+                    {p.is_default ? meta.desc : <>Trained {p.agent_type.toUpperCase()} agent · <span className="text-slate-400">tap to use</span></>}
+                  </span>
                 </span>
-              </span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -35,7 +35,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
 
   const load = async (selectId?: number) => {
     try {
-      const r = await AgentsService.listProfiles(workspaceId, 'crm');
+      const r = await AgentsService.listProfiles(workspaceId);
       if (r.success) {
         const list = r.data || [];
         setProfiles(list);
@@ -77,7 +77,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
     if (busy) return;
     setBusy(true);
     try {
-      const r = await AgentsService.createProfile(workspaceId, { agent_type: 'crm', name: newName.trim() || 'New CRM agent', instructions: '' });
+      const r = await AgentsService.createProfile(workspaceId, { agent_type: newType, name: newName.trim() || `New ${newType.toUpperCase()} agent`, instructions: '' });
       if (r.success && r.data) { toast.success('Agent created.'); setCreating(false); setNewName(''); await load(r.data.id); }
       else toast.error(r.message || 'Could not create.');
     } catch { toast.error('Could not create.'); }
@@ -108,6 +108,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState<'crm' | 'store' | 'offers'>('crm');
   const [collapsed, setCollapsed] = useState(false);
   const dirty = active && (name !== active.name || instructions !== (active.instructions || ''));
 
@@ -131,12 +132,26 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
       </div>
 
       {!collapsed && creating && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus placeholder="Agent name (e.g. B2B Sales)"
-            onKeyDown={(e) => { if (e.key === 'Enter') createNew(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
-            className="min-w-0 flex-1 rounded-lg bg-slate-800 border border-white/10 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-emerald-500/40" />
-          <button type="button" onClick={createNew} disabled={busy} className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Create</button>
-          <button type="button" onClick={() => { setCreating(false); setNewName(''); }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10">Cancel</button>
+        <div className="mb-3 space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">What kind of agent?</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([['crm', 'CRM', 'Leads & outreach'], ['store', 'Store', 'Builds catalogue'], ['offers', 'Offers', 'Drafts promos']] as const).map(([v, l, d]) => (
+                <button key={v} type="button" onClick={() => setNewType(v)}
+                  className={`rounded-lg border px-2 py-1.5 text-left ${newType === v ? 'border-emerald-500/50 bg-emerald-500/15' : 'border-white/10 bg-white/[0.02] hover:bg-white/5'}`}>
+                  <span className={`block text-xs font-semibold ${newType === v ? 'text-emerald-100' : 'text-slate-200'}`}>{l}</span>
+                  <span className="block text-[9px] text-slate-500">{d}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus placeholder={`Name (e.g. ${newType === 'crm' ? 'B2B Sales' : newType === 'store' ? 'Imports' : 'Weekend deals'})`}
+              onKeyDown={(e) => { if (e.key === 'Enter') createNew(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
+              className="min-w-0 flex-1 rounded-lg bg-slate-800 border border-white/10 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-emerald-500/40" />
+            <button type="button" onClick={createNew} disabled={busy} className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Create agent</button>
+            <button type="button" onClick={() => { setCreating(false); setNewName(''); }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10">Cancel</button>
+          </div>
         </div>
       )}
 
@@ -155,7 +170,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
                     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${p.id === activeId ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-slate-400'}`}><Bot className="w-4 h-4" /></span>
                     <span className="min-w-0">
                       <span className={`block truncate text-xs font-semibold ${p.id === activeId ? 'text-emerald-100' : 'text-slate-200'}`}>{p.name}</span>
-                      <span className={`block truncate text-[10px] ${p.is_default ? 'text-emerald-300 font-semibold' : 'text-slate-500'}`}>{p.is_default ? '● In use' : p.pipeline_name ? p.pipeline_name : 'Not in use'}</span>
+                      <span className="block truncate text-[10px] text-slate-400">{p.agent_type.toUpperCase()} · {p.is_default ? <span className="font-semibold text-emerald-300">In use</span> : <span className="text-slate-500">Not in use</span>}</span>
                     </span>
                   </button>
                 ))}
@@ -193,8 +208,8 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
               </div>
               <p className="text-[11px] text-slate-500">
                 {active.is_default
-                  ? 'This is the agent your CRM agent uses right now when it drafts outreach and replies.'
-                  : 'Train it, then tap “Use this agent” to make the CRM agent work this way. '}
+                  ? `This ${active.agent_type.toUpperCase()} agent is the one in use right now — its training shapes how it works.`
+                  : `Train it, then tap “Use this agent” to make your ${active.agent_type.toUpperCase()} agent work this way. `}
                 {active.pipeline_name ? `Scoped to ${active.pipeline_name}.` : ''}
               </p>
             </>
