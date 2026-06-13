@@ -2,37 +2,20 @@
 
 import { useState, useEffect, useCallback, use as reactUse } from 'react';
 import Link from 'next/link';
-import {
-  Sparkles, Tag, Wand2, Check, X, ArrowRight, Loader2, Bot, Clock, CheckCircle2, XCircle, AlertTriangle,
-} from 'lucide-react';
+import { Bot, Sparkles, Plus, Clock, CheckCircle2, XCircle, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { AgentsService, type OfferProposal, type AgentTask, type AgentProfile } from '@/services/agents.service';
+import { AgentsService, type AgentTask, type AgentProfile } from '@/services/agents.service';
 import StoreAgentCard from '@/components/agents/StoreAgentCard';
 import CrmAgentCard from '@/components/agents/CrmAgentCard';
-import AgentTrainer from '@/components/agents/AgentTrainer';
-
-/** Smooth-scroll to an agent section by id. */
-function goTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+import OffersAgentCard from '@/components/agents/OffersAgentCard';
+import AgentShell from '@/components/agents/AgentShell';
 
 /**
- * AI Staff — your AI team. Each agent drafts work; you approve it. Every
- * proposal + decision is recorded (the queue below) so agents behave like
- * real, auditable staff. Slice 1: the Offers Agent.
+ * AI Staff — your AI team. Every agent (built-in defaults + the ones you create)
+ * renders as ONE big card: name · type · In use/Use · Clone · Delete · Train,
+ * wrapping that agent's own work surface. No duplicate lists. Each proposal +
+ * decision is logged in the shared Activity queue below.
  */
-
-const EXAMPLE_GOALS = [
-  'A spring promo, 15% off our best sellers',
-  'Free delivery this weekend to boost orders',
-  'Welcome offer for first-time customers',
-];
-
-const TEAM_META: Record<string, { to: string; chip: string; desc: string }> = {
-  crm: { to: 'agent-crm', chip: 'bg-sky-50 text-sky-600', desc: 'Finds, scores & messages leads' },
-  store: { to: 'agent-store', chip: 'bg-emerald-50 text-emerald-600', desc: 'Builds your catalogue' },
-  offers: { to: 'agent-offers', chip: 'bg-violet-50 text-violet-600', desc: 'Drafts your promotions' },
-};
 
 const STATUS_META: Record<AgentTask['status'], { label: string; cls: string; Icon: typeof Clock }> = {
   proposed: { label: 'Awaiting you', cls: 'bg-amber-50 text-amber-700', Icon: Clock },
@@ -41,16 +24,22 @@ const STATUS_META: Record<AgentTask['status'], { label: string; cls: string; Ico
   failed: { label: 'Failed', cls: 'bg-rose-50 text-rose-700', Icon: AlertTriangle },
 };
 
+const NEW_TYPES = [
+  ['crm', 'CRM', 'Leads & outreach'],
+  ['store', 'Store', 'Builds catalogue'],
+  ['offers', 'Offers', 'Drafts promos'],
+] as const;
+
 export default function AiStaffPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: workspaceId } = reactUse(params);
 
-  const [goal, setGoal] = useState('');
-  const [drafting, setDrafting] = useState(false);
-  const [activeTask, setActiveTask] = useState<AgentTask | null>(null);
-  const [proposal, setProposal] = useState<OfferProposal | null>(null);
-  const [busyId, setBusyId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<AgentTask[]>([]);
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [newType, setNewType] = useState<'crm' | 'store' | 'offers'>('crm');
+  const [newName, setNewName] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -64,74 +53,35 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
       const res = await AgentsService.listProfiles(workspaceId);
       if (res.success) setProfiles(res.data || []);
     } catch { /* non-fatal */ }
+    finally { setLoadingProfiles(false); }
   }, [workspaceId]);
 
   useEffect(() => { loadTasks(); loadProfiles(); }, [loadTasks, loadProfiles]);
 
-  const review = (task: AgentTask) => {
-    setActiveTask(task);
-    setProposal({ ...task.proposal });
-  };
+  const refresh = useCallback(() => { loadProfiles(); loadTasks(); }, [loadProfiles, loadTasks]);
 
-  const draft = async (g?: string) => {
-    const theGoal = (g ?? goal).trim();
-    if (!theGoal || drafting) return;
-    setGoal(theGoal);
-    setDrafting(true);
+  const createAgent = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const res = await AgentsService.draftOffer(workspaceId, theGoal);
-      if (res.success && res.data?.task) {
-        review(res.data.task);
-        setGoal('');
-        loadTasks();
-      } else {
-        toast.error(res.message || 'The agent could not draft an offer.');
-      }
-    } catch (e) {
-      toast.error(errMsg(e) || 'The agent could not draft an offer right now.');
-    } finally {
-      setDrafting(false);
-    }
+      const r = await AgentsService.createProfile(workspaceId, {
+        agent_type: newType, name: newName.trim() || `New ${newType.toUpperCase()} agent`, instructions: '',
+      });
+      if (r.success) { toast.success('Agent created.'); setCreating(false); setNewName(''); loadProfiles(); }
+      else toast.error(r.message || 'Could not create.');
+    } catch { toast.error('Could not create.'); }
+    finally { setBusy(false); }
   };
 
-  const patch = (k: keyof OfferProposal, v: OfferProposal[keyof OfferProposal]) =>
-    setProposal((p) => (p ? { ...p, [k]: v } : p));
-
-  const approve = async () => {
-    if (!activeTask || !proposal || busyId) return;
-    setBusyId(activeTask.id);
-    try {
-      const res = await AgentsService.approveTask(workspaceId, activeTask.id, proposal);
-      if (res.success) {
-        toast.success('Draft offer created — review and publish it on Deals.');
-        setActiveTask(null);
-        setProposal(null);
-        loadTasks();
-      } else {
-        toast.error(res.message || 'Could not create the offer.');
-      }
-    } catch (e) {
-      toast.error(errMsg(e) || 'Could not create the offer.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const reject = async (task: AgentTask) => {
-    if (busyId) return;
-    setBusyId(task.id);
-    try {
-      await AgentsService.rejectTask(workspaceId, task.id);
-      if (activeTask?.id === task.id) { setActiveTask(null); setProposal(null); }
-      loadTasks();
-    } catch (e) {
-      toast.error(errMsg(e) || 'Could not reject.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
+  // One card per agent, grouped by type, the in-use one first within each type.
+  const sorted = [...profiles].sort((a, b) =>
+    a.agent_type.localeCompare(b.agent_type) || (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
   const pendingCount = tasks.filter((t) => t.status === 'proposed').length;
+
+  const workFor = (p: AgentProfile) =>
+    p.agent_type === 'crm' ? <CrmAgentCard workspaceId={workspaceId} embed />
+      : p.agent_type === 'store' ? <StoreAgentCard workspaceId={workspaceId} embed />
+        : <OffersAgentCard workspaceId={workspaceId} embed onChanged={loadTasks} />;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -142,7 +92,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         </div>
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-900">AI Staff</h1>
-          <p className="text-sm text-slate-500">Your AI team drafts the work — you approve it. Every decision is logged.</p>
+          <p className="text-sm text-slate-500">Each agent does its own work — you approve it. Every decision is logged.</p>
         </div>
         <div className="ml-auto shrink-0 text-right">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
@@ -152,151 +102,61 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         </div>
       </div>
 
-      {/* Your AI team — every agent (built-in defaults + the ones you create) as a
-          card. Clicking jumps to that agent's work surface. */}
+      {/* New agent */}
       <div className="mt-5">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Your AI team</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {[...profiles].sort((a, b) => (a.agent_type.localeCompare(b.agent_type)) || (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0)).map((p) => {
-            const meta = TEAM_META[p.agent_type] ?? TEAM_META.crm;
-            return (
-              <button key={p.id} type="button" onClick={() => goTo(meta.to)}
-                className="flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-slate-300 hover:shadow">
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${meta.chip}`}><Bot className="h-4 w-4" /></span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-slate-900">{p.name}</span>
-                  <span className="block truncate text-[11px] text-slate-500">
-                    {p.is_default ? meta.desc : <>Trained {p.agent_type.toUpperCase()} agent · <span className="text-slate-400">tap to use</span></>}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Train your agents — freeform instructions each agent uses (Phase C) */}
-      <div id="agent-trainer" className="scroll-mt-20">
-        <AgentTrainer workspaceId={workspaceId} />
-      </div>
-
-      {/* CRM Agent — score leads + suggest the next move (advisor) */}
-      <div id="agent-crm" className="scroll-mt-20"><CrmAgentCard workspaceId={workspaceId} /></div>
-
-      {/* Store Agent — build the catalogue without typing */}
-      <div id="agent-store" className="scroll-mt-20"><StoreAgentCard workspaceId={workspaceId} /></div>
-
-      {/* Offers Agent */}
-      <div id="agent-offers" className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Tag className="h-5 w-5 text-violet-600" />
-          <h2 className="text-base font-semibold text-slate-900">Offers Agent</h2>
-          <span className="ml-auto rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
-            drafts → you approve
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-slate-500">
-          Describe a promotion in plain words. The agent drafts it from your products and brand voice;
-          you review and approve. Approved offers are created as <strong>drafts</strong> you publish on Deals.
-        </p>
-
-        {/* Goal input */}
-        <div className="mt-4">
-          <textarea
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            placeholder="e.g. A 20% spring offer on our protein snacks for two weeks"
-            rows={2}
-            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-300"
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {EXAMPLE_GOALS.map((g) => (
-              <button key={g} type="button" onClick={() => draft(g)} disabled={drafting}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-violet-300 hover:text-violet-700 disabled:opacity-50">
-                {g}
-              </button>
-            ))}
-            <button type="button" onClick={() => draft()} disabled={drafting || !goal.trim()}
-              className="ml-auto inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-violet-700 disabled:opacity-50">
-              {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              {drafting ? 'Drafting…' : 'Draft offer'}
-            </button>
-          </div>
-        </div>
-
-        {/* Active proposal (editable) */}
-        {proposal && activeTask && (
-          <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/40 p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-700">
-              <Sparkles className="h-3.5 w-3.5" /> Proposed offer — edit anything, then approve
+        {!creating ? (
+          <button type="button" onClick={() => { setCreating(true); setNewName(''); }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300">
+            <Plus className="h-4 w-4" /> New agent
+          </button>
+        ) : (
+          <div className="space-y-2 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">What kind of agent?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {NEW_TYPES.map(([v, l, d]) => (
+                <button key={v} type="button" onClick={() => setNewType(v)}
+                  className={`rounded-xl border p-2 text-left ${newType === v ? 'border-indigo-400 bg-white shadow-sm' : 'border-slate-200 bg-white/60 hover:bg-white'}`}>
+                  <span className={`block text-sm font-semibold ${newType === v ? 'text-indigo-700' : 'text-slate-700'}`}>{l}</span>
+                  <span className="block text-[10px] text-slate-500">{d}</span>
+                </button>
+              ))}
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Title" full>
-                <input className={inputCls} value={proposal.title} onChange={(e) => patch('title', e.target.value)} />
-              </Field>
-              <Field label="Code">
-                <input className={`${inputCls} font-mono uppercase`} value={proposal.code}
-                  onChange={(e) => patch('code', e.target.value.toUpperCase())} />
-              </Field>
-              <Field label="Type">
-                <select className={inputCls} value={proposal.type}
-                  onChange={(e) => patch('type', e.target.value as OfferProposal['type'])}>
-                  <option value="percent">% off</option>
-                  <option value="flat">Amount off</option>
-                  <option value="free_delivery">Free delivery</option>
-                </select>
-              </Field>
-              <Field label={proposal.type === 'percent' ? 'Percent (%)' : `Amount (${proposal.currency})`}>
-                <input type="number" min={0} className={inputCls} value={proposal.value}
-                  disabled={proposal.type === 'free_delivery'} onChange={(e) => patch('value', Number(e.target.value))} />
-              </Field>
-              <Field label={`Min order (${proposal.currency})`}>
-                <input type="number" min={0} className={inputCls} value={proposal.min_order_amount}
-                  onChange={(e) => patch('min_order_amount', Number(e.target.value))} />
-              </Field>
-              <Field label="Runs for (days)">
-                <input type="number" min={1} className={inputCls} value={proposal.duration_days}
-                  onChange={(e) => patch('duration_days', Number(e.target.value))} />
-              </Field>
-              <Field label="Customer description" full>
-                <input className={inputCls} value={proposal.description} onChange={(e) => patch('description', e.target.value)} />
-              </Field>
-              <Field label="Marketing copy (for your post)" full>
-                <textarea rows={2} className={`${inputCls} resize-none`} value={proposal.marketing_copy}
-                  onChange={(e) => patch('marketing_copy', e.target.value)} />
-              </Field>
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
+                placeholder={`Name (e.g. ${newType === 'crm' ? 'B2B Sales' : newType === 'store' ? 'Imports' : 'Weekend deals'})`}
+                onKeyDown={(e) => { if (e.key === 'Enter') createAgent(); if (e.key === 'Escape') setCreating(false); }}
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-300" />
+              <button type="button" onClick={createAgent} disabled={busy}
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">Create agent</button>
+              <button type="button" onClick={() => setCreating(false)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white">Cancel</button>
             </div>
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button type="button" onClick={() => reject(activeTask)} disabled={busyId === activeTask.id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-                <X className="h-4 w-4" /> Reject
-              </button>
-              <button type="button" onClick={approve} disabled={busyId === activeTask.id}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
-                {busyId === activeTask.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                {busyId === activeTask.id ? 'Creating…' : 'Approve & create draft'}
-              </button>
-            </div>
-            <p className="mt-1 text-right text-[11px] text-slate-400">Created paused — nothing goes live until you publish it.</p>
           </div>
         )}
       </div>
 
-      {/* Task queue / audit trail */}
-      <div className="mt-6">
+      {/* One big card per agent */}
+      {loadingProfiles ? (
+        <div className="mt-6 py-10 text-center text-sm text-slate-400"><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Loading your agents…</div>
+      ) : (
+        sorted.map((p) => (
+          <AgentShell key={p.id} workspaceId={workspaceId} profile={p} onChanged={refresh}>
+            {workFor(p)}
+          </AgentShell>
+        ))
+      )}
+
+      {/* Activity — the shared audit trail across all agents */}
+      <div className="mt-8">
         <div className="mb-2 flex items-center gap-2">
           <h3 className="text-sm font-semibold text-slate-700">Activity</h3>
           {pendingCount > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-              {pendingCount} awaiting you
-            </span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{pendingCount} awaiting you</span>
           )}
         </div>
         {tasks.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center text-sm text-slate-400">
-            No agent activity yet. Give the Offers Agent a goal above.
+            No agent activity yet. Give an agent a task above.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -307,17 +167,9 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
                   <m.Icon className={`h-4 w-4 ${m.cls.split(' ')[1]}`} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-slate-800">{t.title || t.goal || 'Offer'}</div>
-                    <div className="truncate text-xs text-slate-400">
-                      {t.goal}{t.result?.code ? ` · ${t.result.code}` : ''}
-                    </div>
+                    <div className="truncate text-xs text-slate-400">{t.goal}{t.result?.code ? ` · ${t.result.code}` : ''}</div>
                   </div>
                   <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${m.cls}`}>{m.label}</span>
-                  {t.status === 'proposed' && (
-                    <button type="button" onClick={() => review(t)}
-                      className="rounded-full border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">
-                      Review
-                    </button>
-                  )}
                   {t.status === 'executed' && (
                     <Link href={`/w/${workspaceId}/deals`} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
                       Deals <ArrowRight className="h-3 w-3" />
@@ -332,7 +184,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
 
       {/* Coming-soon roster — the rest of the AI staff */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {['Booking agent', 'Data-entry agent', 'Marketing agent'].map((n) => (
+        {['Booking agent', 'Data-entry agent', 'Marketing agent', 'Finance agent'].map((n) => (
           <div key={n} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-center">
             <div className="text-sm font-semibold text-slate-500">{n}</div>
             <div className="text-[11px] text-slate-400">coming soon</div>
@@ -340,21 +192,5 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
         ))}
       </div>
     </div>
-  );
-}
-
-const inputCls =
-  'w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-violet-300';
-
-function errMsg(e: unknown): string | undefined {
-  return (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-}
-
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
-  return (
-    <label className={`block ${full ? 'col-span-2' : ''}`}>
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
-      {children}
-    </label>
   );
 }

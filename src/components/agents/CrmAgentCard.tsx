@@ -44,7 +44,7 @@ type ReplyAnalysis = { intent: string; interest: string; sentiment: string; summ
 
 type Compose = { leadId: number; body: string; channels: OutreachChannel[]; channelId: number | null; channelKind: string };
 
-export default function CrmAgentCard({ workspaceId }: { workspaceId: string | number }) {
+export default function CrmAgentCard({ workspaceId, embed }: { workspaceId: string | number; embed?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<LeadAnalysis[] | null>(null);
   const [empty, setEmpty] = useState(false);
@@ -203,15 +203,17 @@ export default function CrmAgentCard({ workspaceId }: { workspaceId: string | nu
   };
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-2">
-        <Users className="h-5 w-5 text-emerald-600" />
-        <h2 className="text-base font-semibold text-slate-900">CRM Agent</h2>
-        <span className="ml-auto rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-          advisor + co-pilot
-        </span>
-      </div>
-      <p className="mt-1 text-sm text-slate-500">
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+      {!embed && (
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-emerald-600" />
+          <h2 className="text-base font-semibold text-slate-900">CRM Agent</h2>
+          <span className="ml-auto rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+            advisor + co-pilot
+          </span>
+        </div>
+      )}
+      <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Scores your newest leads and tells you the next move. For outreach it <strong>drafts</strong> the
         message — you approve, and it sends over your connected channel, then moves the lead to Contacted.
         It never messages anyone without your OK.

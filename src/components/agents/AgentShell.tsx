@@ -1,0 +1,109 @@
+'use client';
+
+import { useState } from 'react';
+import { Users, Package, Tag, Check, Copy, Trash2, GraduationCap, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
+import { AgentsService, type AgentProfile } from '@/services/agents.service';
+
+const TYPE = {
+  crm: { label: 'CRM', Icon: Users, chip: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50 text-emerald-700' },
+  store: { label: 'Store', Icon: Package, chip: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700' },
+  offers: { label: 'Offers', Icon: Tag, chip: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700' },
+} as const;
+
+const PLACEHOLDER = `Teach this agent how to work, e.g.
+• Tone: warm and casual, never pushy.
+• Always offer the starter bundle to new leads.
+• Never discount more than 15% without approval.`;
+
+/**
+ * One big card per agent: a consistent header (name · type · In use / Use ·
+ * Clone · Delete · Train) wrapping that agent's work surface (passed as children).
+ * Replaces the old "roster + trainer + stacked work cards" duplication — every
+ * agent now looks and behaves like the Store/Offers cards.
+ */
+export default function AgentShell({ workspaceId, profile, onChanged, children }: {
+  workspaceId: string | number;
+  profile: AgentProfile;
+  onChanged: () => void;
+  children: React.ReactNode;
+}) {
+  const meta = TYPE[profile.agent_type] ?? TYPE.crm;
+  const [training, setTraining] = useState(false);
+  const [instructions, setInstructions] = useState(profile.instructions || '');
+  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const dirty = instructions !== (profile.instructions || '');
+
+  const saveTraining = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const r = await AgentsService.updateProfile(workspaceId, profile.id, { instructions });
+      if (r.success) { toast.success('Agent trained.'); onChanged(); } else toast.error(r.message || 'Could not save.');
+    } catch { toast.error('Could not save.'); } finally { setSaving(false); }
+  };
+  const useThis = async () => {
+    if (busy || profile.is_default) return;
+    setBusy(true);
+    try {
+      const r = await AgentsService.updateProfile(workspaceId, profile.id, { is_default: true });
+      if (r.success) { toast.success(`"${profile.name}" is now in use.`); onChanged(); } else toast.error(r.message || 'Could not switch.');
+    } catch { toast.error('Could not switch.'); } finally { setBusy(false); }
+  };
+  const clone = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await AgentsService.cloneProfile(workspaceId, profile.id, { name: `${profile.name} (copy)` });
+      if (r.success) { toast.success('Agent cloned.'); onChanged(); } else toast.error(r.message || 'Could not clone.');
+    } catch { toast.error('Could not clone.'); } finally { setBusy(false); }
+  };
+  const remove = async () => {
+    if (busy || profile.is_default) return;
+    if (!confirm(`Delete agent "${profile.name}"?`)) return;
+    setBusy(true);
+    try {
+      const r = await AgentsService.deleteProfile(workspaceId, profile.id);
+      if (r.success) { toast.success('Agent deleted.'); onChanged(); } else toast.error(r.message || 'Could not delete.');
+    } catch { toast.error('Could not delete.'); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${meta.chip}`}><meta.Icon className="h-5 w-5" /></span>
+        <h2 className="text-base font-semibold text-slate-900">{profile.name}</h2>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${meta.badge}`}>{meta.label}</span>
+        {profile.is_default
+          ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"><Check className="h-3 w-3" /> In use</span>
+          : <button type="button" onClick={useThis} disabled={busy} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Use this agent</button>}
+        <div className="ml-auto flex items-center gap-1">
+          <button type="button" onClick={() => setTraining((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+            <GraduationCap className="h-3.5 w-3.5" /> Train {training ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+          <button type="button" onClick={clone} disabled={busy} title="Clone" className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-50"><Copy className="h-3.5 w-3.5" /></button>
+          {!profile.is_default && <button type="button" onClick={remove} disabled={busy} title="Delete" className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
+        </div>
+      </div>
+
+      {/* Training */}
+      {training && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={5} placeholder={PLACEHOLDER}
+            className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-300" />
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">In plain words — the agent uses this when it works.</span>
+            <button type="button" onClick={saveTraining} disabled={saving || !dirty} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {dirty ? 'Save training' : 'Saved'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Work surface */}
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
