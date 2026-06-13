@@ -35,6 +35,8 @@ export interface ItemRow {
   selling_price: string;
   currency: string;
   barcode?: string;
+  image_url?: string;                       // pasted/agent-found URL fallback
+  image_display?: string;                   // resolved absolute photo URL (upload → url → '')
   is_active: boolean;
   storefront_listing_id?: number | null;   // first marketplace Listing for this item, or null
 }
@@ -88,9 +90,29 @@ function crud<TRow>(resource: string) {
   };
 }
 
+// Build multipart FormData for an item with a photo upload. Skips null/undefined
+// (so an empty category FK isn't sent as the string "null"); the file goes last.
+function itemFormData(payload: Payload, image: File): FormData {
+  const fd = new FormData();
+  Object.entries(payload).forEach(([k, v]) => {
+    if (v === undefined || v === null) return;
+    fd.append(k, String(v));
+  });
+  fd.append('image', image);
+  return fd;
+}
+
 export const InventoryService = {
   categories: crud<CategoryRow>('categories'),
-  items: crud<ItemRow>('items'),
+  items: {
+    ...crud<ItemRow>('items'),
+    // When a new photo file is picked we must send multipart, not JSON. axios sets
+    // the multipart boundary itself — do NOT set Content-Type manually.
+    createWithImage: (workspaceId: Id, payload: Payload, image: File) =>
+      apiClient.post<ApiEnvelope<ItemRow>>(`${base(workspaceId)}/items/`, itemFormData(payload, image)).then((r) => r.data),
+    updateWithImage: (workspaceId: Id, id: Id, payload: Payload, image: File) =>
+      apiClient.patch<ApiEnvelope<ItemRow>>(`${base(workspaceId)}/items/${id}/`, itemFormData(payload, image)).then((r) => r.data),
+  },
   listMovements: (workspaceId: Id, params?: Params) => httpGet<MovementRow[]>(`${base(workspaceId)}/movements/`, params),
   recordMovement: (workspaceId: Id, payload: Payload) => httpPost<MovementRow>(`${base(workspaceId)}/movements/`, payload),
 };

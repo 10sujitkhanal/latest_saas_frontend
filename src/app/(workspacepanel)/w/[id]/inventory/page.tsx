@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, use as reactUse } from 'react';
 import Link from 'next/link';
+import { ImageIcon, Upload } from 'lucide-react';
 import { businessCurrency } from '@/lib/currency';
 import { MarketplaceService } from '@/services/marketplace.service';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
@@ -35,6 +36,8 @@ function Inner({ wsId }: { wsId: string }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ItemRow | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [sfBusy, setSfBusy] = useState<number | null>(null);
@@ -51,11 +54,21 @@ function Inner({ wsId }: { wsId: string }) {
     finally { setSfBusy(null); }
   };
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(''); setFormError(null); setOpen(true); };
   const openEdit = (i: ItemRow) => {
     setEditing(i);
     setForm({ sku: i.sku, name: i.name, category: i.category ? String(i.category) : '', unit: i.unit, cost_price: num(i.cost_price), selling_price: num(i.selling_price), reorder_point: num(i.reorder_point), reorder_qty: num(i.reorder_qty), currency: i.currency, barcode: i.barcode || '', opening_stock: '0' });
+    setImageFile(null); setImagePreview(i.image_display || '');
     setFormError(null); setOpen(true);
+  };
+
+  const pickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setFormError('Image must be 5 MB or smaller.'); return; }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setFormError(null);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -64,8 +77,8 @@ function Inner({ wsId }: { wsId: string }) {
       const { opening_stock, ...rest } = form;
       const payload = { ...rest, category: form.category ? Number(form.category) : null };
       const res = editing
-        ? await InventoryService.items.update(wsId, editing.id, payload)
-        : await InventoryService.items.create(wsId, payload);
+        ? (imageFile ? await InventoryService.items.updateWithImage(wsId, editing.id, payload, imageFile) : await InventoryService.items.update(wsId, editing.id, payload))
+        : (imageFile ? await InventoryService.items.createWithImage(wsId, payload, imageFile) : await InventoryService.items.create(wsId, payload));
       if (!res.success) { setFormError(res.message || 'Could not save item.'); return; }
       // New item with opening stock → record it as a stock-in movement (the
       // audited way; qty_on_hand is read-only and never edited directly).
@@ -89,7 +102,14 @@ function Inner({ wsId }: { wsId: string }) {
             {rows.map((i) => (
               <tr key={i.id} className="text-slate-300">
                 <td className="px-3 py-2 font-mono text-white">{i.sku}</td>
-                <td className="px-3 py-2 text-white">{i.name}</td>
+                <td className="px-3 py-2 text-white">
+                  <div className="flex items-center gap-2">
+                    {i.image_display
+                      ? <img src={i.image_display} alt="" className="h-7 w-7 shrink-0 rounded object-cover border border-white/10" />
+                      : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-white/10 bg-black/20"><ImageIcon className="h-3.5 w-3.5 text-slate-600" /></span>}
+                    {i.name}
+                  </div>
+                </td>
                 <td className="px-3 py-2">{i.category_name || '—'}</td>
                 <td className="px-3 py-2 text-right">{num(i.qty_on_hand)} {i.unit}</td>
                 <td className="px-3 py-2 text-right">{money(i.cost_price, i.currency)}</td>
@@ -122,6 +142,23 @@ function Inner({ wsId }: { wsId: string }) {
             <Field label="Currency"><TextInput value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></Field>
             <Field label="Barcode"><TextInput value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} /></Field>
           </div>
+
+          {/* Product photo — shows on the storefront; the barcode/AI agent can fill this too */}
+          <Field label="Photo">
+            <div className="flex items-center gap-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/20">
+                {imagePreview ? <img src={imagePreview} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-slate-600" />}
+              </div>
+              <div className="flex flex-col items-start gap-1">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">
+                  <Upload className="h-3.5 w-3.5" /> {imagePreview ? 'Change photo' : 'Upload photo'}
+                  <input type="file" accept="image/*" onChange={pickImage} className="hidden" />
+                </label>
+                {imageFile && <button type="button" onClick={() => { setImageFile(null); setImagePreview(editing?.image_display || ''); }} className="text-[11px] text-slate-500 hover:text-rose-300">Cancel new photo</button>}
+                <span className="text-[11px] text-slate-500">JPG/PNG/WEBP, up to 5 MB.</span>
+              </div>
+            </div>
+          </Field>
           {!editing && <p className="text-xs text-slate-500">Set the starting quantity in “Opening stock”. After that, quantity changes only via the Stock Movements tab.</p>}
           {editing && <p className="text-xs text-slate-500">Quantity on hand is changed on the Stock Movements tab, not here.</p>}
           {formError && <p className="text-xs text-red-300">{formError}</p>}
