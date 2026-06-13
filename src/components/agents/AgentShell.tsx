@@ -54,7 +54,18 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
   // CRM agents can be scoped to a pipeline (the leads they work).
   useEffect(() => {
     if (profile.agent_type !== 'crm') return;
-    OrganizationService.listPipelines().then((r) => { if (r?.success) setPipelines((r.data as PipelineLite[]) || []); }).catch(() => {});
+    OrganizationService.listPipelines().then((r) => {
+      if (!r?.success) return;
+      // The tenant can have same-named pipelines (seeded per industry) — show each
+      // name once so the picker is clean.
+      const seen = new Set<string>();
+      const uniq = ((r.data as PipelineLite[]) || []).filter((p) => {
+        const k = (p.name || '').trim().toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+      setPipelines(uniq);
+    }).catch(() => {});
   }, [profile.agent_type]);
 
   const setPipeline = async (id: number | null) => {
