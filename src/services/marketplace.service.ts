@@ -71,6 +71,23 @@ export interface IndustryCapabilities {
   accounting_modules: string[];
 }
 
+export interface ReadinessCheck {
+  key: string;
+  label: string;
+  ok: boolean;
+  severity: 'required' | 'recommended';
+  hint: string;
+  fix_route: 'marketplace' | 'inventory' | 'settings' | 'storefront' | 'memberships' | string;
+}
+export interface StorefrontReadiness {
+  ready: boolean;
+  is_open: boolean;
+  done: number;
+  total: number;
+  required_total: number;
+  checks: ReadinessCheck[];
+}
+
 export interface StorefrontSettingsRow {
   id: number;
   workspace: number;
@@ -173,6 +190,7 @@ export const MarketplaceService = {
   updateStorefront: (workspaceId: Id, payload: Payload) => httpPatch<StorefrontSettingsRow>(`${base(workspaceId)}/storefront/`, payload),
   storefrontQr: (workspaceId: Id, url: string) => httpGet<{ qr_data_url: string; url: string }>(`${base(workspaceId)}/storefront/qr/`, { url }),
   storefrontPreviewToken: (workspaceId: Id) => httpGet<{ token: string }>(`${base(workspaceId)}/storefront/preview-token/`),
+  storefrontReadiness: (workspaceId: Id) => httpGet<StorefrontReadiness>(`${base(workspaceId)}/storefront/readiness/`),
   bookings: (workspaceId: Id, params?: Params) => httpGet<StorefrontBookingRow[]>(`${base(workspaceId)}/bookings/`, params),
   bookingStatus: (workspaceId: Id, id: Id, status: string) => httpPost<StorefrontBookingRow>(`${base(workspaceId)}/bookings/${id}/status/`, { status }),
   events: {

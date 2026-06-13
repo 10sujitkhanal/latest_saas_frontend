@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Globe, Package, Ticket, Gift, Star, CalendarDays, CalendarCheck, Users, ShoppingCart, Sparkles,
-  QrCode, Download, Copy, Check,
+  QrCode, Download, Copy, Check, CheckCircle2, AlertTriangle, Circle, ArrowRight, Eye,
 } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
-import { MarketplaceService, type StorefrontSettingsRow, type IndustryCapabilities } from '@/services/marketplace.service';
+import { MarketplaceService, type StorefrontSettingsRow, type IndustryCapabilities, type StorefrontReadiness } from '@/services/marketplace.service';
 import { PageHeader, Card, ErrorBox, Field, TextInput, apiError } from '@/components/accounting/kit';
 
 function MarketplaceTabs({ wsId }: { wsId: string }) {
@@ -49,6 +49,11 @@ function Inner({ wsId }: { wsId: string }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [readiness, setReadiness] = useState<StorefrontReadiness | null>(null);
+  const loadReadiness = useCallback(() => {
+    MarketplaceService.storefrontReadiness(wsId).then((r) => { if (r.success) setReadiness(r.data); }).catch(() => {});
+  }, [wsId]);
+
   const load = useCallback(() => {
     setLoading(true);
     MarketplaceService.getStorefront(wsId)
@@ -56,17 +61,38 @@ function Inner({ wsId }: { wsId: string }) {
       .catch((e) => setError(apiError(e, 'Could not load storefront settings.')))
       .finally(() => setLoading(false));
   }, [wsId]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadReadiness(); }, [load, loadReadiness]);
 
   const patch = async (changes: Partial<StorefrontSettingsRow>) => {
     if (!s) return;
     setSaving(true); setSaved(false);
     try {
       const r = await MarketplaceService.updateStorefront(wsId, changes);
-      if (r.success) { setS(r.data); setCaps(r.data.capabilities ?? caps); setSaved(true); setTimeout(() => setSaved(false), 1500); }
+      if (r.success) { setS(r.data); setCaps(r.data.capabilities ?? caps); setSaved(true); setTimeout(() => setSaved(false), 1500); loadReadiness(); }
       else alert(r.message || 'Could not save.');
     } catch (e) { alert(apiError(e, 'Could not save.')); }
     finally { setSaving(false); }
+  };
+
+  // Going live with unmet REQUIRED checks is the one thing we guard — recommended
+  // gaps are fine to publish over. Recommended-only or all-clear publishes freely.
+  const goLive = () => {
+    if (!s) return;
+    if (!s.is_open && readiness && !readiness.ready) {
+      const gaps = readiness.checks.filter((c) => c.severity === 'required' && !c.ok).map((c) => `• ${c.label}`).join('\n');
+      if (!confirm(`Your store isn't ready to go live yet:\n\n${gaps}\n\nGo live anyway?`)) return;
+    }
+    patch({ is_open: !s.is_open });
+  };
+
+  const fixHref = (route: string): string | null => {
+    switch (route) {
+      case 'marketplace': return `/w/${wsId}/marketplace`;
+      case 'inventory': return `/w/${wsId}/inventory`;
+      case 'memberships': return `/w/${wsId}/loyalty/plans`;
+      case 'settings': return '/settings';
+      default: return null; // 'storefront' = this page
+    }
   };
 
   const [previewing, setPreviewing] = useState(false);
@@ -151,7 +177,7 @@ function Inner({ wsId }: { wsId: string }) {
                 </div>
               </div>
               <button
-                onClick={() => patch({ is_open: !s.is_open })}
+                onClick={goLive}
                 disabled={saving}
                 className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50 ${s.is_open ? 'border border-white/15 text-slate-200 hover:bg-white/10' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
               >
@@ -159,6 +185,60 @@ function Inner({ wsId }: { wsId: string }) {
               </button>
             </div>
           </Card>
+
+          {/* Store readiness — what must be true before going live. Required gaps
+              warn on go-live; recommended gaps are quality nudges. */}
+          {readiness && !s.is_open && (
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-white">Before you go live</h3>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${readiness.ready ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                    {readiness.ready ? 'Ready to publish' : 'Needs attention'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500">{readiness.done} of {readiness.total} done</span>
+              </div>
+              <ul className="space-y-1.5">
+                {readiness.checks.map((c) => {
+                  const href = c.ok ? null : fixHref(c.fix_route);
+                  return (
+                    <li key={c.key} className="flex items-start justify-between gap-3 rounded-lg px-1 py-1.5">
+                      <span className="flex items-start gap-2.5 min-w-0">
+                        {c.ok
+                          ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                          : c.severity === 'required'
+                            ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                            : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />}
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-200">
+                            {c.label}
+                            {!c.ok && c.severity === 'required' && <span className="rounded bg-amber-500/15 px-1 text-[9px] font-semibold text-amber-300">required</span>}
+                          </span>
+                          {!c.ok && <span className="block text-[11px] text-slate-500">{c.hint}</span>}
+                        </span>
+                      </span>
+                      {href && (
+                        <Link href={href} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10">
+                          Fix <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-3 flex items-center gap-2 border-t border-white/5 pt-3">
+                {storeHref && (
+                  <button onClick={openPreview} disabled={previewing} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50">
+                    <Eye className="h-3.5 w-3.5" /> {previewing ? 'Opening…' : 'Preview as customer'}
+                  </button>
+                )}
+                <button onClick={goLive} disabled={saving} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${readiness.ready ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'border border-amber-500/40 text-amber-200 hover:bg-amber-500/10'}`}>
+                  {readiness.ready ? 'Go live now' : 'Go live anyway'}
+                </button>
+              </div>
+            </Card>
+          )}
 
           {/* Industry banner */}
           {caps && (
