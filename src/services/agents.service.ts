@@ -144,6 +144,24 @@ export const FinanceAgent = {
       .then((r) => r.data),
 };
 
+export interface LoyaltyKpis {
+  active_members: number; total_members: number; lapsed_members: number; expiring_soon: number; total_points: number;
+}
+export interface LoyaltySummaryData {
+  kpis: LoyaltyKpis;
+  expiring: { customer: string; plan: string; end_date: string; days_left: number | null }[];
+  top_members: { customer: string; points: number; tier: string }[];
+  insights: string;
+}
+
+export const LoyaltyAgent = {
+  /** Membership + points health + AI retention note (read-only). */
+  summary: (workspaceId: Id) =>
+    apiClient
+      .post<ApiEnvelope<LoyaltySummaryData>>(`${base(workspaceId)}/loyalty/summary/`, {})
+      .then((r) => r.data),
+};
+
 export const MarketingAgent = {
   /** Draft a ready-to-publish marketing post for a goal/occasion (draft only). */
   draft: (workspaceId: Id, goal: string) =>
