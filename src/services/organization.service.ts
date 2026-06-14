@@ -358,9 +358,11 @@ export const OrganizationService = {
     const { data } = await apiClient.delete(`/organization/leads/${id}/avatar/`);
     return data;
   },
-  importLeads: async (file: File) => {
+  importLeads: async (file: File, workspace?: number) => {
     const fd = new FormData();
     fd.append('file', file);
+    // Target workspace: rows without a workspace_id import INTO this workspace.
+    if (workspace) fd.append('workspace', String(workspace));
     const { data } = await apiClient.post('/organization/leads/import/', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

@@ -317,6 +317,8 @@ export default function LeadsPage() {
 
       {showImport && (
         <ImportModal
+          workspaces={workspaces}
+          defaultWorkspace={workspaceFilter}
           onClose={() => setShowImport(false)}
           onImported={async () => {
             setShowImport(false);
@@ -633,8 +635,9 @@ function LeadModal({
   );
 }
 
-function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => Promise<void> }) {
+function ImportModal({ workspaces, defaultWorkspace, onClose, onImported }: { workspaces: Workspace[]; defaultWorkspace: number | ''; onClose: () => void; onImported: () => Promise<void> }) {
   const [file, setFile] = useState<File | null>(null);
+  const [workspace, setWorkspace] = useState<number | ''>(defaultWorkspace || (workspaces.length === 1 ? workspaces[0].id : ''));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ imported: number; skipped: number; errors: Array<{row: number; error: string}> } | null>(null);
@@ -644,9 +647,10 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
     setError(null);
     setResult(null);
     if (!file) return setError('Choose a CSV file first.');
+    if (!workspace) return setError('Choose which workspace these leads belong to.');
     setBusy(true);
     try {
-      const res = await OrganizationService.importLeads(file);
+      const res = await OrganizationService.importLeads(file, Number(workspace));
       if (res?.success) {
         toast.success(res.message || 'Imported.');
         setResult(res.data);
@@ -675,9 +679,9 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
           <div>
             <h2 className="text-lg font-semibold text-white">Import leads from CSV</h2>
             <p className="text-sm text-slate-400 mt-1">
-              Required columns: <code className="text-emerald-300 font-mono">workspace_id</code>,{' '}
-              <code className="text-emerald-300 font-mono">first_name</code>.
-              Optional: last_name, email, phone, status, assigned_to_id.
+              Pick the workspace below — leads import into it. Required column:{' '}
+              <code className="text-emerald-300 font-mono">first_name</code>. Optional: last_name,
+              email, phone, status, assigned_to_id (or a <code className="text-emerald-300 font-mono">workspace_id</code> column to override per row).
             </p>
             <button
               type="button"
@@ -696,6 +700,17 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
         </div>
 
         <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Import into workspace</label>
+            <select
+              value={workspace}
+              onChange={(e) => setWorkspace(e.target.value ? Number(e.target.value) : '')}
+              className="w-full rounded-lg bg-slate-800 border border-white/10 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
+            >
+              <option value="">— choose a workspace —</option>
+              {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
           <label
             htmlFor="lead-csv"
             className="flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed border-white/10 hover:border-emerald-500/40 cursor-pointer transition-colors text-slate-400 hover:text-emerald-300"
