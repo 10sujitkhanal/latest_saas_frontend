@@ -280,8 +280,15 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         </span>
       </div>
 
-      {msgs.length > 0 && (
-        <div ref={listRef} className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+      {(msgs.length > 0 || !scoped) && (
+        <div ref={listRef} className={`mt-3 space-y-2 overflow-y-auto pr-1 ${scoped ? 'max-h-72' : 'min-h-[340px] max-h-[58vh]'}`}>
+          {msgs.length === 0 && !scoped && (
+            <div className="flex h-[320px] flex-col items-center justify-center text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-500/15"><Bot className="h-6 w-6 text-emerald-400" /></span>
+              <p className="mt-3 text-sm font-medium text-slate-300">Ask your AI staff anything</p>
+              <p className="mt-1 max-w-sm text-xs text-slate-500">Type a task in plain words — it routes to the right agent and gets it done. Try the examples below.</p>
+            </div>
+          )}
           {msgs.map((m, i) => m.role === 'user' ? (
             <div key={i} className="flex justify-end">
               <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-emerald-600 px-3 py-2 text-sm text-white">{m.text}</div>
@@ -422,9 +429,9 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         <textarea ref={inputRef} value={input} rows={1} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={placeholder || "e.g. who's overdue? · draft a post · analyse my finances    (Enter to send · Shift+Enter for a new line)"}
-          className="min-h-[40px] max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-emerald-400/50" />
+          className={`max-h-40 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-400/50 ${scoped ? 'min-h-[40px]' : 'min-h-[52px]'}`} />
         <button type="button" onClick={() => send()} disabled={busy || !input.trim()}
-          className="inline-flex h-[40px] shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 ${scoped ? 'h-[40px]' : 'h-[52px]'}`}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
         </button>
       </div>
