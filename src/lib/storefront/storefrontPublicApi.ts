@@ -92,6 +92,7 @@ function _mapStorefront(b: any): PublicStorefront {
     pickupEnabled: ot.includes("pickup"),
     orderingEnabled: !!b.capabilities?.show_cart,
     bookingEnabled: _bookingOpen(b),
+    onlinePaymentEnabled: !!sf.online_payment,
     galleryImages: [],
     sellsGiftCards: !!sf.sell_gift_cards,
     giftCardDenominations: Array.isArray(sf.gift_card_denominations)
@@ -216,6 +217,8 @@ export interface PublicStorefront {
   pickupEnabled: boolean;
   orderingEnabled: boolean;
   bookingEnabled: boolean;
+  /** Tenant can take card payment online (Stripe) — drives the "Pay online" option. */
+  onlinePaymentEnabled: boolean;
   seoTitle?: string | null;
   seoDescription?: string | null;
   galleryImages?: string[];
@@ -398,6 +401,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["menu", "offers", "booking", "about", "contact"],
     rating: 4.6, reviewCount: 218, isPublished: true,
     deliveryEnabled: true, pickupEnabled: true, orderingEnabled: true, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "lakeside-grand-hotel": {
     slug: "lakeside-grand-hotel", name: "Lakeside Grand Hotel", industry: "Hotel",
@@ -416,6 +420,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["rooms", "packages", "dining", "spa", "experiences", "contact"],
     rating: 4.8, reviewCount: 384, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "himalayan-trekking-nepal": {
     slug: "himalayan-trekking-nepal", name: "Himalayan Trekking Nepal", industry: "Trekking / Travel",
@@ -434,6 +439,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["packages", "day_trips", "guides", "availability", "reviews", "contact"],
     rating: 4.9, reviewCount: 521, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "glow-beauty-salon": {
     slug: "glow-beauty-salon", name: "Glow Beauty Salon", industry: "Salon / Spa",
@@ -452,6 +458,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["services", "packages", "team", "offers", "contact"],
     rating: 4.7, reviewCount: 163, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "mountain-fashion-pokhara": {
     slug: "mountain-fashion-pokhara", name: "Mountain Fashion Pokhara", industry: "Clothing",
@@ -470,6 +477,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["products", "new_arrivals", "offers", "about", "contact"],
     rating: 4.5, reviewCount: 142, isPublished: true,
     deliveryEnabled: true, pickupEnabled: true, orderingEnabled: true, bookingEnabled: false,
+    onlinePaymentEnabled: false,
   },
   "fresh-mart-pokhara": {
     slug: "fresh-mart-pokhara", name: "Fresh Mart Pokhara", industry: "Grocery",
@@ -488,6 +496,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["produce", "essentials", "daily_offers", "delivery_slots", "contact"],
     rating: 4.6, reviewCount: 203, isPublished: true,
     deliveryEnabled: true, pickupEnabled: true, orderingEnabled: true, bookingEnabled: false,
+    onlinePaymentEnabled: false,
   },
   "pokhara-events-hub": {
     slug: "pokhara-events-hub", name: "Pokhara Events Hub", industry: "Events",
@@ -506,6 +515,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["upcoming_events", "tickets", "past_events", "reviews", "contact"],
     rating: 4.4, reviewCount: 178, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: true, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "pokhara-local-services": {
     slug: "pokhara-local-services", name: "Pokhara Local Services", industry: "Local Services",
@@ -524,6 +534,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["services", "quote_request", "reviews", "service_area", "contact"],
     rating: 4.3, reviewCount: 89, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "secure-vision-pokhara": {
     slug: "secure-vision-pokhara", name: "Secure Vision Pokhara", industry: "CCTV & Security",
@@ -542,6 +553,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["packages", "amc", "monitoring", "audit", "quote_request", "contact"],
     rating: 4.9, reviewCount: 67, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "techpro-solutions-pokhara": {
     slug: "techpro-solutions-pokhara", name: "TechPro Solutions Pokhara", industry: "IT Services",
@@ -560,6 +572,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["services", "amc_plans", "remote_support", "networking", "quote_request"],
     rating: 4.7, reviewCount: 112, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "sparkle-clean-pokhara": {
     slug: "sparkle-clean-pokhara", name: "Sparkle Clean Pokhara", industry: "Cleaning",
@@ -578,6 +591,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["services", "recurring_plans", "team", "certificates", "contact"],
     rating: 4.8, reviewCount: 134, isPublished: true,
     deliveryEnabled: false, pickupEnabled: false, orderingEnabled: false, bookingEnabled: true,
+    onlinePaymentEnabled: false,
   },
   "pokhara-general-store": {
     slug: "pokhara-general-store", name: "Pokhara General Store", industry: "General Retail",
@@ -596,6 +610,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["products", "deals", "bundles", "delivery", "contact"],
     rating: 4.4, reviewCount: 161, isPublished: true,
     deliveryEnabled: true, pickupEnabled: true, orderingEnabled: true, bookingEnabled: false,
+    onlinePaymentEnabled: false,
   },
   "summit-wholesale-pokhara": {
     slug: "summit-wholesale-pokhara", name: "Summit Wholesale Pokhara", industry: "Supplier / Wholesale",
@@ -614,6 +629,7 @@ const MOCK_STOREFRONTS: Record<string, PublicStorefront> = {
     visibleSections: ["catalogue", "bulk_pricing", "moq_guide", "delivery_areas", "contact"],
     rating: 4.8, reviewCount: 94, isPublished: true,
     deliveryEnabled: true, pickupEnabled: true, orderingEnabled: true, bookingEnabled: false,
+    onlinePaymentEnabled: false,
   },
 };
 

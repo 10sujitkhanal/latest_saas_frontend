@@ -8,7 +8,8 @@ import {
   ArrowRight, Send, Camera, ChevronLeft, MessageCircle, Ticket, Globe, Search,
 } from "lucide-react";
 import type { PublicStorefront, PublicItem, PublicOffer, PublicAvailability } from "@/lib/storefront/storefrontPublicApi";
-import { createPublicOrder, createPublicBooking } from "@/lib/storefront/storefrontPublicApi";
+import { createPublicOrder, createPublicBooking, startOrderCheckout } from "@/lib/storefront/storefrontPublicApi";
+import { useOrderCheckoutReturn } from "@/components/storefront/useOrderCheckoutReturn";
 import { getIndustryStorefrontConfig } from "@/lib/moredealsx/industry-config";
 import { getIndustryCapabilities, type BookingType } from "@/lib/industry/config";
 import { BusinessMembershipPanel } from "@/components/moredealsx/BusinessMembershipPanel";
@@ -351,6 +352,16 @@ function CartPanel({ cart, items, storefront, availability, accentClass, softCla
   const [done, setDone] = useState(false);
   const [orderNum, setOrderNum] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Stripe return (?order_session=): confirm the paid order, then show "placed".
+  const orderReturn = useOrderCheckoutReturn(storefront.slug);
+  useEffect(() => {
+    if (orderReturn?.status === "done") {
+      setOrderNum(orderReturn.orderNumber ?? "");
+      setDone(true);
+      onClear();
+    }
+  }, [orderReturn, onClear]);
   const [showSwishBox, setShowSwishBox] = useState(false);
 
   // Read payment settings saved by admin
@@ -371,6 +382,34 @@ function CartPanel({ cart, items, storefront, availability, accentClass, softCla
 
   const handleOrder = async () => {
     setLoading(true);
+    // Online payment: redirect to Stripe-hosted checkout; the order is placed on
+    // the paid return (see useOrderCheckoutReturn above).
+    if (storefront.onlinePaymentEnabled) {
+      try {
+        const res = await startOrderCheckout(storefront.slug, {
+          items: cartEntries.map(({ item, qty }) => ({ listingId: item.id, quantity: qty })),
+          customerName: form.name,
+          customerPhone: form.phone,
+          couponCode: form.coupon || undefined,
+          returnUrl: window.location.origin + window.location.pathname,
+        });
+        if (res.checkoutUrl) {
+          window.location.href = res.checkoutUrl;
+          return;
+        }
+        // free / fully gift-covered → placed immediately
+        setOrderNum(res.orderNumber ?? "");
+        setDone(true);
+        onClear();
+      } catch (e) {
+        setOrderNum("");
+        alert(e instanceof Error ? e.message : "Could not start payment. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    // Record-only flow (pay on pickup/delivery) — unchanged.
     try {
       const res = await createPublicOrder(storefront.slug, {
         items: cartEntries.map(({ item, qty }) => ({ itemId: item.id, title: item.title, quantity: qty, unitPrice: item.discountPrice ?? item.price })),
@@ -396,11 +435,30 @@ function CartPanel({ cart, items, storefront, availability, accentClass, softCla
     }
   };
 
+  // Returning from Stripe: confirming the paid order, or it failed.
+  if (orderReturn?.status === "confirming") {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+        <div className="mx-auto h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-500 animate-spin" />
+        <p className="mt-3 font-bold text-slate-900">Confirming your payment…</p>
+      </div>
+    );
+  }
+  if (orderReturn?.status === "error") {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-white p-6 text-center">
+        <p className="font-bold text-slate-900">Payment couldn&apos;t be confirmed</p>
+        <p className="text-sm text-red-600 mt-1">{orderReturn.error}</p>
+        <p className="text-xs text-slate-400 mt-1">If you were charged, contact {storefront.name} with your email.</p>
+      </div>
+    );
+  }
+
   if (done) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
-        <p className="mt-3 font-bold text-slate-900">Order placed!</p>
+        <p className="mt-3 font-bold text-slate-900">{storefront.onlinePaymentEnabled ? "Payment received — order placed!" : "Order placed!"}</p>
         <p className="text-sm text-slate-500 mt-1">Reference: <span className="font-semibold">{orderNum}</span></p>
         <p className="text-xs text-slate-400 mt-1">{storefront.name} will contact you shortly.</p>
         <button onClick={() => setDone(false)} className={`mt-4 rounded-lg px-4 py-2 text-sm font-semibold text-white ${accentClass}`}>Order again</button>
@@ -476,7 +534,9 @@ function CartPanel({ cart, items, storefront, availability, accentClass, softCla
         disabled={!canOrder || loading}
         className={`w-full rounded-xl py-2.5 text-sm font-bold text-white ${accentClass} hover:opacity-90 disabled:opacity-40`}
       >
-        {loading ? "Placing order…" : `Place order · ${fmt(total)}`}
+        {loading
+          ? (storefront.onlinePaymentEnabled ? "Redirecting to payment…" : "Placing order…")
+          : `${storefront.onlinePaymentEnabled ? "Pay & place order" : "Place order"} · ${fmt(total)}`}
       </button>
 
       {swishEnabled && swishNumber && cartEntries.length > 0 && (
