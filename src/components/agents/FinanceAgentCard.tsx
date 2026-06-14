@@ -79,7 +79,7 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
   const bullets = insights.split('\n').map((l) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Reads your invoices and payments, then tells you where the money is — what&apos;s outstanding,
         what&apos;s overdue, and the next action. <strong>Read-only</strong> — it never changes your books.
@@ -87,27 +87,27 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" onClick={analyse} disabled={loading}
-          className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-600 disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-full bg-amber-500/150 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-600 disabled:opacity-50">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           {loading ? 'Reading the books…' : 'Analyse my finances'}
         </button>
         <button type="button" onClick={chase} disabled={chasing}
-          className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/15 disabled:opacity-50">
           {chasing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Chase overdue
         </button>
         <button type="button" onClick={loadSchedules} disabled={loadingSchedules}
-          className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/15 disabled:opacity-50">
           {loadingSchedules ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />} Recurring billing
         </button>
-        <Link href={`/w/${workspaceId}/accounting/invoices`} className="text-sm font-semibold text-slate-500 hover:text-amber-700">Open Finance</Link>
+        <Link href={`/w/${workspaceId}/accounting/invoices`} className="text-sm font-semibold text-slate-500 hover:text-amber-300">Open Finance</Link>
       </div>
 
       {/* Recurring revenue — BOTH streams: auto-renew memberships (post to the GL
           automatically) + invoice schedules (drafts you send, set up from chat). */}
       {schedules && (
         schedules.length === 0 && memberships.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center text-sm text-slate-500">
-            No recurring revenue yet. Tell the agent: <span className="font-semibold text-slate-700">&ldquo;bill jane@acme.com $50 a month&rdquo;</span>, or sell a membership plan.
+          <p className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-center text-sm text-slate-500">
+            No recurring revenue yet. Tell the agent: <span className="font-semibold text-slate-200">&ldquo;bill jane@acme.com $50 a month&rdquo;</span>, or sell a membership plan.
           </p>
         ) : (
           <div className="mt-4 space-y-3">
@@ -119,7 +119,7 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
                     <li key={`m${i}`} className="flex items-center gap-3 rounded-xl border border-pink-100 bg-pink-50/40 p-3">
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-pink-100 text-pink-600"><Repeat className="h-4 w-4" /></span>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-800">{m.plan} <span className="text-slate-400">· {m.members} member{m.members === 1 ? '' : 's'}</span></div>
+                        <div className="truncate text-sm font-semibold text-white">{m.plan} <span className="text-slate-400">· {m.members} member{m.members === 1 ? '' : 's'}</span></div>
                         <div className="text-xs text-slate-400">
                           {m.currency} {(parseFloat(m.price) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} every {m.frequency_label}
                           {m.next_run_date ? ` · next renewal ${m.next_run_date}` : ''}
@@ -136,12 +136,12 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recurring invoices · drafts you review &amp; send</p>
                 <ul className="mt-1.5 space-y-2">
                   {schedules.map((s) => (
-                    <li key={s.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${s.is_active ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}><Repeat className="h-4 w-4" /></span>
+                    <li key={s.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${s.is_active ? 'bg-amber-500/15 text-amber-600' : 'bg-white/[0.06] text-slate-400'}`}><Repeat className="h-4 w-4" /></span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
                           <span className="truncate">{s.who || s.description}</span>
-                          {!s.is_active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">paused</span>}
+                          {!s.is_active && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-500">paused</span>}
                         </div>
                         <div className="text-xs text-slate-400">
                           {s.currency} {(parseFloat(s.amount) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} every {s.frequency_label}
@@ -149,7 +149,7 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
                           {s.generated_count ? ` · ${s.generated_count} issued` : ''}
                         </div>
                       </div>
-                      <Link href={`/w/${workspaceId}/accounting/invoices`} className="shrink-0 text-xs font-semibold text-amber-700 hover:underline">View</Link>
+                      <Link href={`/w/${workspaceId}/accounting/invoices`} className="shrink-0 text-xs font-semibold text-amber-300 hover:underline">View</Link>
                     </li>
                   ))}
                 </ul>
@@ -162,25 +162,25 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
       {/* Overdue list — chase each via the existing reminder (dunning) */}
       {overdue && (
         overdue.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center text-sm text-emerald-600">Nothing overdue — you&apos;re all caught up. 🎉</p>
+          <p className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-center text-sm text-emerald-600">Nothing overdue — you&apos;re all caught up. 🎉</p>
         ) : (
           <ul className="mt-4 space-y-2">
             {overdue.map((inv) => {
               const done = reminded.has(inv.id);
               return (
-                <li key={inv.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                <li key={inv.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
                       <span className="truncate">{inv.customer}</span>
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">{inv.days_overdue}d overdue</span>
+                      <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-600">{inv.days_overdue}d overdue</span>
                     </div>
                     <div className="text-xs text-slate-400">{inv.invoice_no} · {inv.currency} {(parseFloat(inv.amount_due) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} due{inv.email ? '' : ' · no email on file'}</div>
                   </div>
                   {done ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Reminded</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Reminded</span>
                   ) : (
                     <button type="button" onClick={() => remind(inv)} disabled={remindingId === inv.id || !inv.email} title={inv.email ? '' : 'This customer has no email'}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/150 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
                       {remindingId === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Send reminder
                     </button>
                   )}
@@ -200,28 +200,28 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
           </div>
 
           {kpis.top_overdue.length > 0 && (
-            <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> Biggest overdue</p>
+            <div className="rounded-xl border border-rose-100 bg-rose-500/15/50 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-300"><AlertTriangle className="h-3.5 w-3.5" /> Biggest overdue</p>
               <ul className="mt-1.5 space-y-1">
                 {kpis.top_overdue.map((t, i) => (
-                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-700">
+                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-200">
                     <span className="truncate">{t.customer}</span>
                     <span className="font-semibold">{money(t.amount, kpis.currency)}</span>
                   </li>
                 ))}
               </ul>
-              <Link href={`/w/${workspaceId}/accounting/invoices`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-rose-700 hover:underline">
+              <Link href={`/w/${workspaceId}/accounting/invoices`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-rose-300 hover:underline">
                 Chase these <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
           )}
 
           {bullets.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
+            <div className="rounded-xl border border-amber-100 bg-amber-500/15/40 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-300"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
               <ul className="mt-1.5 space-y-1">
                 {bullets.map((b, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-700"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /> {b}</li>
+                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-200"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /> {b}</li>
                 ))}
               </ul>
             </div>
@@ -233,9 +233,9 @@ export default function FinanceAgentCard({ workspaceId, embed }: { workspaceId: 
 }
 
 function Kpi({ label, value, sub, tone = 'slate' }: { label: string; value: string; sub?: string; tone?: 'slate' | 'rose' | 'emerald' }) {
-  const cls = tone === 'rose' ? 'text-rose-700' : tone === 'emerald' ? 'text-emerald-700' : 'text-slate-900';
+  const cls = tone === 'rose' ? 'text-rose-300' : tone === 'emerald' ? 'text-emerald-300' : 'text-white';
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${cls}`}>{value}</p>
       {sub && <p className="text-[11px] text-slate-400">{sub}</p>}

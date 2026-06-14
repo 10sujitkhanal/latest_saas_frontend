@@ -127,7 +127,7 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
   };
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${meta.chip}`}><meta.Icon className="h-5 w-5" /></span>
@@ -135,56 +135,56 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
           <span className="flex items-center gap-1">
             <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setRenaming(false); setNameDraft(profile.name); } }}
-              className="w-40 rounded-lg border border-slate-300 px-2 py-1 text-base font-semibold text-slate-900 outline-none focus:border-emerald-400" />
+              className="w-40 rounded-lg border border-white/15 px-2 py-1 text-base font-semibold text-white outline-none focus:border-emerald-500/40" />
             <button type="button" onClick={saveName} disabled={busy} className="rounded-lg bg-emerald-600 p-1 text-white hover:bg-emerald-700"><Check className="h-3.5 w-3.5" /></button>
-            <button type="button" onClick={() => { setRenaming(false); setNameDraft(profile.name); }} className="rounded-lg border border-slate-200 p-1 text-slate-500"><X className="h-3.5 w-3.5" /></button>
+            <button type="button" onClick={() => { setRenaming(false); setNameDraft(profile.name); }} className="rounded-lg border border-white/10 p-1 text-slate-500"><X className="h-3.5 w-3.5" /></button>
           </span>
         ) : (
           <button type="button" onClick={() => { setNameDraft(profile.name); setRenaming(true); }} className="group inline-flex items-center gap-1.5">
-            <h2 className="text-base font-semibold text-slate-900">{profile.name}</h2>
+            <h2 className="text-base font-semibold text-white">{profile.name}</h2>
             <Pencil className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500" />
           </button>
         )}
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${meta.badge}`}>{meta.label}</span>
         {profile.is_default
-          ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"><Check className="h-3 w-3" /> In use</span>
+          ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300"><Check className="h-3 w-3" /> In use</span>
           : <button type="button" onClick={useThis} disabled={busy} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Use this agent</button>}
         <div className="ml-auto flex items-center gap-1">
           {meta.built && (
-            <button type="button" onClick={() => setChatting((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${chatting ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            <button type="button" onClick={() => setChatting((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${chatting ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
               <MessageSquare className="h-3.5 w-3.5" /> Chat {chatting ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
           )}
           {meta.built && (
-            <button type="button" onClick={toggleActivity} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${showActivity ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            <button type="button" onClick={toggleActivity} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${showActivity ? 'border-white/15 bg-white/[0.03] text-slate-200' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
               <Activity className="h-3.5 w-3.5" /> Activity {showActivity ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
           )}
-          <button type="button" onClick={() => setTraining((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+          <button type="button" onClick={() => setTraining((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-slate-300 hover:bg-white/[0.03]">
             <GraduationCap className="h-3.5 w-3.5" /> Train {training ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
-          <button type="button" onClick={clone} disabled={busy} title="Clone" className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-50"><Copy className="h-3.5 w-3.5" /></button>
-          {!profile.is_default && <button type="button" onClick={remove} disabled={busy} title="Delete" className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
+          <button type="button" onClick={clone} disabled={busy} title="Clone" className="rounded-lg border border-white/10 p-1.5 text-slate-500 hover:bg-white/[0.03] disabled:opacity-50"><Copy className="h-3.5 w-3.5" /></button>
+          {!profile.is_default && <button type="button" onClick={remove} disabled={busy} title="Delete" className="rounded-lg border border-white/10 p-1.5 text-slate-400 hover:bg-rose-500/15 hover:text-rose-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
         </div>
       </div>
 
       {/* Module ownership + capabilities — what this agent is responsible for */}
       <div className="mt-2.5">
-        <p className="text-[11px] text-slate-500"><span className="font-semibold text-slate-600">Owns the {meta.module} module.</span> Handles:</p>
+        <p className="text-[11px] text-slate-500"><span className="font-semibold text-slate-300">Owns the {meta.module} module.</span> Handles:</p>
         <div className="mt-1 flex flex-wrap gap-1.5">
           {meta.tasks.map((t) => (
-            <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{t}</span>
+            <span key={t} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-slate-300">{t}</span>
           ))}
         </div>
       </div>
 
       {/* Scope — which pipeline this CRM agent works (its lane in the company) */}
       {profile.agent_type === 'crm' && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
           <GitBranch className="h-4 w-4 text-slate-400" />
-          <span className="text-[12px] font-medium text-slate-600">Works on</span>
+          <span className="text-[12px] font-medium text-slate-300">Works on</span>
           <select value={profile.pipeline ?? ''} onChange={(e) => setPipeline(e.target.value ? Number(e.target.value) : null)} disabled={busy}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm text-slate-900 outline-none focus:border-emerald-300">
+            className="rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-sm text-white outline-none focus:border-emerald-500/40">
             <option value="">All leads</option>
             {pipelines.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
           </select>
@@ -194,9 +194,9 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
 
       {/* Training */}
       {training && (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={5} placeholder={PLACEHOLDER}
-            className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-300" />
+            className="w-full resize-y rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/40" />
           <div className="mt-2 flex items-center justify-between">
             <span className="text-[11px] text-slate-400">In plain words — the agent uses this when it works.</span>
             <button type="button" onClick={saveTraining} disabled={saving || !dirty} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40">
@@ -208,7 +208,7 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
 
       {/* What this agent has done — the per-agent report */}
       {showActivity && meta.built && (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           {loadingActivity ? (
             <p className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading what {profile.name} has done…</p>
           ) : !activity || activity.length === 0 ? (
@@ -217,11 +217,11 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
             <ul className="space-y-2">
               {activity.map((a) => (
                 <li key={a.id} className="flex items-start gap-2">
-                  <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md ${a.status === 'failed' ? 'bg-rose-50 text-rose-500' : a.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md ${a.status === 'failed' ? 'bg-rose-500/15 text-rose-500' : a.status === 'pending' ? 'bg-amber-500/15 text-amber-600' : 'bg-emerald-500/15 text-emerald-600'}`}>
                     {a.status === 'failed' ? <AlertTriangle className="h-3 w-3" /> : a.status === 'pending' ? <Loader2 className="h-3 w-3" /> : <Check className="h-3 w-3" />}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-slate-800">{a.title}</p>
+                    <p className="truncate text-[13px] font-medium text-white">{a.title}</p>
                     <p className="truncate text-[11px] text-slate-400">
                       {a.detail}{a.detail && (a.actor || a.created_at) ? ' · ' : ''}
                       {a.actor ? `${a.actor} · ` : ''}{new Date(a.created_at).toLocaleString()}

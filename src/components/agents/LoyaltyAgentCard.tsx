@@ -31,7 +31,7 @@ export default function LoyaltyAgentCard({ workspaceId, embed }: { workspaceId: 
   const bullets = (data?.insights || '').split('\n').map((l) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Reads your members and points, then flags who&apos;s about to lapse, who your best members are,
         and how to keep them. <strong>Read-only</strong> — it never changes anything.
@@ -56,28 +56,28 @@ export default function LoyaltyAgentCard({ workspaceId, embed }: { workspaceId: 
           </div>
 
           {data.expiring.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700"><Clock className="h-3.5 w-3.5" /> Expiring soon — reach out</p>
+            <div className="rounded-xl border border-amber-100 bg-amber-500/15/40 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-300"><Clock className="h-3.5 w-3.5" /> Expiring soon — reach out</p>
               <ul className="mt-1.5 space-y-1">
                 {data.expiring.slice(0, 6).map((m, i) => (
-                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-700">
+                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-200">
                     <span className="truncate">{m.customer}{m.plan ? ` · ${m.plan}` : ''}</span>
-                    <span className="font-semibold text-amber-700">{m.days_left != null ? `${m.days_left}d left` : ''}</span>
+                    <span className="font-semibold text-amber-300">{m.days_left != null ? `${m.days_left}d left` : ''}</span>
                   </li>
                 ))}
               </ul>
-              <Link href={`/w/${workspaceId}/loyalty/memberships`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline">
+              <Link href={`/w/${workspaceId}/loyalty/memberships`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-300 hover:underline">
                 Manage memberships <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
           )}
 
           {data.top_members.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600"><Crown className="h-3.5 w-3.5 text-amber-500" /> Your best members</p>
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Crown className="h-3.5 w-3.5 text-amber-500" /> Your best members</p>
               <ul className="mt-1.5 space-y-1">
                 {data.top_members.map((t, i) => (
-                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-700">
+                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-200">
                     <span className="truncate">{t.customer}{t.tier ? ` · ${t.tier}` : ''}</span>
                     <span className="font-semibold">{t.points.toLocaleString()} pts</span>
                   </li>
@@ -91,7 +91,7 @@ export default function LoyaltyAgentCard({ workspaceId, embed }: { workspaceId: 
               <p className="flex items-center gap-1.5 text-xs font-semibold text-pink-700"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
               <ul className="mt-1.5 space-y-1">
                 {bullets.map((b, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-700"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pink-500" /> {b}</li>
+                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-200"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pink-500" /> {b}</li>
                 ))}
               </ul>
             </div>
@@ -103,9 +103,9 @@ export default function LoyaltyAgentCard({ workspaceId, embed }: { workspaceId: 
 }
 
 function Kpi({ label, value, tone = 'slate' }: { label: string; value: string; tone?: 'slate' | 'amber' | 'rose' }) {
-  const cls = tone === 'amber' ? 'text-amber-700' : tone === 'rose' ? 'text-rose-700' : 'text-slate-900';
+  const cls = tone === 'amber' ? 'text-amber-300' : tone === 'rose' ? 'text-rose-300' : 'text-white';
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${cls}`}>{value}</p>
     </div>

@@ -31,7 +31,7 @@ export default function BookingsAgentCard({ workspaceId, embed }: { workspaceId:
   const bullets = (data?.insights || '').split('\n').map((l) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Reads your upcoming bookings and tells you what&apos;s on today, what still needs confirming,
         and the week ahead. <strong>Read-only</strong> — manage the bookings on the Bookings page.
@@ -56,11 +56,11 @@ export default function BookingsAgentCard({ workspaceId, embed }: { workspaceId:
           </div>
 
           {data.upcoming.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600"><Clock className="h-3.5 w-3.5 text-cyan-600" /> Next up</p>
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Clock className="h-3.5 w-3.5 text-cyan-600" /> Next up</p>
               <ul className="mt-1.5 space-y-1">
                 {data.upcoming.slice(0, 6).map((b, i) => (
-                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-700">
+                  <li key={i} className="flex items-center justify-between text-[13px] text-slate-200">
                     <span className="truncate">{b.customer} · {b.service}</span>
                     <span className="shrink-0 text-slate-500">{b.date}{b.time ? ` ${b.time}` : ''}{b.status === 'pending' ? ' · pending' : ''}</span>
                   </li>
@@ -77,7 +77,7 @@ export default function BookingsAgentCard({ workspaceId, embed }: { workspaceId:
               <p className="flex items-center gap-1.5 text-xs font-semibold text-cyan-700"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
               <ul className="mt-1.5 space-y-1">
                 {bullets.map((b, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-700"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500" /> {b}</li>
+                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-200"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500" /> {b}</li>
                 ))}
               </ul>
             </div>
@@ -89,9 +89,9 @@ export default function BookingsAgentCard({ workspaceId, embed }: { workspaceId:
 }
 
 function Kpi({ label, value, tone = 'slate' }: { label: string; value: string; tone?: 'slate' | 'amber' }) {
-  const cls = tone === 'amber' ? 'text-amber-700' : 'text-slate-900';
+  const cls = tone === 'amber' ? 'text-amber-300' : 'text-white';
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${cls}`}>{value}</p>
     </div>

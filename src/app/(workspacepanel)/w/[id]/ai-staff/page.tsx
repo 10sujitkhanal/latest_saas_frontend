@@ -27,10 +27,10 @@ import { AGENT_MODULE_LIST, agentModule, type AgentModuleType } from '@/lib/agen
  */
 
 const STATUS_META: Record<AgentTask['status'], { label: string; cls: string; Icon: typeof Clock }> = {
-  proposed: { label: 'Awaiting you', cls: 'bg-amber-50 text-amber-700', Icon: Clock },
-  executed: { label: 'Created', cls: 'bg-emerald-50 text-emerald-700', Icon: CheckCircle2 },
-  rejected: { label: 'Rejected', cls: 'bg-slate-100 text-slate-500', Icon: XCircle },
-  failed: { label: 'Failed', cls: 'bg-rose-50 text-rose-700', Icon: AlertTriangle },
+  proposed: { label: 'Awaiting you', cls: 'bg-amber-500/15 text-amber-300', Icon: Clock },
+  executed: { label: 'Created', cls: 'bg-emerald-500/15 text-emerald-300', Icon: CheckCircle2 },
+  rejected: { label: 'Rejected', cls: 'bg-white/[0.06] text-slate-500', Icon: XCircle },
+  failed: { label: 'Failed', cls: 'bg-rose-500/15 text-rose-300', Icon: AlertTriangle },
 };
 
 
@@ -95,26 +95,26 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
     if (p.agent_type === 'seo') return <SeoAgentCard workspaceId={workspaceId} embed />;
     // Module owned + trainable; its automation is on the way.
     return (
-      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-center">
-        <p className="text-sm font-semibold text-slate-600">Automation coming soon</p>
+      <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-center">
+        <p className="text-sm font-semibold text-slate-300">Automation coming soon</p>
         <p className="mt-1 text-[12px] text-slate-400">You can already name + train this agent for its module — its hands-on actions are being built next.</p>
       </div>
     );
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-6xl px-4 py-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow">
           <Bot className="h-6 w-6" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-slate-900">AI Staff</h1>
+          <h1 className="text-xl font-bold text-white">AI Staff</h1>
           <p className="text-sm text-slate-500">Each agent does its own work — you approve it. Every decision is logged.</p>
         </div>
         <div className="ml-auto shrink-0 text-right">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
             <Sparkles className="h-3.5 w-3.5" /> Powered by MoreTech AI
           </span>
           <p className="mt-1 text-[10px] text-slate-400">Your private AI. Bring-your-own model coming soon.</p>
@@ -130,19 +130,19 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
       <div className="mt-5">
         {!creating ? (
           <button type="button" onClick={() => { setCreating(true); setNewName(''); }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300">
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2 text-sm font-semibold text-slate-200 shadow-sm hover:border-white/15">
             <Plus className="h-4 w-4" /> New agent
           </button>
         ) : (
-          <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3">
+          <div className="space-y-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/150/[0.06] p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Which module should it own?</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {AGENT_MODULE_LIST.map((m) => (
                 <button key={m.type} type="button" onClick={() => setNewType(m.type)}
-                  className={`flex items-start gap-2 rounded-xl border p-2 text-left ${newType === m.type ? 'border-emerald-400 bg-white shadow-sm' : 'border-slate-200 bg-white/60 hover:bg-white'}`}>
+                  className={`flex items-start gap-2 rounded-xl border p-2 text-left ${newType === m.type ? 'border-emerald-500/40 bg-white/[0.02] shadow-sm' : 'border-white/10 bg-white/60 hover:bg-white'}`}>
                   <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${m.chip}`}><m.Icon className="h-4 w-4" /></span>
                   <span className="min-w-0">
-                    <span className={`block truncate text-[13px] font-semibold ${newType === m.type ? 'text-emerald-700' : 'text-slate-700'}`}>{m.module}</span>
+                    <span className={`block truncate text-[13px] font-semibold ${newType === m.type ? 'text-emerald-300' : 'text-slate-200'}`}>{m.module}</span>
                     <span className="block text-[10px] text-slate-400">{m.built ? 'Ready' : 'Coming soon'}</span>
                   </span>
                 </button>
@@ -152,11 +152,11 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
               <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
                 placeholder={`Name (e.g. ${agentModule(newType).label} ${newType === 'crm' ? 'B2B' : 'team'})`}
                 onKeyDown={(e) => { if (e.key === 'Enter') createAgent(); if (e.key === 'Escape') setCreating(false); }}
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-300" />
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-sm text-white outline-none focus:border-emerald-400/50" />
               <button type="button" onClick={createAgent} disabled={busy}
                 className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Create agent</button>
               <button type="button" onClick={() => setCreating(false)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white">Cancel</button>
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/[0.02]">Cancel</button>
             </div>
           </div>
         )}
@@ -166,23 +166,25 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
       {loadingProfiles ? (
         <div className="mt-6 py-10 text-center text-sm text-slate-400"><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Loading your agents…</div>
       ) : (
-        sorted.map((p) => (
-          <AgentShell key={p.id} workspaceId={workspaceId} profile={p} onChanged={refresh}>
-            {workFor(p)}
-          </AgentShell>
-        ))
+        <div className="mt-6 grid items-start gap-4 lg:grid-cols-2">
+          {sorted.map((p) => (
+            <AgentShell key={p.id} workspaceId={workspaceId} profile={p} onChanged={refresh}>
+              {workFor(p)}
+            </AgentShell>
+          ))}
+        </div>
       )}
 
       {/* Activity — the shared audit trail across all agents */}
       <div className="mt-8">
         <div className="mb-2 flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-700">Activity</h3>
+          <h3 className="text-sm font-semibold text-slate-200">Activity</h3>
           {pendingCount > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{pendingCount} awaiting you</span>
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">{pendingCount} awaiting you</span>
           )}
         </div>
         {tasks.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center text-sm text-slate-400">
+          <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm text-slate-400">
             No agent activity yet. Give an agent a task above.
           </p>
         ) : (
@@ -190,15 +192,15 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
             {tasks.map((t) => {
               const m = STATUS_META[t.status];
               return (
-                <li key={t.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <li key={t.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
                   <m.Icon className={`h-4 w-4 ${m.cls.split(' ')[1]}`} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-slate-800">{t.title || t.goal || 'Offer'}</div>
+                    <div className="truncate text-sm font-medium text-white">{t.title || t.goal || 'Offer'}</div>
                     <div className="truncate text-xs text-slate-400">{t.goal}{t.result?.code ? ` · ${t.result.code}` : ''}</div>
                   </div>
                   <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${m.cls}`}>{m.label}</span>
                   {t.status === 'executed' && (
-                    <Link href={`/w/${workspaceId}/deals`} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                    <Link href={`/w/${workspaceId}/deals`} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:underline">
                       Deals <ArrowRight className="h-3 w-3" />
                     </Link>
                   )}
@@ -213,7 +215,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
       {AGENT_MODULE_LIST.some((m) => !m.built) && (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {AGENT_MODULE_LIST.filter((m) => !m.built).map((m) => (
-            <div key={m.type} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-center">
+            <div key={m.type} className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-center">
               <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500"><m.Icon className="h-3.5 w-3.5" />{m.label} agent</div>
               <div className="text-[11px] text-slate-400">coming soon</div>
             </div>

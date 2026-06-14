@@ -215,10 +215,10 @@ export default function WorkspaceSidebar({
         {/* Pinned, permission-gated entries from the backend menu tree (e.g. AI
             Staff — only present when the user holds `agents.manage`). */}
         {(tree?.pinned ?? []).map((page) => (
-          <Link key={page.key} href={prefix + page.path} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors border ${isActive(page.path) ? 'bg-violet-500/20 text-white border-violet-400/50 ring-1 ring-violet-400/30' : 'bg-gradient-to-r from-violet-500/15 to-indigo-500/10 text-violet-100 border-violet-500/30 hover:from-violet-500/25 hover:to-indigo-500/15'}`}>
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-violet-500/25 text-violet-100"><Icon name={page.icon} className="w-3.5 h-3.5" /></span>
+          <Link key={page.key} href={prefix + page.path} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors border ${isActive(page.path) ? 'bg-emerald-500/20 text-white border-emerald-400/50 ring-1 ring-emerald-400/30' : 'bg-gradient-to-r from-emerald-500/15 to-teal-500/10 text-emerald-100 border-emerald-500/30 hover:from-emerald-500/25 hover:to-teal-500/15'}`}>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-emerald-500/25 text-emerald-100"><Icon name={page.icon} className="w-3.5 h-3.5" /></span>
             {page.label}
-            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-400/25 text-violet-100 px-1.5 py-0.5">New</span>
+            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider rounded-full bg-emerald-400/25 text-emerald-100 px-1.5 py-0.5">New</span>
           </Link>
         ))}
       </div>

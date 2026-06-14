@@ -79,10 +79,10 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
   };
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       {!embed && (
         <div className="flex items-center gap-2">
-          <span className="text-base font-semibold text-slate-900">Offers Agent</span>
+          <span className="text-base font-semibold text-white">Offers Agent</span>
         </div>
       )}
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
@@ -93,11 +93,11 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
       <div className="mt-4">
         <textarea value={goal} onChange={(e) => setGoal(e.target.value)}
           placeholder="e.g. A 20% spring offer on our protein snacks for two weeks" rows={2}
-          className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-300" />
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:border-violet-300" />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {EXAMPLE_GOALS.map((g) => (
             <button key={g} type="button" onClick={() => draft(g)} disabled={drafting}
-              className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-violet-300 hover:text-violet-700 disabled:opacity-50">{g}</button>
+              className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:border-violet-300 hover:text-violet-700 disabled:opacity-50">{g}</button>
           ))}
           <button type="button" onClick={() => draft()} disabled={drafting || !goal.trim()}
             className="ml-auto inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-violet-700 disabled:opacity-50">
@@ -129,7 +129,7 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
             <Field label="Marketing copy (for your post)" full><textarea rows={2} className={`${inputCls} resize-none`} value={proposal.marketing_copy} onChange={(e) => patch('marketing_copy', e.target.value)} /></Field>
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
-            <button type="button" onClick={reject} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"><X className="h-4 w-4" /> Reject</button>
+            <button type="button" onClick={reject} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.03]"><X className="h-4 w-4" /> Reject</button>
             <button type="button" onClick={approve} disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {busy ? 'Creating…' : 'Approve & create draft'}
             </button>
@@ -141,7 +141,7 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
   );
 }
 
-const inputCls = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-violet-300';
+const inputCls = 'w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-sm text-white outline-none focus:border-violet-300';
 
 function errMsg(e: unknown): string | undefined {
   return (e as { response?: { data?: { message?: string } } })?.response?.data?.message;

@@ -43,7 +43,7 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
   };
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Describe an occasion and the agent <strong>drafts</strong> a ready-to-publish post from your real
         products + brand voice. You copy, tweak, and post — nothing goes out automatically.
@@ -52,14 +52,14 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
       <div className="mt-4">
         <textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={2}
           placeholder="e.g. Announce our new winter wellness bundles"
-          className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-rose-300" />
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:border-rose-300" />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {IDEAS.map((g) => (
             <button key={g} type="button" onClick={() => draft(g)} disabled={drafting}
-              className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-rose-300 hover:text-rose-700 disabled:opacity-50">{g}</button>
+              className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:border-rose-300 hover:text-rose-300 disabled:opacity-50">{g}</button>
           ))}
           <button type="button" onClick={() => draft()} disabled={drafting}
-            className="ml-auto inline-flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-50">
+            className="ml-auto inline-flex items-center gap-2 rounded-full bg-rose-500/150 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-50">
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             {drafting ? 'Writing…' : 'Draft a post'}
           </button>
@@ -67,14 +67,14 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
       </div>
 
       {post && (
-        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/40 p-4">
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-500/15/40 p-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700"><Megaphone className="h-3.5 w-3.5" /> Draft post</span>
-            <button type="button" onClick={copy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50">
+            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-300"><Megaphone className="h-3.5 w-3.5" /> Draft post</span>
+            <button type="button" onClick={copy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white/[0.02] px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/15">
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p className="whitespace-pre-line text-[13px] text-slate-700">{post}</p>
+          <p className="whitespace-pre-line text-[13px] text-slate-200">{post}</p>
         </div>
       )}
     </div>

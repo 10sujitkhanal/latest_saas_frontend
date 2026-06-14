@@ -128,12 +128,12 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
   const readyCount = basket.filter((p) => p.name.trim()).length;
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       {!embed && (
         <div className="flex items-center gap-2">
           <Package className="h-5 w-5 text-sky-600" />
-          <h2 className="text-base font-semibold text-slate-900">Store Agent</h2>
-          <span className="ml-auto rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700">
+          <h2 className="text-base font-semibold text-white">Store Agent</h2>
+          <span className="ml-auto rounded-full bg-sky-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-sky-300">
             build catalogue, no typing
           </span>
         </div>
@@ -146,7 +146,7 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
 
       {/* Inputs */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
+        <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3">
           <ScanLine className="h-4 w-4 text-slate-400" />
           <input
             value={barcode}
@@ -154,7 +154,7 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } }}
             placeholder="Scan or type a barcode…"
             inputMode="numeric"
-            className="flex-1 bg-transparent py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none"
+            className="flex-1 bg-transparent py-2 text-sm text-white placeholder:text-slate-400 outline-none"
           />
           <button type="button" onClick={lookup} disabled={looking || !barcode.trim()}
             className="my-1 inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50">
@@ -163,26 +163,26 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
           </button>
         </div>
         <button type="button" onClick={suggest} disabled={suggesting}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3.5 py-2 text-sm font-semibold text-slate-200 hover:border-sky-300 hover:text-sky-300 disabled:opacity-50">
           {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           Suggest catalogue
         </button>
         <button type="button" onClick={() => add(blank())}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+          className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.03]">
           <Plus className="h-4 w-4" /> Add manually
         </button>
       </div>
 
       {/* Import from an existing website */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
+        <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3">
           <Globe className="h-4 w-4 text-slate-400" />
           <input
             value={siteUrl}
             onChange={(e) => setSiteUrl(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); importFromUrl(); } }}
             placeholder="Already have a website? Paste a shop/products page link…"
-            className="flex-1 bg-transparent py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none"
+            className="flex-1 bg-transparent py-2 text-sm text-white placeholder:text-slate-400 outline-none"
           />
           <button type="button" onClick={importFromUrl} disabled={importing || !siteUrl.trim()}
             className="my-1 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
@@ -195,10 +195,10 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
 
       {/* Done banner */}
       {done !== null && (
-        <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-800">
           <Check className="h-4 w-4" />
           <span>Created <strong>{done}</strong> draft product(s).</span>
-          <Link href={`/w/${workspaceId}/marketplace`} className="ml-auto inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline">
+          <Link href={`/w/${workspaceId}/marketplace`} className="ml-auto inline-flex items-center gap-1 font-semibold text-emerald-300 hover:underline">
             Review &amp; publish <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -208,8 +208,8 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
       {basket.length > 0 && (
         <div className="mt-4 space-y-2">
           {basket.map((p, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-2.5">
-              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
+            <div key={i} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-white/[0.02] ring-1 ring-slate-200">
                 {p.image_url
                   ? // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.image_url} alt="" className="h-full w-full object-contain" />
@@ -224,7 +224,7 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
                   onChange={(e) => patch(i, 'selling_price', Number(e.target.value))}
                   placeholder="Price" className={cell} />
               </div>
-              <button type="button" onClick={() => remove(i)} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-white hover:text-rose-600">
+              <button type="button" onClick={() => remove(i)} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-white/[0.02] hover:text-rose-600">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -243,7 +243,7 @@ export default function StoreAgentCard({ workspaceId, embed }: { workspaceId: st
   );
 }
 
-const cell = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-sky-300';
+const cell = 'rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-sm text-white outline-none focus:border-sky-300';
 
 function errMsg(e: unknown): string | undefined {
   return (e as { response?: { data?: { message?: string } } })?.response?.data?.message;

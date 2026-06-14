@@ -48,7 +48,7 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
   const bullets = (data?.insights || '').split('\n').map((l) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Reads your team — who&apos;s in, who&apos;s off, today&apos;s attendance, and leave awaiting
         approval. <strong>Read-only</strong>, except you can approve leave in one click here.
@@ -73,13 +73,13 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
           </div>
 
           {pending.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700"><CalendarOff className="h-3.5 w-3.5" /> Leave awaiting your approval</p>
+            <div className="rounded-xl border border-amber-100 bg-amber-500/15/40 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-300"><CalendarOff className="h-3.5 w-3.5" /> Leave awaiting your approval</p>
               <ul className="mt-2 space-y-2">
                 {pending.map((lr) => (
-                  <li key={lr.id} className="flex items-center gap-3 rounded-lg border border-amber-100 bg-white p-2.5">
+                  <li key={lr.id} className="flex items-center gap-3 rounded-lg border border-amber-100 bg-white/[0.02] p-2.5">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-semibold text-slate-800">{lr.employee} <span className="font-normal text-slate-400">· {lr.type}</span></div>
+                      <div className="truncate text-[13px] font-semibold text-white">{lr.employee} <span className="font-normal text-slate-400">· {lr.type}</span></div>
                       <div className="text-[11px] text-slate-400">{lr.start_date}{lr.end_date && lr.end_date !== lr.start_date ? ` → ${lr.end_date}` : ''} · {lr.days} day{lr.days === '1' || lr.days === '1.0' ? '' : 's'}{lr.reason ? ` · ${lr.reason}` : ''}</div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
@@ -88,7 +88,7 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
                         {actingId === lr.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
                       </button>
                       <button type="button" onClick={() => decide(lr, 'rejected')} disabled={actingId === lr.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">
+                        className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-rose-500/15 hover:text-rose-600 disabled:opacity-50">
                         <X className="h-3.5 w-3.5" /> Reject
                       </button>
                     </div>
@@ -103,7 +103,7 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
               <p className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
               <ul className="mt-1.5 space-y-1">
                 {bullets.map((b, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-700"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" /> {b}</li>
+                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-200"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" /> {b}</li>
                 ))}
               </ul>
             </div>
@@ -115,9 +115,9 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
 }
 
 function Kpi({ label, value, sub, tone = 'slate' }: { label: string; value: string; sub?: string; tone?: 'slate' | 'rose' | 'emerald' | 'amber' }) {
-  const cls = tone === 'rose' ? 'text-rose-700' : tone === 'emerald' ? 'text-emerald-700' : tone === 'amber' ? 'text-amber-700' : 'text-slate-900';
+  const cls = tone === 'rose' ? 'text-rose-300' : tone === 'emerald' ? 'text-emerald-300' : tone === 'amber' ? 'text-amber-300' : 'text-white';
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${cls}`}>{value}</p>
       {sub && <p className="text-[11px] text-slate-400">{sub}</p>}

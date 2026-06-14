@@ -47,7 +47,7 @@ export default function SeoAgentCard({ workspaceId, embed }: { workspaceId: stri
   const link = (p: string) => `/w/${workspaceId}/seo${p}`;
 
   return (
-    <div className={embed ? '' : 'mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}>
+    <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       <p className={embed ? 'text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
         Audits your storefront, blog &amp; products for Google and AI search, then <strong>drafts</strong> the
         fixes and articles — you review &amp; publish. It never publishes on its own.
@@ -76,14 +76,14 @@ export default function SeoAgentCard({ workspaceId, embed }: { workspaceId: stri
       )}
 
       {/* article composer */}
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-700"><Wand2 className="h-3.5 w-3.5 text-teal-500" /> Write an SEO + AEO article</p>
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-200"><Wand2 className="h-3.5 w-3.5 text-teal-500" /> Write an SEO + AEO article</p>
         <textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={2}
           placeholder="e.g. A guide to choosing the right protein powder for beginners"
-          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-400" />
+          className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-teal-400" />
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <input value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="Target keyword (optional)"
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-400" />
+            className="flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-teal-400" />
           <button type="button" onClick={draft} disabled={drafting}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50">
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Draft article
@@ -94,7 +94,7 @@ export default function SeoAgentCard({ workspaceId, embed }: { workspaceId: stri
       {/* findings */}
       {audit && (
         audit.issues.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center text-sm text-emerald-600">Nothing to fix — your content is in great shape. 🎉</p>
+          <p className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-center text-sm text-emerald-600">Nothing to fix — your content is in great shape. 🎉</p>
         ) : (
           <div className="mt-4">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{audit.summary.fails} to fix · {audit.summary.warns} to improve</p>
@@ -110,12 +110,12 @@ export default function SeoAgentCard({ workspaceId, embed }: { workspaceId: stri
 
 function ScoreTile({ label, value, primary }: { label: string; value: number; primary?: boolean }) {
   const tone = value >= 80 ? 'text-emerald-600' : value >= 50 ? 'text-amber-500' : 'text-rose-500';
-  const bar = value >= 80 ? 'bg-emerald-500' : value >= 50 ? 'bg-amber-400' : 'bg-rose-400';
+  const bar = value >= 80 ? 'bg-emerald-500/150' : value >= 50 ? 'bg-amber-400' : 'bg-rose-400';
   return (
-    <div className={`rounded-xl border p-3 ${primary ? 'border-teal-200 bg-teal-50/50' : 'border-slate-200 bg-white'}`}>
+    <div className={`rounded-xl border p-3 ${primary ? 'border-teal-200 bg-teal-50/50' : 'border-white/10 bg-white'}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 text-xl font-bold ${tone}`}>{value}</p>
-      <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full ${bar}`} style={{ width: `${value}%` }} /></div>
+      <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[0.06]"><div className={`h-full ${bar}`} style={{ width: `${value}%` }} /></div>
     </div>
   );
 }
@@ -125,10 +125,10 @@ function FindingRow({ issue, workspaceId }: { issue: SeoIssue; workspaceId: stri
     : issue.target_type === 'reviews' ? `/w/${workspaceId}/seo/reviews`
     : `/w/${workspaceId}/blog`;
   return (
-    <li className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+    <li className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       {issue.severity === 'fail' ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />}
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] text-slate-800">{issue.message}</p>
+        <p className="text-[13px] text-white">{issue.message}</p>
         <p className="text-xs text-slate-400">{issue.fix}{issue.target_label ? ` · ${issue.target_label}` : ''}</p>
       </div>
       <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">Fix <ArrowRight className="h-3 w-3" /></Link>
