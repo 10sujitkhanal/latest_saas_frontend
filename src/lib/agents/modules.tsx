@@ -1,5 +1,5 @@
 import {
-  Users, Package, Tag, Banknote, Star, CalendarCheck, UsersRound, Megaphone, FolderKanban, type LucideIcon,
+  Users, Package, Tag, Banknote, Star, CalendarCheck, UsersRound, Megaphone, FolderKanban, Search, type LucideIcon,
 } from 'lucide-react';
 
 /**
@@ -9,7 +9,7 @@ import {
  * single source the AI Staff page + AgentShell read, and the menu the chatroom
  * will map commands onto.
  */
-export type AgentModuleType = 'crm' | 'store' | 'offers' | 'finance' | 'loyalty' | 'bookings' | 'hr' | 'marketing' | 'projects';
+export type AgentModuleType = 'crm' | 'store' | 'offers' | 'finance' | 'loyalty' | 'bookings' | 'hr' | 'marketing' | 'projects' | 'seo';
 
 export interface AgentModuleDef {
   type: AgentModuleType;
@@ -34,6 +34,7 @@ export const AGENT_MODULES: Record<AgentModuleType, AgentModuleDef> = {
   hr: { type: 'hr', label: 'Staff', module: 'Staff & HR', Icon: UsersRound, chip: 'bg-indigo-50 text-indigo-600', badge: 'bg-indigo-50 text-indigo-700', built: true, tasks: ['Team overview', 'Attendance today', 'Approve leave', 'People advice'], chatExamples: ['How is my team?', "Who's off today?", 'Any leave to approve?'] },
   marketing: { type: 'marketing', label: 'Marketing', module: 'Marketing', Icon: Megaphone, chip: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', built: true, tasks: ['Draft posts', 'Seasonal ideas', 'On-brand copy', 'Product highlights'], chatExamples: ['Draft a post about winter wellness'] },
   projects: { type: 'projects', label: 'Projects', module: 'Projects', Icon: FolderKanban, chip: 'bg-slate-100 text-slate-600', badge: 'bg-slate-100 text-slate-700', built: true, tasks: ['Work overview', 'Spot overdue', 'Break down a goal', 'Focus advice'], chatExamples: ['What tasks are overdue?', "What's due this week?", 'Show my workload'] },
+  seo: { type: 'seo', label: 'SEO', module: 'Content & SEO', Icon: Search, chip: 'bg-teal-50 text-teal-600', badge: 'bg-teal-50 text-teal-700', built: true, tasks: ['Audit SEO & AEO', 'Write articles', 'Fix metadata', 'Reply to reviews', 'Local/Google profile'], chatExamples: ['Audit my SEO', 'Write an article about winter wellness'] },
 };
 
 export const AGENT_MODULE_LIST: AgentModuleDef[] = Object.values(AGENT_MODULES);
