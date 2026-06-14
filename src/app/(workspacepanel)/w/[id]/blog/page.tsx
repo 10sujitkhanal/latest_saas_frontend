@@ -120,6 +120,18 @@ function Inner({ wsId }: { wsId: string }) {
                   <option value="published">Published</option><option value="archived">Archived</option>
                 </select>
               </div>
+              {form.status === 'scheduled' && (
+                <div>
+                  <label className={labelCls}>Publish at</label>
+                  <input
+                    type="datetime-local"
+                    value={(form.scheduled_for || '').slice(0, 16)}
+                    onChange={(e) => set({ scheduled_for: e.target.value || null })}
+                    className={inputCls}
+                  />
+                  <p className="mt-1 text-xs text-slate-400">Goes live automatically at this time.</p>
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Category</label>
                 <select value={form.category ?? ''} onChange={(e) => set({ category: e.target.value ? Number(e.target.value) : null })} className={inputCls}>
