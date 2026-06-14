@@ -2,11 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat } from 'lucide-react';
-import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft } from '@/services/agents.service';
+import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; actionDone?: boolean };
 
 /** Pull the backend's helpful message out of an axios error (e.g. the booking
  *  conflict reason), falling back to a generic line. */
@@ -122,6 +122,25 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
     onActed?.();
   };
 
+  // Approval-in-chat: actually send the follow-up email (literal subject/body).
+  const confirmFollowup = async (idx: number, draft: FollowupDraft) => {
+    if (actingIdx !== null) return;
+    if (!confirm(`Send "${draft.subject}" to ${draft.count} recipient(s)? This emails them now.`)) return;
+    setActingIdx(idx);
+    try {
+      const r = await AgentsService.sendFollowup(workspaceId, { recipients: draft.recipients, subject: draft.subject, body: draft.body });
+      setMsgs((x) => x.map((m, i) => (i === idx ? { ...m, actionDone: true } : m)));
+      const d = r.success ? r.data : null;
+      setMsgs((x) => [...x, { role: 'agent', agent: 'crm', text: r.success && d
+        ? `Sent to ${d.sent} recipient(s).${d.failed ? ` ${d.failed} failed.` : ''}`
+        : (r.message || 'Could not send the follow-up.') }]);
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'crm', text: serverMessage(e, 'Could not send the follow-up right now.') }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   const send = async (text?: string) => {
     const m = (text ?? input).trim();
     if (!m || busy) return;
@@ -144,12 +163,16 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         const billing = d.command === 'billing_create'
           ? (d.data as { billing?: BillingDraft } | undefined)?.billing
           : undefined;
+        const followup = d.command === 'crm_send_followup'
+          ? (d.data as { followup?: FollowupDraft } | undefined)?.followup
+          : undefined;
         setMsgs((x) => [...x, {
           role: 'agent', text: d.reply, agent: d.agent,
           overdue: overdue && overdue.length ? overdue : undefined,
           businesses: businesses && businesses.length ? businesses : undefined,
           booking: booking && booking.email ? booking : undefined,
           billing: billing && billing.email && billing.amount ? billing : undefined,
+          followup: followup && followup.count ? followup : undefined,
         }]);
         onActed?.();
       } else {
@@ -231,6 +254,17 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                       className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Setting up…' : 'Set up recurring billing'}
+                    </button>
+                  )
+                )}
+                {m.followup && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Follow-up sent</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmFollowup(i, m.followup!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Sending…' : `Confirm & send (${m.followup.count})`}
                     </button>
                   )
                 )}
