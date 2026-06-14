@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat, Banknote } from 'lucide-react';
-import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft, type ExpenseDraft } from '@/services/agents.service';
+import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat, Banknote, ShieldCheck } from 'lucide-react';
+import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft, type ExpenseDraft, type AuditFixDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; expense?: ExpenseDraft; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; expense?: ExpenseDraft; auditFix?: AuditFixDraft; auditFixable?: number; actionDone?: boolean };
 
 /** Pull the backend's helpful message out of an axios error (e.g. the booking
  *  conflict reason), falling back to a generic line. */
@@ -173,6 +173,22 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
     onActed?.();
   };
 
+  // Approval-in-chat: apply the audit engine's fixes (safe repairs + ledger re-posts).
+  const confirmAuditFix = async (idx: number, draft: AuditFixDraft) => {
+    if (actingIdx !== null) return;
+    if (!confirm(`Apply ${draft.total} audit fix(es)? ${draft.approval} will re-post missing ledger entries.`)) return;
+    setActingIdx(idx);
+    try {
+      const r = await AgentsService.auditFix(workspaceId, { scope: 'all' });
+      setMsgs((x) => x.map((m, i) => (i === idx ? { ...m, actionDone: true } : m)));
+      setMsgs((x) => [...x, { role: 'agent', agent: 'manager', text: r.success ? (r.message || 'Fixes applied.') : (r.message || 'Could not apply the fixes.') }]);
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'manager', text: serverMessage(e, 'Could not apply the fixes right now.') }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   const send = async (text?: string) => {
     const m = (text ?? input).trim();
     if (!m || busy) return;
@@ -204,6 +220,13 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         const expense = d.command === 'finance_record_expense'
           ? (d.data as { expense?: ExpenseDraft } | undefined)?.expense
           : undefined;
+        const auditFix = d.command === 'audit_fix'
+          ? (d.data as { audit_fix?: AuditFixDraft } | undefined)?.audit_fix
+          : undefined;
+        const audit = d.command === 'audit_run'
+          ? (d.data as { audit?: { fixable_safe: number; fixable_approval: number } } | undefined)?.audit
+          : undefined;
+        const auditFixable = audit ? (audit.fixable_safe + audit.fixable_approval) : 0;
         setMsgs((x) => [...x, {
           role: 'agent', text: d.reply, agent: d.agent,
           overdue: overdue && overdue.length ? overdue : undefined,
@@ -213,6 +236,8 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
           followup: followup && followup.count ? followup : undefined,
           invoice: invoice && invoice.customer && invoice.amount ? invoice : undefined,
           expense: expense && expense.amount ? expense : undefined,
+          auditFix: auditFix && auditFix.total ? auditFix : undefined,
+          auditFixable: auditFixable || undefined,
         }]);
         onActed?.();
       } else {
@@ -327,6 +352,23 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                       className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Banknote className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Recording…' : `Confirm & record expense (${m.expense.currency} ${m.expense.amount})`}
+                    </button>
+                  )
+                )}
+                {m.auditFixable && !m.auditFix && (
+                  <button type="button" onClick={() => send('fix the issues')} disabled={busy}
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Fix the issues ({m.auditFixable}) →
+                  </button>
+                )}
+                {m.auditFix && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Fixes applied</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmAuditFix(i, m.auditFix!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Fixing…' : `Confirm & fix (${m.auditFix.total})`}
                     </button>
                   )
                 )}

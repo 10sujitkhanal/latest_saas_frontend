@@ -376,6 +376,8 @@ export interface InvoiceDraft { customer: string; amount: string; currency: stri
 
 export interface ExpenseDraft { amount: string; title: string; currency: string; }
 
+export interface AuditFixDraft { safe: number; approval: number; total: number; }
+
 export const AgentsService = {
   /** Org-level Manager oversight roll-up for the owner dashboard (cross-business). */
   orgOverview: () =>
@@ -395,6 +397,11 @@ export const AgentsService = {
   recordExpense: (workspaceId: Id, draft: { amount: string; title?: string }) =>
     apiClient.post<ApiEnvelope<{ expense_no: string; total: string; verified: boolean }>>(
       `${base(workspaceId)}/record-expense/`, draft).then((r) => r.data),
+
+  /** Confirm step for audit_fix — apply the audit engine's fixes. */
+  auditFix: (workspaceId: Id, draft: { scope?: 'safe' | 'all' }) =>
+    apiClient.post<ApiEnvelope<{ fixed: number; failed: number; remaining: number }>>(
+      `${base(workspaceId)}/audit-fix/`, draft).then((r) => r.data),
 
   /** The per-agent activity report. Pass agentType to scope to one agent. */
   activity: (workspaceId: Id, agentType?: string, limit = 30) =>
