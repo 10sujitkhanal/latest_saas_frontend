@@ -360,7 +360,18 @@ export interface AgentActivityItem {
 }
 export interface AgentActivityData { activities: AgentActivityItem[]; counts: Record<string, number>; pending: number }
 
+export interface OrgManagerOverview {
+  headline: string; pending_total: number; workspace_count: number; activity_7d: number;
+  businesses: { workspace_id: number; name: string; pending: number }[];
+  pending_by_agent: Record<string, number>;
+  feed: { workspace_id: number; business: string; agent: string; agent_type: string; title: string; status: string; at: string }[];
+}
+
 export const AgentsService = {
+  /** Org-level Manager oversight roll-up for the owner dashboard (cross-business). */
+  orgOverview: () =>
+    apiClient.get<ApiEnvelope<OrgManagerOverview>>('/organization/agents/manager/overview/').then((r) => r.data),
+
   /** The per-agent activity report. Pass agentType to scope to one agent. */
   activity: (workspaceId: Id, agentType?: string, limit = 30) =>
     apiClient

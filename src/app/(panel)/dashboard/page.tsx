@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Topbar from '@/components/Topbar';
+import OrgAiInsights from '@/components/dashboard/OrgAiInsights';
 import { PageSpinner, PageError } from '@/components/StateViews';
 import { useAuthStore } from '@/store/authStore';
 import { OrganizationService } from '@/services/organization.service';
@@ -142,6 +143,8 @@ export default function DashboardPage() {
           <PageError message={error} onRetry={() => loadOverview(period)} />
         ) : ov && (
           <div className="space-y-8">
+            {/* ── AI Staff insights (the Manager's report up to the owner) ── */}
+            <OrgAiInsights />
             {/* ── Company Pulse ───────────────────────────────────── */}
             <section>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
