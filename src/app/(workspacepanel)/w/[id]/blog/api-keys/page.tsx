@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState, use as reactUse } from 'react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { BlogService, type APIKeyRow } from '@/services/blog.service';
-import { Plus, Trash2, Copy, Check, KeyRound } from 'lucide-react';
+import { resolveApiV1Base } from '@/lib/apiBase';
+import { Plus, Trash2, Copy, Check, KeyRound, Code2, Terminal } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function APIKeysPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: wsId } = reactUse(params);
@@ -23,8 +25,12 @@ function Inner({ wsId }: { wsId: string }) {
   const [name, setName] = useState('');
   const [picked, setPicked] = useState<string[]>(['blog:read']);
   const [created, setCreated] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // API base for the developer docs (e.g. https://acme.api.morefungi.com/api/v1)
+  const [apiBase, setApiBase] = useState('/api/v1');
+  useEffect(() => { try { setApiBase(resolveApiV1Base()); } catch { /* ssr */ } }, []);
+  const sampleKey = created || 'mk_your_api_key';
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -53,24 +59,52 @@ function Inner({ wsId }: { wsId: string }) {
 
   if (loading) return <PageSkeleton kind="list" />;
 
+  const curl = `curl ${apiBase}/blog/posts/ \\\n  -H "Authorization: Api-Key ${sampleKey}"`;
+
   return (
-    <div className="space-y-5">
+    <div className="max-w-3xl space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-xl font-bold text-slate-900">API Keys</h1><p className="text-sm text-slate-500">External access to this workspace&apos;s blog &amp; SEO data.</p></div>
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Blog API &amp; keys</h1>
+          <p className="text-sm text-slate-500">Give developers read access to your blog — power a headless site, app, or static build.</p>
+        </div>
         <button onClick={() => { setOpen(true); setCreated(null); }} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" /> New key</button>
       </div>
 
       {created && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-sm font-semibold text-emerald-800">Copy your key now — it won&apos;t be shown again.</p>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-white px-3 py-2 text-[13px] text-slate-800">{created}</code>
-            <button onClick={() => { navigator.clipboard.writeText(created); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="rounded-lg border border-emerald-300 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </button>
-          </div>
+          <CopyField className="mt-2" value={created} />
         </div>
       )}
+
+      {/* ── Developer integration kit (same idea as the leads Intake API) ── */}
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <p className="flex items-center gap-1.5 font-semibold text-slate-900"><Code2 className="h-4 w-4 text-emerald-500" /> Developer integration</p>
+        <p className="mt-0.5 text-sm text-slate-500">Authenticate with <code className="rounded bg-slate-100 px-1 text-[12px]">Authorization: Api-Key &lt;key&gt;</code> (or the <code className="rounded bg-slate-100 px-1 text-[12px]">X-API-Key</code> header).</p>
+
+        <div className="mt-3 space-y-3">
+          <CopyField label="Endpoint — list posts" value={`${apiBase}/blog/posts/`} />
+          <CopyField label="Endpoint — single post" value={`${apiBase}/blog/posts/{slug}/`} />
+          <CopyField label="curl example" mono icon={<Terminal className="h-3 w-3" />} value={curl} hint="Run it in a terminal to test your key." />
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Scopes</p>
+            <ul className="mt-1 space-y-0.5 text-[12px] text-slate-600">
+              <li><code className="text-emerald-600">blog:read</code> — read posts &amp; taxonomy</li>
+              <li><code className="text-emerald-600">blog:write</code> — create/update posts</li>
+              <li><code className="text-emerald-600">seo:read</code> — read SEO/AEO audit</li>
+            </ul>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">No-key public read</p>
+            <p className="mt-1 text-[12px] text-slate-600">Published posts are also readable without a key for SSR/SEO:</p>
+            <code className="mt-1 block break-all text-[11px] text-slate-500">/api/v1/public/blog/&lt;schema&gt;/posts/</code>
+          </div>
+        </div>
+      </section>
 
       {open && (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -109,6 +143,29 @@ function Inner({ wsId }: { wsId: string }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function CopyField({ label, value, hint, mono, icon, className }: { label?: string; value: string; hint?: string; mono?: boolean; icon?: React.ReactNode; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); toast.success(`${label || 'Value'} copied`); }
+    catch { toast.error('Copy failed — select and copy manually.'); }
+  };
+  return (
+    <div className={className}>
+      {label && (
+        <div className="mb-1 flex items-center justify-between">
+          <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{icon}{label}</span>
+          <button onClick={copy} type="button" className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-500">{copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} Copy</button>
+        </div>
+      )}
+      <div className="flex items-start gap-2">
+        <pre className={`flex-1 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 ${mono ? 'font-mono text-[11px] whitespace-pre' : 'text-[13px] break-all'}`}>{value}</pre>
+        {!label && <button onClick={copy} type="button" className="shrink-0 rounded-lg border border-emerald-300 px-2.5 py-2 text-emerald-700 hover:bg-emerald-50">{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button>}
+      </div>
+      {hint && <p className="mt-1 text-[10px] text-slate-400">{hint}</p>}
     </div>
   );
 }
