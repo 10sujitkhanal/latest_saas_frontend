@@ -365,6 +365,13 @@ export interface OrgManagerOverview {
   businesses: { workspace_id: number; name: string; pending: number }[];
   pending_by_agent: Record<string, number>;
   feed: { workspace_id: number; business: string; agent: string; agent_type: string; title: string; status: string; at: string }[];
+  questions?: { workspace_id: number; business: string; agent: string; title: string; at: string }[];
+  risks?: { workspace_id: number; business: string; agent: string; title: string; status: string; error: string; at: string }[];
+  health?: {
+    total_issues: number; critical_high: number; fixable_safe: number; fixable_approval: number;
+    businesses: { workspace_id: number; name: string; total: number; critical_high: number; fixable_safe: number; fixable_approval: number }[];
+    scanned: number; capped: boolean;
+  };
 }
 
 export interface FollowupDraft {
