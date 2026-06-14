@@ -385,6 +385,8 @@ export interface ExpenseDraft { amount: string; title: string; currency: string;
 
 export interface AuditFixDraft { safe: number; approval: number; total: number; }
 
+export interface BulkStatusDraft { to_status: string; from_status: string; count: number; }
+
 export const AgentsService = {
   /** Org-level Manager oversight roll-up for the owner dashboard (cross-business). */
   orgOverview: () =>
@@ -404,6 +406,11 @@ export const AgentsService = {
   recordExpense: (workspaceId: Id, draft: { amount: string; title?: string }) =>
     apiClient.post<ApiEnvelope<{ expense_no: string; total: string; verified: boolean }>>(
       `${base(workspaceId)}/record-expense/`, draft).then((r) => r.data),
+
+  /** Confirm step for crm_bulk_set_status — move many leads to a status. */
+  bulkSetStatus: (workspaceId: Id, draft: { to_status: string; from_status?: string }) =>
+    apiClient.post<ApiEnvelope<{ updated: number; failed: number; to_status: string }>>(
+      `${base(workspaceId)}/bulk-set-status/`, draft).then((r) => r.data),
 
   /** Confirm step for audit_fix — apply the audit engine's fixes. */
   auditFix: (workspaceId: Id, draft: { scope?: 'safe' | 'all' }) =>

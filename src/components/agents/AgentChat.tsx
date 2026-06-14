@@ -2,11 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat, Banknote, ShieldCheck } from 'lucide-react';
-import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft, type ExpenseDraft, type AuditFixDraft } from '@/services/agents.service';
+import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft, type ExpenseDraft, type AuditFixDraft, type BulkStatusDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; expense?: ExpenseDraft; auditFix?: AuditFixDraft; auditFixable?: number; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; expense?: ExpenseDraft; auditFix?: AuditFixDraft; auditFixable?: number; bulkStatus?: BulkStatusDraft; actionDone?: boolean };
 
 /** Pull the backend's helpful message out of an axios error (e.g. the booking
  *  conflict reason), falling back to a generic line. */
@@ -173,6 +173,22 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
     onActed?.();
   };
 
+  // Approval-in-chat: move many leads to a status at once.
+  const confirmBulkStatus = async (idx: number, draft: BulkStatusDraft) => {
+    if (actingIdx !== null) return;
+    if (!confirm(`Move ${draft.count} lead(s) to "${draft.to_status}"?`)) return;
+    setActingIdx(idx);
+    try {
+      const r = await AgentsService.bulkSetStatus(workspaceId, { to_status: draft.to_status, from_status: draft.from_status });
+      setMsgs((x) => x.map((m, i) => (i === idx ? { ...m, actionDone: true } : m)));
+      setMsgs((x) => [...x, { role: 'agent', agent: 'crm', text: r.success ? (r.message || 'Leads updated.') : (r.message || 'Could not update the leads.') }]);
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'crm', text: serverMessage(e, 'Could not update the leads right now.') }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   // Approval-in-chat: apply the audit engine's fixes (safe repairs + ledger re-posts).
   const confirmAuditFix = async (idx: number, draft: AuditFixDraft) => {
     if (actingIdx !== null) return;
@@ -223,6 +239,9 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         const auditFix = d.command === 'audit_fix'
           ? (d.data as { audit_fix?: AuditFixDraft } | undefined)?.audit_fix
           : undefined;
+        const bulkStatus = d.command === 'crm_bulk_set_status'
+          ? (d.data as { bulk_status?: BulkStatusDraft } | undefined)?.bulk_status
+          : undefined;
         const audit = d.command === 'audit_run'
           ? (d.data as { audit?: { fixable_safe: number; fixable_approval: number } } | undefined)?.audit
           : undefined;
@@ -238,6 +257,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
           expense: expense && expense.amount ? expense : undefined,
           auditFix: auditFix && auditFix.total ? auditFix : undefined,
           auditFixable: auditFixable || undefined,
+          bulkStatus: bulkStatus && bulkStatus.count ? bulkStatus : undefined,
         }]);
         onActed?.();
       } else {
@@ -352,6 +372,17 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                       className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Banknote className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Recording…' : `Confirm & record expense (${m.expense.currency} ${m.expense.amount})`}
+                    </button>
+                  )
+                )}
+                {m.bulkStatus && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Leads updated</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmBulkStatus(i, m.bulkStatus!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Updating…' : `Confirm & move ${m.bulkStatus.count} to ${m.bulkStatus.to_status}`}
                     </button>
                   )
                 )}
