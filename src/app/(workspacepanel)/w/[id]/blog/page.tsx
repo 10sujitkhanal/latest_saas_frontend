@@ -31,16 +31,16 @@ function Counter({ n, min, max }: { n: number; min: number; max: number }) {
 function Section({ title, children, open }: { title: string; children: React.ReactNode; open?: boolean }) {
   const [o, setO] = useState(!!open);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
-      <button type="button" onClick={() => setO(!o)} className="flex w-full items-center justify-between px-4 py-3 text-left font-semibold text-slate-900">
+    <div className="rounded-xl border border-white/10 bg-white/[0.02]">
+      <button type="button" onClick={() => setO(!o)} className="flex w-full items-center justify-between px-4 py-3 text-left font-semibold text-white">
         {title} <ChevronDown className={`h-4 w-4 transition-transform ${o ? 'rotate-180' : ''}`} />
       </button>
-      {o && <div className="space-y-3 border-t border-slate-100 px-4 py-3">{children}</div>}
+      {o && <div className="space-y-3 border-t border-white/5 px-4 py-3">{children}</div>}
     </div>
   );
 }
 
-const inputCls = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400';
+const inputCls = 'w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400';
 const labelCls = 'mb-1 block text-xs font-medium text-slate-500';
 
 function Inner({ wsId }: { wsId: string }) {
@@ -94,18 +94,18 @@ function Inner({ wsId }: { wsId: string }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <button onClick={close} className="flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900"><ArrowLeft className="h-4 w-4" /> Posts</button>
+          <button onClick={close} className="flex items-center gap-1 text-sm font-semibold text-slate-300 hover:text-white"><ArrowLeft className="h-4 w-4" /> Posts</button>
           <div className="flex gap-2">
-            <button onClick={() => save(false)} disabled={saving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{saving ? 'Saving…' : 'Save draft'}</button>
+            <button onClick={() => save(false)} disabled={saving} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.03] disabled:opacity-50">{saving ? 'Saving…' : 'Save draft'}</button>
             <button onClick={() => save(true)} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Publish</button>
           </div>
         </div>
-        {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+        {err && <p className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{err}</p>}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Main */}
           <div className="space-y-3 lg:col-span-2">
-            <input value={form.title || ''} onChange={(e) => set({ title: e.target.value })} placeholder="Post title" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-lg font-bold text-slate-900 outline-none focus:border-emerald-400" />
+            <input value={form.title || ''} onChange={(e) => set({ title: e.target.value })} placeholder="Post title" className="w-full rounded-lg border border-white/10 px-3 py-2 text-lg font-bold text-white outline-none focus:border-emerald-400" />
             <textarea value={form.excerpt || ''} onChange={(e) => set({ excerpt: e.target.value })} placeholder="Short excerpt (shown in cards + as meta fallback)" rows={2} className={inputCls} />
             <RichTextEditor value={form.body || ''} onChange={(html) => set({ body: html })} />
           </div>
@@ -166,7 +166,7 @@ function Inner({ wsId }: { wsId: string }) {
               <div>
                 <label className={labelCls}>FAQs</label>
                 {faqs.map((f, i) => (
-                  <div key={i} className="mb-2 space-y-1 rounded-lg border border-slate-100 p-2">
+                  <div key={i} className="mb-2 space-y-1 rounded-lg border border-white/5 p-2">
                     <input value={f.q} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], q: e.target.value }; set({ faqs: n }); }} placeholder="Question" className={inputCls} />
                     <textarea value={f.a} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], a: e.target.value }; set({ faqs: n }); }} placeholder="Answer" rows={2} className={inputCls} />
                     <button onClick={() => set({ faqs: faqs.filter((_, j) => j !== i) })} className="text-[11px] text-red-500">Remove</button>
@@ -187,21 +187,21 @@ function Inner({ wsId }: { wsId: string }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-xl font-bold text-slate-900">Blog</h1><p className="text-sm text-slate-500">Write SEO/AEO-ready posts for this workspace.</p></div>
+        <div><h1 className="text-xl font-bold text-white">Blog</h1><p className="text-sm text-slate-500">Write SEO/AEO-ready posts for this workspace.</p></div>
         <button onClick={openNew} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" /> New post</button>
       </div>
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search posts…" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-400" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search posts…" className="w-full rounded-lg border border-white/10 py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-400" />
       </div>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-4 py-2">Title</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Published</th><th className="px-4 py-2 text-right">Actions</th></tr></thead>
+          <thead className="bg-white/[0.03] text-left text-xs text-slate-500"><tr><th className="px-4 py-2">Title</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Published</th><th className="px-4 py-2 text-right">Actions</th></tr></thead>
           <tbody>
             {shown.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100">
-                <td className="px-4 py-2 font-medium text-slate-900">{p.title}</td>
-                <td className="px-4 py-2"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{p.status}</span></td>
+              <tr key={p.id} className="border-t border-white/5">
+                <td className="px-4 py-2 font-medium text-white">{p.title}</td>
+                <td className="px-4 py-2"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.status === 'published' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/[0.06] text-slate-300'}`}>{p.status}</span></td>
                 <td className="px-4 py-2 text-slate-500">{p.published_at ? new Date(p.published_at).toLocaleDateString() : '—'}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(p)} className="text-xs font-semibold text-cyan-600 hover:text-cyan-700">Edit</button>
