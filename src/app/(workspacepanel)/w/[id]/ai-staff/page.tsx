@@ -106,7 +106,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
     <div className="mx-auto max-w-3xl px-4 py-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow">
+        <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow">
           <Bot className="h-6 w-6" />
         </div>
         <div className="min-w-0">
@@ -114,7 +114,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           <p className="text-sm text-slate-500">Each agent does its own work — you approve it. Every decision is logged.</p>
         </div>
         <div className="ml-auto shrink-0 text-right">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
             <Sparkles className="h-3.5 w-3.5" /> Powered by MoreTech AI
           </span>
           <p className="mt-1 text-[10px] text-slate-400">Your private AI. Bring-your-own model coming soon.</p>
@@ -134,15 +134,15 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
             <Plus className="h-4 w-4" /> New agent
           </button>
         ) : (
-          <div className="space-y-2 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-3">
+          <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Which module should it own?</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {AGENT_MODULE_LIST.map((m) => (
                 <button key={m.type} type="button" onClick={() => setNewType(m.type)}
-                  className={`flex items-start gap-2 rounded-xl border p-2 text-left ${newType === m.type ? 'border-indigo-400 bg-white shadow-sm' : 'border-slate-200 bg-white/60 hover:bg-white'}`}>
+                  className={`flex items-start gap-2 rounded-xl border p-2 text-left ${newType === m.type ? 'border-emerald-400 bg-white shadow-sm' : 'border-slate-200 bg-white/60 hover:bg-white'}`}>
                   <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${m.chip}`}><m.Icon className="h-4 w-4" /></span>
                   <span className="min-w-0">
-                    <span className={`block truncate text-[13px] font-semibold ${newType === m.type ? 'text-indigo-700' : 'text-slate-700'}`}>{m.module}</span>
+                    <span className={`block truncate text-[13px] font-semibold ${newType === m.type ? 'text-emerald-700' : 'text-slate-700'}`}>{m.module}</span>
                     <span className="block text-[10px] text-slate-400">{m.built ? 'Ready' : 'Coming soon'}</span>
                   </span>
                 </button>
@@ -152,9 +152,9 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
               <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
                 placeholder={`Name (e.g. ${agentModule(newType).label} ${newType === 'crm' ? 'B2B' : 'team'})`}
                 onKeyDown={(e) => { if (e.key === 'Enter') createAgent(); if (e.key === 'Escape') setCreating(false); }}
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-300" />
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-300" />
               <button type="button" onClick={createAgent} disabled={busy}
-                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">Create agent</button>
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Create agent</button>
               <button type="button" onClick={() => setCreating(false)}
                 className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white">Cancel</button>
             </div>

@@ -71,13 +71,13 @@ export default function CampaignsPage() {
     <div className="p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 border border-indigo-100"><Megaphone className="h-5 w-5 text-indigo-600" /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 border border-emerald-100"><Megaphone className="h-5 w-5 text-emerald-600" /></span>
           <div>
             <h1 className="text-lg font-bold text-slate-900">Campaign Funnels</h1>
             <p className="text-xs text-slate-500">AI builds the landing page; leads flow straight into your CRM.</p>
           </div>
         </div>
-        <button onClick={() => { setSel(null); setCreating(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"><Plus className="h-4 w-4" /> New campaign</button>
+        <button onClick={() => { setSel(null); setCreating(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Plus className="h-4 w-4" /> New campaign</button>
       </div>
 
       <div className="mt-5 grid lg:grid-cols-[320px_1fr] gap-5">
@@ -89,7 +89,7 @@ export default function CampaignsPage() {
             <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">No campaigns yet. Create one →</div>
           ) : list.map((cp) => (
             <button key={cp.id} onClick={() => { setSel(cp); setCreating(false); }}
-              className={`w-full text-left rounded-xl border p-3 transition ${sel?.id === cp.id ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+              className={`w-full text-left rounded-xl border p-3 transition ${sel?.id === cp.id ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-slate-800 truncate">{cp.name}</span>
                 <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${cp.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{cp.status}</span>
@@ -107,7 +107,7 @@ export default function CampaignsPage() {
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Campaign name (e.g. Spring Facials Promo)" className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
               <textarea value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Brief — what's the offer, who's it for? e.g. '30% off facials, local women 25–45, book this month'" className="min-h-[120px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <div className="flex items-center gap-2">
-                <button onClick={create} disabled={busy || !name.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate with AI</button>
+                <button onClick={create} disabled={busy || !name.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate with AI</button>
                 <button onClick={() => setCreating(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
               </div>
             </div>
@@ -130,7 +130,7 @@ export default function CampaignsPage() {
               </div>
 
               {sel.status === 'published' && publicUrl && (
-                <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline"><Eye className="h-3.5 w-3.5" /> {publicUrl}</a>
+                <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:underline"><Eye className="h-3.5 w-3.5" /> {publicUrl}</a>
               )}
 
               {/* editable brief */}
