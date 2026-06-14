@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat, Banknote, ShieldCheck } from 'lucide-react';
-import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft, type ExpenseDraft, type AuditFixDraft, type BulkStatusDraft } from '@/services/agents.service';
+import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat, Banknote, ShieldCheck, Image as ImageIcon } from 'lucide-react';
+import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft, type ExpenseDraft, type AuditFixDraft, type BulkStatusDraft, type ImageDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; expense?: ExpenseDraft; auditFix?: AuditFixDraft; auditFixable?: number; bulkStatus?: BulkStatusDraft; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; expense?: ExpenseDraft; auditFix?: AuditFixDraft; auditFixable?: number; bulkStatus?: BulkStatusDraft; image?: ImageDraft; imageUrl?: string; actionDone?: boolean };
 
 /** Pull the backend's helpful message out of an axios error (e.g. the booking
  *  conflict reason), falling back to a generic line. */
@@ -173,6 +173,25 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
     onActed?.();
   };
 
+  // Approval-in-chat: generate an AI image (+ optionally email it).
+  const confirmImage = async (idx: number, draft: ImageDraft) => {
+    if (actingIdx !== null) return;
+    setActingIdx(idx);
+    try {
+      const r = await AgentsService.createImage(workspaceId, { prompt: draft.prompt, emails: draft.emails });
+      setMsgs((x) => x.map((m, i) => (i === idx ? { ...m, actionDone: true } : m)));
+      if (r.success && r.data?.image_url) {
+        setMsgs((x) => [...x, { role: 'agent', agent: 'marketing', text: r.message || 'Image generated.', imageUrl: r.data.image_url }]);
+      } else {
+        setMsgs((x) => [...x, { role: 'agent', agent: 'marketing', text: r.message || 'Could not generate the image.' }]);
+      }
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'marketing', text: serverMessage(e, 'Could not generate the image right now.') }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   // Approval-in-chat: move many leads to a status at once.
   const confirmBulkStatus = async (idx: number, draft: BulkStatusDraft) => {
     if (actingIdx !== null) return;
@@ -242,6 +261,9 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         const bulkStatus = d.command === 'crm_bulk_set_status'
           ? (d.data as { bulk_status?: BulkStatusDraft } | undefined)?.bulk_status
           : undefined;
+        const image = d.command === 'image_create'
+          ? (d.data as { image?: ImageDraft } | undefined)?.image
+          : undefined;
         const audit = d.command === 'audit_run'
           ? (d.data as { audit?: { fixable_safe: number; fixable_approval: number } } | undefined)?.audit
           : undefined;
@@ -258,6 +280,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
           auditFix: auditFix && auditFix.total ? auditFix : undefined,
           auditFixable: auditFixable || undefined,
           bulkStatus: bulkStatus && bulkStatus.count ? bulkStatus : undefined,
+          image: image && image.prompt ? image : undefined,
         }]);
         onActed?.();
       } else {
@@ -392,6 +415,23 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                       {actingIdx === i ? 'Updating…' : `Confirm & move ${m.bulkStatus.count} to ${m.bulkStatus.to_status}`}
                     </button>
                   )
+                )}
+                {m.image && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Image generated{m.image.emails.length ? ' & emailed' : ''}</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmImage(i, m.image!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Generating…' : `Generate image${m.image.emails.length ? ` & email ${m.image.emails.length}` : ''}`}
+                    </button>
+                  )
+                )}
+                {m.imageUrl && (
+                  <a href={m.imageUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={m.imageUrl} alt="Generated" className="max-w-full rounded-xl ring-1 ring-white/10" />
+                  </a>
                 )}
                 {m.auditFixable && !m.auditFix && (
                   <button type="button" onClick={() => send('fix the issues')} disabled={busy}

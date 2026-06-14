@@ -387,6 +387,8 @@ export interface AuditFixDraft { safe: number; approval: number; total: number; 
 
 export interface BulkStatusDraft { to_status: string; from_status: string; count: number; }
 
+export interface ImageDraft { prompt: string; emails: string[] }
+
 export const AgentsService = {
   /** Org-level Manager oversight roll-up for the owner dashboard (cross-business). */
   orgOverview: () =>
@@ -406,6 +408,11 @@ export const AgentsService = {
   recordExpense: (workspaceId: Id, draft: { amount: string; title?: string }) =>
     apiClient.post<ApiEnvelope<{ expense_no: string; total: string; verified: boolean }>>(
       `${base(workspaceId)}/record-expense/`, draft).then((r) => r.data),
+
+  /** Confirm step for image_create — generate an AI image (+ optionally email it). */
+  createImage: (workspaceId: Id, draft: { prompt: string; emails?: string[] }) =>
+    apiClient.post<ApiEnvelope<{ image_url: string; emailed: { sent: number; failed: number } | null }>>(
+      `${base(workspaceId)}/image/`, draft).then((r) => r.data),
 
   /** Confirm step for crm_bulk_set_status — move many leads to a status. */
   bulkSetStatus: (workspaceId: Id, draft: { to_status: string; from_status?: string }) =>
