@@ -110,9 +110,9 @@ export default function SeoAgentCard({ workspaceId, embed }: { workspaceId: stri
 
 function ScoreTile({ label, value, primary }: { label: string; value: number; primary?: boolean }) {
   const tone = value >= 80 ? 'text-emerald-600' : value >= 50 ? 'text-amber-500' : 'text-rose-500';
-  const bar = value >= 80 ? 'bg-emerald-500/150' : value >= 50 ? 'bg-amber-400' : 'bg-rose-400';
+  const bar = value >= 80 ? 'bg-emerald-500/15' : value >= 50 ? 'bg-amber-400' : 'bg-rose-400';
   return (
-    <div className={`rounded-xl border p-3 ${primary ? 'border-teal-200 bg-teal-50/50' : 'border-white/10 bg-white'}`}>
+    <div className={`rounded-xl border p-3 ${primary ? 'border-teal-200 bg-teal-50/50' : 'border-white/10 bg-white/[0.02]'}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 text-xl font-bold ${tone}`}>{value}</p>
       <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[0.06]"><div className={`h-full ${bar}`} style={{ width: `${value}%` }} /></div>

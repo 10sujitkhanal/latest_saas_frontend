@@ -26,7 +26,7 @@ const FIND_CATEGORIES = [
 const TEMP: Record<string, { cls: string; Icon: typeof Flame; label: string }> = {
   hot: { cls: 'bg-rose-500/15 text-rose-300', Icon: Flame, label: 'Hot' },
   warm: { cls: 'bg-amber-500/15 text-amber-300', Icon: Sun, label: 'Warm' },
-  cold: { cls: 'bg-sky-500/15 text-sky-300', Icon: Snowflake, label: 'Cold' },
+  cold: { cls: 'bg-emerald-500/15 text-emerald-300', Icon: Snowflake, label: 'Cold' },
 };
 const CHANNEL: Record<string, { label: string; Icon: typeof Mail }> = {
   email: { label: 'Email', Icon: Mail },
@@ -393,9 +393,9 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
 
                   {/* Composer */}
                   {composing && compose && (
-                    <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-500/150/[0.06] p-3">
+                    <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
                       {replyAnalysis?.leadId === r.lead_id && (
-                        <div className="mb-2 rounded-lg bg-white/70 p-2 ring-1 ring-slate-200">
+                        <div className="mb-2 rounded-lg bg-white/70 p-2 ring-1 ring-white/10">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reply read</span>
                             {(() => { const m = INTEREST[replyAnalysis.a.interest] || INTEREST.neutral;

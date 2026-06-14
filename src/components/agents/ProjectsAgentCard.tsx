@@ -86,7 +86,7 @@ export default function ProjectsAgentCard({ workspaceId, embed }: { workspaceId:
           </div>
 
           {data.overdue.length > 0 && (
-            <div className="rounded-xl border border-rose-100 bg-rose-500/15/50 p-3">
+            <div className="rounded-xl border border-rose-100 bg-rose-500/50 p-3">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-300"><AlertTriangle className="h-3.5 w-3.5" /> Overdue</p>
               <ul className="mt-1.5 space-y-1">
                 {data.overdue.slice(0, 6).map((t, i) => (

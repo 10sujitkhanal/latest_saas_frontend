@@ -59,7 +59,7 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
               className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:border-rose-300 hover:text-rose-300 disabled:opacity-50">{g}</button>
           ))}
           <button type="button" onClick={() => draft()} disabled={drafting}
-            className="ml-auto inline-flex items-center gap-2 rounded-full bg-rose-500/150 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-50">
+            className="ml-auto inline-flex items-center gap-2 rounded-full bg-rose-500/15 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-50">
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             {drafting ? 'Writing…' : 'Draft a post'}
           </button>
@@ -67,7 +67,7 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
       </div>
 
       {post && (
-        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-500/15/40 p-4">
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-500/40 p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-300"><Megaphone className="h-3.5 w-3.5" /> Draft post</span>
             <button type="button" onClick={copy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white/[0.02] px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/15">

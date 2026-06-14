@@ -56,11 +56,11 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" onClick={analyse} disabled={loading}
-          className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-600 disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600 disabled:opacity-50">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           {loading ? 'Reading the team…' : 'Analyse my team'}
         </button>
-        <Link href={`/w/${workspaceId}/hr/employees`} className="text-sm font-semibold text-slate-500 hover:text-indigo-700">Open Staff</Link>
+        <Link href={`/w/${workspaceId}/hr/employees`} className="text-sm font-semibold text-slate-500 hover:text-emerald-300">Open Staff</Link>
       </div>
 
       {data && (
@@ -73,7 +73,7 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
           </div>
 
           {pending.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-500/15/40 p-3">
+            <div className="rounded-xl border border-amber-100 bg-amber-500/40 p-3">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-300"><CalendarOff className="h-3.5 w-3.5" /> Leave awaiting your approval</p>
               <ul className="mt-2 space-y-2">
                 {pending.map((lr) => (
@@ -99,11 +99,11 @@ export default function StaffAgentCard({ workspaceId, embed }: { workspaceId: st
           )}
 
           {bullets.length > 0 && (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300"><Lightbulb className="h-3.5 w-3.5" /> What I&apos;d do</p>
               <ul className="mt-1.5 space-y-1">
                 {bullets.map((b, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-200"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" /> {b}</li>
+                  <li key={i} className="flex items-start gap-1.5 text-[13px] text-slate-200"><TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" /> {b}</li>
                 ))}
               </ul>
             </div>

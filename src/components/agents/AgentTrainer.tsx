@@ -132,13 +132,13 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
       </div>
 
       {!collapsed && creating && (
-        <div className="mb-3 space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/150/[0.06] p-3">
+        <div className="mb-3 space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">What kind of agent?</p>
             <div className="grid grid-cols-3 gap-1.5">
               {([['crm', 'CRM', 'Leads & outreach'], ['store', 'Store', 'Builds catalogue'], ['offers', 'Offers', 'Drafts promos']] as const).map(([v, l, d]) => (
                 <button key={v} type="button" onClick={() => setNewType(v)}
-                  className={`rounded-lg border px-2 py-1.5 text-left ${newType === v ? 'border-emerald-500/50 bg-emerald-500/150/15' : 'border-white/10 bg-white/[0.02] hover:bg-white/5'}`}>
+                  className={`rounded-lg border px-2 py-1.5 text-left ${newType === v ? 'border-emerald-500/50 bg-emerald-500/15' : 'border-white/10 bg-white/[0.02] hover:bg-white/5'}`}>
                   <span className={`block text-xs font-semibold ${newType === v ? 'text-emerald-100' : 'text-slate-200'}`}>{l}</span>
                   <span className="block text-[9px] text-slate-500">{d}</span>
                 </button>
@@ -149,7 +149,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
             <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus placeholder={`Name (e.g. ${newType === 'crm' ? 'B2B Sales' : newType === 'store' ? 'Imports' : 'Weekend deals'})`}
               onKeyDown={(e) => { if (e.key === 'Enter') createNew(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
               className="min-w-0 flex-1 rounded-lg bg-slate-800 border border-white/10 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-emerald-500/40" />
-            <button type="button" onClick={createNew} disabled={busy} className="rounded-lg bg-emerald-600 hover:bg-emerald-500/150 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Create agent</button>
+            <button type="button" onClick={createNew} disabled={busy} className="rounded-lg bg-emerald-600 hover:bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Create agent</button>
             <button type="button" onClick={() => { setCreating(false); setNewName(''); }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10">Cancel</button>
           </div>
         </div>
@@ -166,8 +166,8 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {profiles.map((p) => (
                   <button key={p.id} type="button" onClick={() => select(p.id)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left ${p.id === activeId ? 'bg-emerald-500/150/15 border-emerald-500/50 ring-1 ring-emerald-500/30' : 'bg-white/[0.02] border-white/10 hover:bg-white/5'}`}>
-                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${p.id === activeId ? 'bg-emerald-500/150/20 text-emerald-200' : 'bg-white/5 text-slate-400'}`}><Bot className="w-4 h-4" /></span>
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left ${p.id === activeId ? 'bg-emerald-500/15 border-emerald-500/50 ring-1 ring-emerald-500/30' : 'bg-white/[0.02] border-white/10 hover:bg-white/5'}`}>
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${p.id === activeId ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-slate-400'}`}><Bot className="w-4 h-4" /></span>
                     <span className="min-w-0">
                       <span className={`block truncate text-xs font-semibold ${p.id === activeId ? 'text-emerald-100' : 'text-slate-200'}`}>{p.name}</span>
                       <span className="block truncate text-[10px] text-slate-400">{p.agent_type.toUpperCase()} · {p.is_default ? <span className="font-semibold text-emerald-300">In use</span> : <span className="text-slate-500">Not in use</span>}</span>
@@ -187,9 +187,9 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   {active.is_default ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/150/15 border border-emerald-500/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-200"><Check className="w-3.5 h-3.5" /> In use</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-200"><Check className="w-3.5 h-3.5" /> In use</span>
                   ) : (
-                    <button type="button" onClick={useAgent} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500/150 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                    <button type="button" onClick={useAgent} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500/15 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                       <Check className="w-3.5 h-3.5" /> Use this agent
                     </button>
                   )}
@@ -202,7 +202,7 @@ export default function AgentTrainer({ workspaceId }: { workspaceId: string | nu
                     </button>
                   )}
                 </div>
-                <button type="button" onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500/150 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40">
+                <button type="button" onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {dirty ? 'Save training' : 'Saved'}
                 </button>
               </div>

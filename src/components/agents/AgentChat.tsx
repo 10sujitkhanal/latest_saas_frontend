@@ -271,7 +271,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
   };
 
   return (
-    <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-50/50 to-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <Bot className="h-4 w-4 text-emerald-600" />
         <h2 className="text-sm font-semibold text-white">{title || 'Ask your AI staff'}</h2>
@@ -297,13 +297,13 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                 );
               })()}
               <div className="max-w-[85%]">
-                <div className="whitespace-pre-line rounded-2xl rounded-bl-sm bg-white/[0.02] px-3 py-2 text-sm text-slate-200 ring-1 ring-slate-200">{m.text}</div>
+                <div className="whitespace-pre-line rounded-2xl rounded-bl-sm bg-white/[0.02] px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">{m.text}</div>
                 {m.overdue && m.overdue.length > 0 && (
                   m.actionDone ? (
                     <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Reminders sent</span>
                   ) : (
                     <button type="button" onClick={() => remindAll(i, m.overdue!)} disabled={actingIdx === i}
-                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-500/150/150 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50">
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Sending…' : `Send reminders to all (${m.overdue.length})`}
                     </button>
@@ -314,7 +314,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                     <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Added to pipeline</span>
                   ) : (
                     <button type="button" onClick={() => addLeads(i, m.businesses!)} disabled={actingIdx === i}
-                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Adding…' : `Add ${m.businesses.length} to pipeline`}
                     </button>
@@ -325,7 +325,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                     <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Booked & emailed</span>
                   ) : (
                     <button type="button" onClick={() => confirmBooking(i, m.booking!)} disabled={actingIdx === i}
-                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarCheck className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Booking…' : 'Confirm booking & email'}
                     </button>
@@ -347,7 +347,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                     <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Follow-up sent</span>
                   ) : (
                     <button type="button" onClick={() => confirmFollowup(i, m.followup!)} disabled={actingIdx === i}
-                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Sending…' : `Confirm & send (${m.followup.count})`}
                     </button>
@@ -380,7 +380,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                     <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Leads updated</span>
                   ) : (
                     <button type="button" onClick={() => confirmBulkStatus(i, m.bulkStatus!)} disabled={actingIdx === i}
-                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Updating…' : `Confirm & move ${m.bulkStatus.count} to ${m.bulkStatus.to_status}`}
                     </button>
@@ -388,7 +388,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                 )}
                 {m.auditFixable && !m.auditFix && (
                   <button type="button" onClick={() => send('fix the issues')} disabled={busy}
-                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                     <ShieldCheck className="h-3.5 w-3.5" /> Fix the issues ({m.auditFixable}) →
                   </button>
                 )}
@@ -397,7 +397,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                     <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><Check className="h-3.5 w-3.5" /> Fixes applied</span>
                   ) : (
                     <button type="button" onClick={() => confirmAuditFix(i, m.auditFix!)} disabled={actingIdx === i}
-                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Fixing…' : `Confirm & fix (${m.auditFix.total})`}
                     </button>
@@ -422,9 +422,9 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         <textarea ref={inputRef} value={input} rows={1} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={placeholder || "e.g. who's overdue? · draft a post · analyse my finances    (Enter to send · Shift+Enter for a new line)"}
-          className="min-h-[40px] max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/40/50" />
+          className="min-h-[40px] max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-emerald-400/50" />
         <button type="button" onClick={() => send()} disabled={busy || !input.trim()}
-          className="inline-flex h-[40px] shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+          className="inline-flex h-[40px] shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
         </button>
       </div>

@@ -93,14 +93,14 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
       <div className="mt-4">
         <textarea value={goal} onChange={(e) => setGoal(e.target.value)}
           placeholder="e.g. A 20% spring offer on our protein snacks for two weeks" rows={2}
-          className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:border-violet-300" />
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:border-emerald-300" />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {EXAMPLE_GOALS.map((g) => (
             <button key={g} type="button" onClick={() => draft(g)} disabled={drafting}
-              className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:border-violet-300 hover:text-violet-700 disabled:opacity-50">{g}</button>
+              className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:border-emerald-300 hover:text-emerald-300 disabled:opacity-50">{g}</button>
           ))}
           <button type="button" onClick={() => draft()} disabled={drafting || !goal.trim()}
-            className="ml-auto inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-violet-700 disabled:opacity-50">
+            className="ml-auto inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             {drafting ? 'Drafting…' : 'Draft offer'}
           </button>
@@ -108,8 +108,8 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
       </div>
 
       {proposal && activeTask && (
-        <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/40 p-4">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-700">
+        <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-300">
             <Sparkles className="h-3.5 w-3.5" /> Proposed offer — edit anything, then approve
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -141,7 +141,7 @@ export default function OffersAgentCard({ workspaceId, embed, onChanged }: {
   );
 }
 
-const inputCls = 'w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-sm text-white outline-none focus:border-violet-300';
+const inputCls = 'w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-sm text-white outline-none focus:border-emerald-300';
 
 function errMsg(e: unknown): string | undefined {
   return (e as { response?: { data?: { message?: string } } })?.response?.data?.message;

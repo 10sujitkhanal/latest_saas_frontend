@@ -151,7 +151,7 @@ export default function AgentShell({ workspaceId, profile, onChanged, children }
           : <button type="button" onClick={useThis} disabled={busy} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Use this agent</button>}
         <div className="ml-auto flex items-center gap-1">
           {meta.built && (
-            <button type="button" onClick={() => setChatting((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${chatting ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
+            <button type="button" onClick={() => setChatting((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${chatting ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' : 'border-white/10 text-slate-300 hover:bg-white/[0.03]'}`}>
               <MessageSquare className="h-3.5 w-3.5" /> Chat {chatting ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
           )}

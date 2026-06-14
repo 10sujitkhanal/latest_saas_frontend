@@ -134,7 +134,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
             <Plus className="h-4 w-4" /> New agent
           </button>
         ) : (
-          <div className="space-y-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/150/[0.06] p-3">
+          <div className="space-y-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Which module should it own?</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {AGENT_MODULE_LIST.map((m) => (

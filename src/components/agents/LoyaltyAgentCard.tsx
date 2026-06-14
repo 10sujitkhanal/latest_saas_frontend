@@ -56,7 +56,7 @@ export default function LoyaltyAgentCard({ workspaceId, embed }: { workspaceId: 
           </div>
 
           {data.expiring.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-500/15/40 p-3">
+            <div className="rounded-xl border border-amber-100 bg-amber-500/40 p-3">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-300"><Clock className="h-3.5 w-3.5" /> Expiring soon — reach out</p>
               <ul className="mt-1.5 space-y-1">
                 {data.expiring.slice(0, 6).map((m, i) => (
