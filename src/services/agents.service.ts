@@ -374,6 +374,8 @@ export interface FollowupDraft {
 
 export interface InvoiceDraft { customer: string; amount: string; currency: string; description: string; }
 
+export interface ExpenseDraft { amount: string; title: string; currency: string; }
+
 export const AgentsService = {
   /** Org-level Manager oversight roll-up for the owner dashboard (cross-business). */
   orgOverview: () =>
@@ -388,6 +390,11 @@ export const AgentsService = {
   createInvoice: (workspaceId: Id, draft: { customer: string; amount: string; description?: string }) =>
     apiClient.post<ApiEnvelope<{ invoice_no: string; total: string; currency: string; verified: boolean }>>(
       `${base(workspaceId)}/create-invoice/`, draft).then((r) => r.data),
+
+  /** Confirm step for finance_record_expense — record + post the expense. */
+  recordExpense: (workspaceId: Id, draft: { amount: string; title?: string }) =>
+    apiClient.post<ApiEnvelope<{ expense_no: string; total: string; verified: boolean }>>(
+      `${base(workspaceId)}/record-expense/`, draft).then((r) => r.data),
 
   /** The per-agent activity report. Pass agentType to scope to one agent. */
   activity: (workspaceId: Id, agentType?: string, limit = 30) =>
