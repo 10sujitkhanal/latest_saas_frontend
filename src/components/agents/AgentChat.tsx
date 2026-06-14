@@ -33,8 +33,13 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [actingIdx, setActingIdx] = useState<number | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Scroll ONLY the chat list to its bottom — never the page (that caused the
+  // whole view to jump down on each send).
+  useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, busy]);
+  // Auto-grow the textarea up to a cap (so Shift+Enter newlines show nicely).
+  useEffect(() => { const el = inputRef.current; if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 128) + 'px'; } }, [input]);
 
   // Approval-in-chat: send a reminder to every overdue invoice that has an email,
   // reusing the same dunning path the Finance card uses.
@@ -168,7 +173,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
       </div>
 
       {msgs.length > 0 && (
-        <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+        <div ref={listRef} className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
           {msgs.map((m, i) => m.role === 'user' ? (
             <div key={i} className="flex justify-end">
               <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-sm text-white">{m.text}</div>
@@ -233,7 +238,6 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
             </div>
           ))}
           {busy && <div className="flex items-center gap-2 pl-8 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Working…</div>}
-          <div ref={endRef} />
         </div>
       )}
 
@@ -245,12 +249,13 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-2">
-        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
-          placeholder={placeholder || "e.g. who's overdue? · draft a post · analyse my finances"}
-          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-300" />
+      <div className="mt-3 flex items-end gap-2">
+        <textarea ref={inputRef} value={input} rows={1} onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder={placeholder || "e.g. who's overdue? · draft a post · analyse my finances    (Enter to send · Shift+Enter for a new line)"}
+          className="min-h-[40px] max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-300" />
         <button type="button" onClick={() => send()} disabled={busy || !input.trim()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+          className="inline-flex h-[40px] shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
         </button>
       </div>
