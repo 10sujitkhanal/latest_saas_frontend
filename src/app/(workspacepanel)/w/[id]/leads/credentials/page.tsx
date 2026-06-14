@@ -348,22 +348,29 @@ function MoreTechAICard() {
     : null;
 
   const renewPrice = cycle === 'yearly' ? (status.pricing?.yearly ?? 0) : (status.pricing?.monthly ?? 0);
+  // Days left + whether renewing is allowed now. Renewing while there's plenty
+  // of time left would stack another paid period — so only offer it within the
+  // 7-day renewal window (or once lapsed). Matches the backend guard.
+  const daysLeft = status.current_period_end
+    ? Math.ceil((new Date(status.current_period_end).getTime() - Date.now()) / 86400000)
+    : null;
+  const renewable = !included && (daysLeft === null || daysLeft <= 7);
 
   return (
     <>
     <section className="mb-7">
-      <div className="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/[0.12] via-fuchsia-500/[0.06] to-transparent p-5">
-        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.12] via-emerald-500/[0.06] to-transparent p-5">
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-200 shrink-0">
               <Icons.Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white">MoreTech AI</h2>
                 {included ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-400/30">
                     <Icons.Gift className="w-2.5 h-2.5" /> Included in your plan
                   </span>
                 ) : (
@@ -374,15 +381,16 @@ function MoreTechAICard() {
               </div>
               <p className="text-[12px] text-slate-300 mt-1 max-w-md">
                 Our managed AI model — private, hosted on our own servers.
-                Select <span className="text-violet-200">MoreTech AI</span> as the model on any Knowledge Base.
+                Select <span className="text-emerald-200">MoreTech AI</span> as the model on any Knowledge Base.
               </p>
               {!included && renews && (
                 <p className="text-[11px] text-emerald-300/80 mt-1.5">
-                  {cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · renews {renews}
+                  {cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan · active until {renews}
+                  {daysLeft !== null && daysLeft >= 0 && <span className="text-slate-400"> · {daysLeft} day{daysLeft === 1 ? '' : 's'} left</span>}
                 </p>
               )}
               {included && (
-                <p className="text-[11px] text-violet-300/80 mt-1.5">
+                <p className="text-[11px] text-emerald-300/80 mt-1.5">
                   Bundled free with your subscription — no extra charge.
                 </p>
               )}
@@ -391,12 +399,18 @@ function MoreTechAICard() {
 
           {!included && isAdmin && (
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => setRenewOpen(true)}
-                className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-white/[0.06] border border-white/15 text-white hover:bg-white/[0.1]"
-              >
-                Renew / extend
-              </button>
+              {renewable ? (
+                <button
+                  onClick={() => setRenewOpen(true)}
+                  className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-500"
+                >
+                  {daysLeft === null || daysLeft < 0 ? 'Renew MoreTech AI' : 'Renew now'}
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400 text-right max-w-[180px]">
+                  No action needed — you can renew within 7 days of expiry.
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1302,12 +1316,12 @@ function ConnectWizard({
                 type="button"
                 onClick={sendTest}
                 disabled={sendingTest || verifying || busy}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-violet-200 border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-emerald-200 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 disabled:opacity-50 inline-flex items-center gap-1.5"
                 title="Send a real test email to your from-address"
               >
                 {sendingTest ? (
                   <>
-                    <div className="w-3.5 h-3.5 border-2 border-violet-300 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin" />
                     Sending…
                   </>
                 ) : (
@@ -1455,8 +1469,8 @@ function SetupGuide({
         onClick={() => setOpen(!open)}
         className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-white/[0.02]"
       >
-        <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
-          <Icons.BookOpen className="w-4 h-4 text-violet-300" />
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+          <Icons.BookOpen className="w-4 h-4 text-emerald-300" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-white">Setup guide — Google Calendar / Meet</div>
@@ -1527,7 +1541,7 @@ function GuideTab({ active, onClick, children }: { active: boolean; onClick: () 
       onClick={onClick}
       className={`px-4 py-2.5 text-xs font-semibold inline-flex items-center gap-1.5 border-b-2 transition-colors ${
         active
-          ? 'border-violet-500 text-white bg-white/[0.02]'
+          ? 'border-emerald-500 text-white bg-white/[0.02]'
           : 'border-transparent text-slate-400 hover:text-white hover:bg-white/[0.02]'
       }`}
     >

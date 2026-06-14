@@ -80,16 +80,16 @@ export default function MoreTechAIPromo({
   const daysLeft = status.days_left ?? null;
 
   // Three tones: renew-soon (amber, still active), expired (red),
-  // first purchase (violet).
-  const tone = expiringSoon ? 'amber' : (expired ? 'red' : 'violet');
+  // first purchase (emerald).
+  const tone = expiringSoon ? 'amber' : (expired ? 'red' : 'emerald');
   const isRenew = expiringSoon || expired;
-  const toneRing = tone === 'amber' ? 'border-amber-500/40' : tone === 'red' ? 'border-red-500/40' : 'border-violet-500/30';
+  const toneRing = tone === 'amber' ? 'border-amber-500/40' : tone === 'red' ? 'border-red-500/40' : 'border-emerald-500/30';
   const toneGrad = tone === 'amber'
     ? 'from-amber-500/[0.13] via-amber-500/[0.05]'
     : tone === 'red'
       ? 'from-red-500/[0.13] via-red-500/[0.05]'
-      : 'from-violet-500/[0.13] via-fuchsia-500/[0.06]';
-  const toneBtn = tone === 'violet' ? 'bg-violet-500 hover:bg-violet-400' : tone === 'amber' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-red-500 hover:bg-red-400';
+      : 'from-emerald-500/[0.13] via-emerald-500/[0.06]';
+  const toneBtn = tone === 'emerald' ? 'bg-emerald-500 hover:bg-emerald-400' : tone === 'amber' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-red-500 hover:bg-red-400';
 
   const headline = expiringSoon
     ? `MoreTech AI expires in ${daysLeft ?? 'a few'} day${daysLeft === 1 ? '' : 's'}`
@@ -112,17 +112,17 @@ export default function MoreTechAIPromo({
     <>
       {variant === 'banner' ? (
         <div className={`mb-6 relative overflow-hidden rounded-2xl border ${toneRing} bg-gradient-to-br ${toneGrad} to-transparent p-5`}>
-          <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
           <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-200 shrink-0">
                 {isRenew ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-base font-bold text-white">{headline}</h3>
                   {!isRenew && (
-                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
+                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-400/30">
                       <InfinityIcon className="w-2.5 h-2.5" /> Unlimited tokens
                     </span>
                   )}
@@ -141,17 +141,17 @@ export default function MoreTechAIPromo({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="w-full text-left relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/[0.13] via-fuchsia-500/[0.06] to-transparent p-4 hover:border-violet-400/50 transition-colors"
+          className="w-full text-left relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.13] via-emerald-500/[0.06] to-transparent p-4 hover:border-emerald-400/50 transition-colors"
         >
-          <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
+          <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
           <div className="relative flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-200 shrink-0">
               <Sparkles className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-bold text-white">MoreTech AI</h3>
-                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 border border-violet-400/30">
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-400/30">
                   <InfinityIcon className="w-2.5 h-2.5" /> Unlimited
                 </span>
               </div>
@@ -231,7 +231,7 @@ function PurchaseModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-2xl border border-violet-500/30 bg-[#0b0f1a] p-6 shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl border border-emerald-500/30 bg-[#0b0f1a] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -243,7 +243,7 @@ function PurchaseModal({
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-200">
             <Sparkles className="w-6 h-6" />
           </div>
           <div>
@@ -255,7 +255,7 @@ function PurchaseModal({
         <ul className="mt-5 space-y-2.5">
           {FEATURES.map((f) => (
             <li key={f.text} className="flex items-start gap-2.5 text-[13px] text-slate-200">
-              <span className="mt-0.5 w-5 h-5 rounded-md bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-200 shrink-0">
+              <span className="mt-0.5 w-5 h-5 rounded-md bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-200 shrink-0">
                 <f.icon className="w-3 h-3" />
               </span>
               {f.text}
@@ -271,7 +271,7 @@ function PurchaseModal({
           >
             <div className="text-[11px] uppercase tracking-wider text-slate-400">Monthly</div>
             <div className="mt-1 text-xl font-bold text-white">{cur}{monthly}<span className="text-[12px] font-normal text-slate-400">/mo</span></div>
-            <div className="mt-2 text-[12px] font-semibold text-violet-200">
+            <div className="mt-2 text-[12px] font-semibold text-emerald-200">
               {busy === 'monthly' ? 'Processing…' : 'Choose monthly'}
             </div>
           </button>
@@ -279,7 +279,7 @@ function PurchaseModal({
           <button
             onClick={() => buy('yearly')}
             disabled={busy !== null}
-            className="relative rounded-xl border border-violet-400/40 bg-violet-500/10 p-4 text-left hover:bg-violet-500/20 disabled:opacity-50 transition-colors"
+            className="relative rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4 text-left hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
           >
             {yearlySavingPct > 0 && (
               <span className="absolute right-2 top-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -288,7 +288,7 @@ function PurchaseModal({
             )}
             <div className="text-[11px] uppercase tracking-wider text-slate-400">Yearly</div>
             <div className="mt-1 text-xl font-bold text-white">{cur}{yearly}<span className="text-[12px] font-normal text-slate-400">/yr</span></div>
-            <div className="mt-2 text-[12px] font-semibold text-violet-200">
+            <div className="mt-2 text-[12px] font-semibold text-emerald-200">
               {busy === 'yearly' ? 'Processing…' : 'Choose yearly'}
             </div>
           </button>
