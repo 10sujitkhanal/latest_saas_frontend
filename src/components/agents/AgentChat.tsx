@@ -281,9 +281,9 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
       </div>
 
       {(msgs.length > 0 || !scoped) && (
-        <div ref={listRef} className={`mt-3 space-y-2 overflow-y-auto pr-1 ${scoped ? 'max-h-72' : 'min-h-[340px] max-h-[58vh]'}`}>
+        <div ref={listRef} className={`mt-3 space-y-2 overflow-y-auto pr-1 ${scoped ? 'max-h-72' : 'min-h-[150px] max-h-[42vh] sm:min-h-[260px] lg:min-h-[340px] lg:max-h-[55vh]'}`}>
           {msgs.length === 0 && !scoped && (
-            <div className="flex h-[320px] flex-col items-center justify-center text-center">
+            <div className="flex h-[130px] flex-col items-center justify-center text-center sm:h-[240px] lg:h-[300px]">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-500/15"><Bot className="h-6 w-6 text-emerald-400" /></span>
               <p className="mt-3 text-sm font-medium text-slate-300">Ask your AI staff anything</p>
               <p className="mt-1 max-w-sm text-xs text-slate-500">Type a task in plain words — it routes to the right agent and gets it done. Try the examples below.</p>

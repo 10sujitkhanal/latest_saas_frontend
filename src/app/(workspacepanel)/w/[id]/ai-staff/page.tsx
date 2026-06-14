@@ -113,7 +113,7 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           <h1 className="text-xl font-bold text-white">AI Staff</h1>
           <p className="text-sm text-slate-500">Each agent does its own work — you approve it. Every decision is logged.</p>
         </div>
-        <div className="ml-auto shrink-0 text-right">
+        <div className="ml-auto hidden shrink-0 text-right sm:block">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
             <Sparkles className="h-3.5 w-3.5" /> Powered by MoreTech AI
           </span>
