@@ -35,9 +35,21 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
   const [actingIdx, setActingIdx] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Scroll ONLY the chat list to its bottom — never the page (that caused the
-  // whole view to jump down on each send).
-  useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, busy]);
+  const pinnedRef = useRef(true);   // is the user parked at the bottom of the list?
+  // Scroll ONLY the chat list to its bottom — never the page (that jumped the
+  // whole view) — AND only when the user is already at the bottom, on the next
+  // frame. Without the near-bottom guard, every msgs patch (actionDone toggles,
+  // async image-load reflow) re-yanked the list → the "shaking" jitter.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || !pinnedRef.current) return;
+    const id = requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    return () => cancelAnimationFrame(id);
+  }, [msgs.length, busy]);
+  const onListScroll = () => {
+    const el = listRef.current;
+    if (el) pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
   // Auto-grow the textarea up to a cap (so Shift+Enter newlines show nicely).
   useEffect(() => { const el = inputRef.current; if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 128) + 'px'; } }, [input]);
 
@@ -304,7 +316,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
       </div>
 
       {(msgs.length > 0 || !scoped) && (
-        <div ref={listRef} className={`mt-3 space-y-2 overflow-y-auto pr-1 ${scoped ? 'max-h-72' : 'min-h-[150px] max-h-[42vh] sm:min-h-[260px] lg:min-h-[340px] lg:max-h-[55vh]'}`}>
+        <div ref={listRef} onScroll={onListScroll} className={`mt-3 space-y-2 overflow-y-auto overflow-x-hidden pr-1 [overflow-anchor:none] ${scoped ? 'max-h-72' : 'min-h-[150px] max-h-[42vh] sm:min-h-[260px] lg:min-h-[340px] lg:max-h-[55vh]'}`}>
           {msgs.length === 0 && !scoped && (
             <div className="flex h-[130px] flex-col items-center justify-center text-center sm:h-[240px] lg:h-[300px]">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-500/15"><Bot className="h-6 w-6 text-emerald-400" /></span>
@@ -430,7 +442,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                 {m.imageUrl && (
                   <a href={m.imageUrl} target="_blank" rel="noreferrer" className="mt-2 block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.imageUrl} alt="Generated" className="max-w-full rounded-xl ring-1 ring-white/10" />
+                    <img src={m.imageUrl} alt="Generated" className="max-h-72 w-auto max-w-full rounded-xl ring-1 ring-white/10" />
                   </a>
                 )}
                 {m.auditFixable && !m.auditFix && (
