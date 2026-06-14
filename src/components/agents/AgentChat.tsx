@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat } from 'lucide-react';
-import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft } from '@/services/agents.service';
+import { Bot, Send, Loader2, Mail, Check, UserPlus, CalendarCheck, Repeat, Banknote } from 'lucide-react';
+import { AgentsService, CrmAgent, BookingsAgent, BillingAgent, type OverdueInvoice, type FoundBusiness, type BookingDraft, type BillingDraft, type FollowupDraft, type InvoiceDraft } from '@/services/agents.service';
 import { AccountingService } from '@/services/accounting.service';
 import { agentModule } from '@/lib/agents/modules';
 
-type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; actionDone?: boolean };
+type Msg = { role: 'user' | 'agent'; text: string; agent?: string | null; overdue?: OverdueInvoice[]; businesses?: FoundBusiness[]; booking?: BookingDraft; billing?: BillingDraft; followup?: FollowupDraft; invoice?: InvoiceDraft; actionDone?: boolean };
 
 /** Pull the backend's helpful message out of an axios error (e.g. the booking
  *  conflict reason), falling back to a generic line. */
@@ -141,6 +141,22 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
     onActed?.();
   };
 
+  // Approval-in-chat: create + post the invoice (real GL posting).
+  const confirmInvoice = async (idx: number, draft: InvoiceDraft) => {
+    if (actingIdx !== null) return;
+    if (!confirm(`Create + post an invoice for ${draft.customer} (${draft.currency} ${draft.amount})? It posts to your books.`)) return;
+    setActingIdx(idx);
+    try {
+      const r = await AgentsService.createInvoice(workspaceId, { customer: draft.customer, amount: draft.amount, description: draft.description });
+      setMsgs((x) => x.map((m, i) => (i === idx ? { ...m, actionDone: true } : m)));
+      setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: r.success ? (r.message || 'Invoice created.') : (r.message || 'Could not create the invoice.') }]);
+    } catch (e) {
+      setMsgs((x) => [...x, { role: 'agent', agent: 'finance', text: serverMessage(e, 'Could not create the invoice right now.') }]);
+    }
+    setActingIdx(null);
+    onActed?.();
+  };
+
   const send = async (text?: string) => {
     const m = (text ?? input).trim();
     if (!m || busy) return;
@@ -166,6 +182,9 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
         const followup = d.command === 'crm_send_followup'
           ? (d.data as { followup?: FollowupDraft } | undefined)?.followup
           : undefined;
+        const invoice = d.command === 'finance_create_invoice'
+          ? (d.data as { invoice?: InvoiceDraft } | undefined)?.invoice
+          : undefined;
         setMsgs((x) => [...x, {
           role: 'agent', text: d.reply, agent: d.agent,
           overdue: overdue && overdue.length ? overdue : undefined,
@@ -173,6 +192,7 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
           booking: booking && booking.email ? booking : undefined,
           billing: billing && billing.email && billing.amount ? billing : undefined,
           followup: followup && followup.count ? followup : undefined,
+          invoice: invoice && invoice.customer && invoice.amount ? invoice : undefined,
         }]);
         onActed?.();
       } else {
@@ -265,6 +285,17 @@ export default function AgentChat({ workspaceId, onActed, agentType, title, plac
                       className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
                       {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                       {actingIdx === i ? 'Sending…' : `Confirm & send (${m.followup.count})`}
+                    </button>
+                  )
+                )}
+                {m.invoice && (
+                  m.actionDone ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Invoice created &amp; posted</span>
+                  ) : (
+                    <button type="button" onClick={() => confirmInvoice(i, m.invoice!)} disabled={actingIdx === i}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+                      {actingIdx === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Banknote className="h-3.5 w-3.5" />}
+                      {actingIdx === i ? 'Creating…' : `Confirm & create invoice (${m.invoice.currency} ${m.invoice.amount})`}
                     </button>
                   )
                 )}

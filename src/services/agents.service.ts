@@ -372,6 +372,8 @@ export interface FollowupDraft {
   recipients: { email: string; lead_id: number | null; name: string }[];
 }
 
+export interface InvoiceDraft { customer: string; amount: string; currency: string; description: string; }
+
 export const AgentsService = {
   /** Org-level Manager oversight roll-up for the owner dashboard (cross-business). */
   orgOverview: () =>
@@ -381,6 +383,11 @@ export const AgentsService = {
   sendFollowup: (workspaceId: Id, draft: { recipients: unknown[]; subject: string; body: string }) =>
     apiClient.post<ApiEnvelope<{ sent: number; failed: number; errors: string[] }>>(
       `${base(workspaceId)}/send-followup/`, draft).then((r) => r.data),
+
+  /** Confirm step for finance_create_invoice — create + post the invoice. */
+  createInvoice: (workspaceId: Id, draft: { customer: string; amount: string; description?: string }) =>
+    apiClient.post<ApiEnvelope<{ invoice_no: string; total: string; currency: string; verified: boolean }>>(
+      `${base(workspaceId)}/create-invoice/`, draft).then((r) => r.data),
 
   /** The per-agent activity report. Pass agentType to scope to one agent. */
   activity: (workspaceId: Id, agentType?: string, limit = 30) =>
