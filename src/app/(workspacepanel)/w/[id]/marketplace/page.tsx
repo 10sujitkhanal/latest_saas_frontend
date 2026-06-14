@@ -103,7 +103,7 @@ function Inner({ wsId }: { wsId: string }) {
           <span className="flex-1 text-[13px] text-amber-100">
             <strong className="font-semibold">Your store isn’t live yet.</strong> Published products stay hidden from customers until you go live.
           </span>
-          <Link href={`/w/${wsId}/marketplace/storefront`} className="shrink-0 rounded-lg bg-amber-500/90 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400">Go live</Link>
+          <Link href={`/w/${wsId}/marketplace/storefront`} className="shrink-0 rounded-lg bg-amber-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400">Go live</Link>
         </div>
       )}
       {draftCount > 0 && (
@@ -138,7 +138,7 @@ function Inner({ wsId }: { wsId: string }) {
                 <td className="px-3 py-2 font-medium text-white">{l.title}</td>
                 <td className="px-3 py-2">{l.category || '—'}</td>
                 <td className="px-3 py-2 text-right">{money(l.price, l.currency)}</td>
-                <td className="px-3 py-2 text-center">{l.is_featured ? <Pill>featured</Pill> : <span className="text-slate-600">—</span>}</td>
+                <td className="px-3 py-2 text-center">{l.is_featured ? <Pill>featured</Pill> : <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 text-center">
                   {l.status === 'published'
                     ? <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">Published · visible</span>
