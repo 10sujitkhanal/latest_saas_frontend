@@ -196,6 +196,7 @@ function CredentialsInner({ wsId }: { wsId: string }) {
               (renewal date + Renew/extend). */}
       <MoreTechAIPromo variant="banner" />
       <MoreTechAICard />
+      <BringYourOwnAICard />
 
       {/* Plan-quota banner — explains why a Connect button could fail */}
       {!catalog.quota.unlimited && catalog.quota.used >= catalog.quota.cap && (
@@ -436,6 +437,106 @@ function MoreTechAICard() {
         />
       )}
     </>
+  );
+}
+
+interface LLMPreset { id: string; label: string; base_url: string; model: string }
+interface LLMConfig { enabled: boolean; base_url: string; model: string; has_key: boolean; source: 'tenant' | 'env' | 'none'; presets: LLMPreset[] }
+
+/**
+ * Bring-your-own AI model — set the strong-model lane (Groq/OpenAI/DeepSeek/…)
+ * from the UI instead of the server .env. When enabled + tested, every AI Staff
+ * agent routes through it; otherwise the platform Qwen is used.
+ */
+function BringYourOwnAICard() {
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
+  const [cfg, setCfg] = useState<LLMConfig | null>(null);
+  const [enabled, setEnabled] = useState(false);
+  const [baseUrl, setBaseUrl] = useState('');
+  const [model, setModel] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [preset, setPreset] = useState('groq');
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    const r = await OrganizationService.agentLLMConfig();
+    if (r?.success) {
+      setCfg(r.data); setEnabled(r.data.enabled); setBaseUrl(r.data.base_url || ''); setModel(r.data.model || '');
+      if (r.data.base_url) setOpen(true);
+    }
+  }, []);
+  useEffect(() => { if (isAdmin) load(); }, [isAdmin, load]);
+  if (!isAdmin || !cfg) return null;
+
+  const applyPreset = (id: string) => {
+    setPreset(id);
+    const p = cfg.presets.find((x) => x.id === id);
+    if (p && p.id !== 'custom') { setBaseUrl(p.base_url); setModel(p.model); }
+  };
+  const save = async () => {
+    setSaving(true);
+    try {
+      const r = await OrganizationService.agentLLMSave({ enabled, base_url: baseUrl.trim(), model: model.trim(), api_key: apiKey.trim() || undefined });
+      if (r?.success) { toast.success('AI model settings saved.'); setApiKey(''); await load(); }
+      else toast.error(r?.message || 'Could not save.');
+    } catch (e) { toast.error('Could not save.'); } finally { setSaving(false); }
+  };
+  const test = async () => {
+    setTesting(true);
+    try {
+      const r = await OrganizationService.agentLLMTest({ base_url: baseUrl.trim(), model: model.trim(), api_key: apiKey.trim() || undefined });
+      (r?.success ? toast.success : toast.error)(r?.message || (r?.success ? 'Connected.' : 'Failed.'));
+    } catch (e) { toast.error('Test failed.'); } finally { setTesting(false); }
+  };
+
+  const liveLabel = cfg.source === 'tenant' ? 'Your model is live' : cfg.source === 'env' ? 'Platform model is live' : 'Using the built-in Qwen model';
+  const inputCls = 'w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-emerald-400/50';
+
+  return (
+    <section className="mb-7 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between text-left">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"><Icons.Cpu className="h-5 w-5" /></div>
+          <div>
+            <h2 className="text-base font-bold text-white">Bring your own AI model <span className="ml-1 align-middle text-[10px] font-semibold text-slate-400">(optional)</span></h2>
+            <p className="text-[12px] text-slate-400 mt-0.5">Use a stronger model (Groq, OpenAI, DeepSeek…) for sharper, faster AI staff. <span className="text-emerald-300">{liveLabel}.</span></p>
+          </div>
+        </div>
+        <Icons.ChevronDown className={`h-4 w-4 text-slate-400 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
+          <label className="flex items-center gap-2 text-sm text-slate-200">
+            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="h-4 w-4 accent-emerald-500" />
+            Use my own model (off = the built-in Qwen)
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block"><span className="mb-1 block text-xs font-medium text-slate-400">Provider</span>
+              <select value={preset} onChange={(e) => applyPreset(e.target.value)} className={inputCls}>
+                {cfg.presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </label>
+            <label className="block"><span className="mb-1 block text-xs font-medium text-slate-400">Model</span>
+              <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="llama-3.3-70b-versatile" className={inputCls} />
+            </label>
+          </div>
+          <label className="block"><span className="mb-1 block text-xs font-medium text-slate-400">API base URL</span>
+            <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.groq.com/openai/v1" className={inputCls} />
+          </label>
+          <label className="block"><span className="mb-1 block text-xs font-medium text-slate-400">API key {cfg.has_key && <span className="text-emerald-300">· saved (leave blank to keep)</span>}</span>
+            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={cfg.has_key ? '•••••••• keep existing' : 'paste your key'} className={inputCls} />
+          </label>
+          <div className="flex items-center gap-2 pt-1">
+            <button onClick={save} disabled={saving} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            <button onClick={test} disabled={testing} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.06] disabled:opacity-50">{testing ? 'Testing…' : 'Test connection'}</button>
+            <span className="ml-auto text-[11px] text-slate-500">Falls back to Qwen if it fails — never breaks the AI.</span>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -642,6 +642,20 @@ export const OrganizationService = {
     return data;
   },
 
+  // Bring-your-own AI model (the strong-model lane) — configured in the UI.
+  agentLLMConfig: async () => {
+    const { data } = await apiClient.get('/organization/leads/knowledge/ai-model/');
+    return data;
+  },
+  agentLLMSave: async (body: { enabled: boolean; base_url: string; model: string; api_key?: string }) => {
+    const { data } = await apiClient.post('/organization/leads/knowledge/ai-model/', body);
+    return data;
+  },
+  agentLLMTest: async (body: { base_url?: string; model?: string; api_key?: string }) => {
+    const { data } = await apiClient.post('/organization/leads/knowledge/ai-model/test/', body);
+    return data;
+  },
+
   // ── Saved payment cards (Stripe) — admin only ──────────────────────
   billingListCards: async () => {
     const { data } = await apiClient.get('/organization/billing/cards/');
