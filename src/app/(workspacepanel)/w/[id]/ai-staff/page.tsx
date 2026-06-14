@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use as reactUse } from 'react';
 import Link from 'next/link';
-import { Bot, Sparkles, Plus, Clock, CheckCircle2, XCircle, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
+import { Bot, Plus, Clock, CheckCircle2, XCircle, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgentsService, type AgentTask, type AgentProfile } from '@/services/agents.service';
 import StoreAgentCard from '@/components/agents/StoreAgentCard';
@@ -17,6 +17,7 @@ import ProjectsAgentCard from '@/components/agents/ProjectsAgentCard';
 import SeoAgentCard from '@/components/agents/SeoAgentCard';
 import AgentChat from '@/components/agents/AgentChat';
 import AgentShell from '@/components/agents/AgentShell';
+import ModelPicker from '@/components/agents/ModelPicker';
 import { AGENT_MODULE_LIST, agentModule, type AgentModuleType } from '@/lib/agents/modules';
 
 /**
@@ -113,11 +114,8 @@ export default function AiStaffPage({ params }: { params: Promise<{ id: string }
           <h1 className="text-xl font-bold text-white">AI Staff</h1>
           <p className="text-sm text-slate-500">Each agent does its own work — you approve it. Every decision is logged.</p>
         </div>
-        <div className="ml-auto hidden shrink-0 text-right sm:block">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-            <Sparkles className="h-3.5 w-3.5" /> Powered by MoreTech AI
-          </span>
-          <p className="mt-1 text-[10px] text-slate-400">Your private AI. Bring-your-own model coming soon.</p>
+        <div className="ml-auto shrink-0">
+          <ModelPicker workspaceId={workspaceId} />
         </div>
       </div>
 
