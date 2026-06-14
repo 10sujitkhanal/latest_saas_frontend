@@ -8,7 +8,7 @@ import {
   Search, Columns, Eye, Pencil, Trash2, MoreHorizontal, Mail, Phone,
   Building2, Tag, TrendingUp, User as UserIcon, X, Save, Calendar,
   Activity, ChevronDown, ChevronLeft, ChevronRight, AlertTriangle,
-  CheckCircle2, Users, Check, Sparkles,
+  CheckCircle2, Users, Check, Sparkles, Upload, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
@@ -135,6 +135,7 @@ function WorkspaceLeadsListInner({ id }: { id: string }) {
     cap: number; cap_unlimited: boolean;
   } | null>(null);
   const [search, setSearch] = useState('');
+  const [showImport, setShowImport] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [assignedFilter, setAssignedFilter] = useState<'' | 'unassigned' | number>('');
   const [sourceFilter, setSourceFilter] = useState<'' | 'none' | number>('');
@@ -264,14 +265,37 @@ function WorkspaceLeadsListInner({ id }: { id: string }) {
             View, edit, assign, or remove any of them inline.
           </p>
         </div>
-        <Link
-          href={`/w/${id}/leads`}
-          className="px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-slate-200 inline-flex items-center gap-2"
-        >
-          <Columns className="w-4 h-4" />
-          Pipeline view
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={async () => {
+              try { await OrganizationService.exportLeads({ workspace: Number(id) }); toast.success('Export started.'); }
+              catch { toast.error('Could not export.'); }
+            }}
+            className="px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-slate-200 inline-flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" /> Export
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowImport(true)}
+            className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold text-white inline-flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" /> Import
+          </button>
+          <Link
+            href={`/w/${id}/leads`}
+            className="px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-slate-200 inline-flex items-center gap-2"
+          >
+            <Columns className="w-4 h-4" />
+            Pipeline view
+          </Link>
+        </div>
       </div>
+
+      {showImport && (
+        <WorkspaceLeadImport workspaceId={Number(id)} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); load(); }} />
+      )}
 
       {/* Plan-cap banner — shown when the org has more leads than its
           plan allows. The OLDEST ``cap`` leads remain accessible; newer
@@ -1435,6 +1459,72 @@ function DetailRow({
       <Icon className="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0" />
       <div className="text-[10px] uppercase tracking-wider text-slate-500 w-20 shrink-0 mt-0.5">{label}</div>
       <div className="flex-1 text-sm text-white break-all">{value}</div>
+    </div>
+  );
+}
+
+function WorkspaceLeadImport({ workspaceId, onClose, onImported }: { workspaceId: number; onClose: () => void; onImported: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number; errors: Array<{ row: number; error: string }> } | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null); setResult(null);
+    if (!file) { setError('Choose a CSV file first.'); return; }
+    setBusy(true);
+    try {
+      const res = await OrganizationService.importLeads(file, workspaceId);
+      if (res?.success) { toast.success(res.message || 'Imported.'); setResult(res.data); if (!res.data?.skipped) onImported(); }
+      else { setError(res?.message || 'Import failed.'); if (res?.data?.errors) setResult(res.data); }
+    } catch (err) {
+      const v = err as { response?: { data?: { message?: string; data?: { errors?: Array<{ row: number; error: string }> } } } };
+      setError(v.response?.data?.message ?? 'Import failed.');
+      const ed = v.response?.data?.data?.errors; if (ed) setResult({ imported: 0, skipped: ed.length, errors: ed });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <form onSubmit={submit} className="w-full max-w-lg rounded-2xl bg-slate-900 border border-white/10 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 p-6 border-b border-white/5">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Import leads into this workspace</h2>
+            <p className="text-sm text-slate-400 mt-1">
+              Required column: <code className="text-emerald-300 font-mono">first_name</code>. Optional:
+              last_name, email, phone, status. They import straight into this workspace.
+            </p>
+            <button type="button" onClick={async () => { try { await OrganizationService.downloadImportTemplate(); } catch { toast.error('Could not download the sample.'); } }}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline">
+              ↓ Download sample CSV
+            </button>
+          </div>
+          <button type="button" onClick={onClose} className="p-2 rounded-md text-slate-500 hover:text-white hover:bg-white/5"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <label htmlFor="ws-lead-csv" className="flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed border-white/10 hover:border-emerald-500/40 cursor-pointer transition-colors text-slate-400 hover:text-emerald-300">
+            <Upload className="w-6 h-6" />
+            <span className="text-sm font-medium">{file ? file.name : 'Click to choose a CSV file'}</span>
+            <input id="ws-lead-csv" type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </label>
+          {error && <div className="rounded-lg border border-red-500/40 bg-red-500/[0.06] px-3 py-2 text-sm text-red-200">{error}</div>}
+          {result && (
+            <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-sm text-slate-200">
+              Imported {result.imported}{result.skipped ? `, skipped ${result.skipped}` : ''}.
+              {result.errors?.length > 0 && (
+                <ul className="mt-1 max-h-32 overflow-y-auto text-xs text-red-300">
+                  {result.errors.slice(0, 8).map((er, i) => <li key={i}>Row {er.row}: {er.error}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 p-6 border-t border-white/5">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/[0.04]">Close</button>
+          <button type="submit" disabled={busy || !file} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50">{busy ? 'Importing…' : 'Import'}</button>
+        </div>
+      </form>
     </div>
   );
 }
