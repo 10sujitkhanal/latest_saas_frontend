@@ -3,10 +3,21 @@
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
 import { businessCurrency } from '@/lib/currency';
 import Link from 'next/link';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Settings } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
-import { AccountingService, type InvoiceRow, type CustomerRow } from '@/services/accounting.service';
+import { AccountingService, type InvoiceRow, type CustomerRow, type InvoiceSettings } from '@/services/accounting.service';
+
+/** Live preview of the next invoice number from a numbering config. */
+function previewNumber(s: { invoice_prefix: string; invoice_number_format: string; invoice_number_pad: number }) {
+  const now = new Date();
+  const head = (s.invoice_number_format || '{prefix}-{year}-{seq}').split('{seq}')[0]
+    .replaceAll('{prefix}', s.invoice_prefix || 'INV')
+    .replaceAll('{year}', String(now.getFullYear()))
+    .replaceAll('{yy}', String(now.getFullYear() % 100).padStart(2, '0'))
+    .replaceAll('{month}', String(now.getMonth() + 1).padStart(2, '0'));
+  return head + '1'.padStart(Math.max(1, Math.min(s.invoice_number_pad || 4, 10)), '0');
+}
 import {
   AccountingTabs, PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
@@ -39,6 +50,28 @@ function Inner({ wsId }: { wsId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
+  // Invoice numbering + branding settings
+  const [setOpen2, setSetOpen2] = useState(false);
+  const [settings, setSettings] = useState<InvoiceSettings | null>(null);
+  const [savingSet, setSavingSet] = useState(false);
+  const openSettings = async () => {
+    setSetOpen2(true);
+    if (!settings) {
+      const r = await AccountingService.invoiceSettings.get(wsId);
+      if (r.success && r.data) setSettings(r.data);
+    }
+  };
+  const saveSettings = async () => {
+    if (!settings) return;
+    setSavingSet(true);
+    try {
+      const r = await AccountingService.invoiceSettings.save(wsId, settings);
+      if (r.success && r.data) { setSettings(r.data); setSetOpen2(false); }
+      else alert(r.message || 'Could not save settings.');
+    } catch (err) { alert(apiError(err, 'Could not save settings.')); }
+    finally { setSavingSet(false); }
+  };
+
   const act = async (id: number, fn: () => Promise<{ success: boolean; message?: string }>) => {
     setBusyId(id);
     try { const res = await fn(); if (!res.success) alert(res.message || 'Action failed.'); reload(); }
@@ -67,7 +100,15 @@ function Inner({ wsId }: { wsId: string }) {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Invoices" subtitle="Amounts customers owe you. Totals are computed from line items." action={<AddButton label="New invoice" onClick={openModal} />} />
+      <PageHeader title="Invoices" subtitle="Amounts customers owe you. Totals are computed from line items." action={
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={openSettings} title="Numbering & branding"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-slate-200 hover:border-emerald-500/40 hover:text-emerald-300">
+            <Settings className="h-4 w-4" /> Settings
+          </button>
+          <AddButton label="New invoice" onClick={openModal} />
+        </div>
+      } />
       <AccountingTabs wsId={wsId} />
       {loading ? <PageSkeleton kind="list" /> : error ? <ErrorBox message={error} onRetry={reload} /> : (
         <Card>
@@ -135,6 +176,46 @@ function Inner({ wsId }: { wsId: string }) {
             <PrimaryButton type="submit" disabled={saving}>{saving ? 'Saving…' : 'Create invoice'}</PrimaryButton>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={setOpen2} onClose={() => setSetOpen2(false)} title="Invoice numbering & branding">
+        {!settings ? <div className="py-6 text-center text-sm text-slate-400">Loading…</div> : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Prefix">
+                <TextInput value={settings.invoice_prefix} onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value })} placeholder="INV" />
+              </Field>
+              <Field label="Number padding">
+                <TextInput type="number" value={String(settings.invoice_number_pad)} onChange={(e) => setSettings({ ...settings, invoice_number_pad: Math.max(1, Math.min(Number(e.target.value) || 4, 10)) })} />
+              </Field>
+            </div>
+            <Field label="Format">
+              <TextInput value={settings.invoice_number_format} onChange={(e) => setSettings({ ...settings, invoice_number_format: e.target.value })} placeholder="{prefix}-{year}-{seq}" />
+            </Field>
+            <p className="text-[11px] text-slate-500">
+              Tokens: <code className="text-slate-300">{'{prefix}'}</code> <code className="text-slate-300">{'{year}'}</code> <code className="text-slate-300">{'{yy}'}</code> <code className="text-slate-300">{'{month}'}</code> <code className="text-slate-300">{'{seq}'}</code> (the running number). Must include <code className="text-slate-300">{'{seq}'}</code>.
+            </p>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2 text-sm">
+              Next invoice will be: <span className="font-mono font-semibold text-emerald-300">{previewNumber(settings)}</span>
+            </div>
+            <Field label="Template">
+              <SelectInput value={settings.invoice_template} onChange={(e) => setSettings({ ...settings, invoice_template: e.target.value })}>
+                <option value="classic">Classic</option>
+                <option value="modern">Modern</option>
+              </SelectInput>
+            </Field>
+            <Field label="Invoice footer (terms / thank-you note)">
+              <textarea value={settings.invoice_footer} onChange={(e) => setSettings({ ...settings, invoice_footer: e.target.value })} rows={3}
+                className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-emerald-500/40"
+                placeholder="e.g. Payment due within 30 days. Thank you for your business." />
+            </Field>
+            <p className="text-[11px] text-slate-500">Numbering changes apply to the next invoice; existing numbers are unchanged. The logo on the PDF comes from your business branding (or the agency’s, for agency-issued documents).</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setSetOpen2(false)} className="rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.03]">Cancel</button>
+              <PrimaryButton onClick={saveSettings} disabled={savingSet}>{savingSet ? 'Saving…' : 'Save settings'}</PrimaryButton>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

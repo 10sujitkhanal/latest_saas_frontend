@@ -431,8 +431,23 @@ const invoices = crud<InvoiceRow, InvoiceDetail>('invoices');
 const bills = crud<BillRow, BillDetail>('bills');
 const payments = crud<PaymentRow>('payments');
 
+export interface InvoiceSettings {
+  invoice_prefix: string;
+  invoice_number_format: string;
+  invoice_number_pad: number;
+  invoice_footer: string;
+  invoice_template: string;
+  preview: string;
+}
+const invoiceSettings = {
+  get: (workspaceId: Id) => httpGet<InvoiceSettings>(`${base(workspaceId)}/invoice-settings/`),
+  save: (workspaceId: Id, payload: Partial<InvoiceSettings>) =>
+    apiClient.put<ApiEnvelope<InvoiceSettings>>(`${base(workspaceId)}/invoice-settings/`, payload).then((r) => r.data),
+};
+
 export const AccountingService = {
   // Resource CRUD namespaces (list/get/create/update/remove).
+  invoiceSettings,
   accounts,
   customers,
   vendors,
