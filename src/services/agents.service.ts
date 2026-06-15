@@ -112,6 +112,7 @@ export interface NeedsAttentionLead {
   stage: string;
   reason: string;
   suggestion: string;
+  kind?: 'idle' | 'followup';
 }
 export interface OutreachDraftResponse {
   draft: { channel_kind: string; body: string };
@@ -343,12 +344,14 @@ export const CrmAgent = {
       })
       .then((r) => r.data),
 
-  /** Send the approved message via the SAME path the inbox uses. */
-  sendOutreach: (leadId: number, channelId: number, body: string) =>
+  /** Send the approved message via the SAME path the inbox uses. ``sequence``
+   *  schedules the next confirm-gated follow-up touch (Phase 4). */
+  sendOutreach: (leadId: number, channelId: number, body: string, sequence = true) =>
     apiClient
       .post<ApiEnvelope<{ conversation_id: number }>>(`/organization/leads/${leadId}/conversations/start/`, {
         channel_id: channelId,
         body,
+        sequence,
       })
       .then((r) => r.data),
 

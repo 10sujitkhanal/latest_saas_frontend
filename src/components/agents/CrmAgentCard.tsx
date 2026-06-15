@@ -386,6 +386,7 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
                 <div key={l.lead_id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="truncate font-semibold text-white">{l.name}</span>
+                    {l.kind === 'followup' && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold text-sky-300">Sequence</span>}
                     {l.stage && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400">{l.stage}</span>}
                     <span className="ml-auto inline-flex items-center gap-1 text-amber-300"><Clock className="h-3 w-3" />{l.reason}</span>
                   </div>
