@@ -143,9 +143,7 @@ export default function DashboardPage() {
           <PageError message={error} onRetry={() => loadOverview(period)} />
         ) : ov && (
           <div className="space-y-8">
-            {/* ── Manager: report + act, across every business ── */}
-            <OrgAiInsights workspaces={ov.workspaces.map((w) => ({ id: w.id, name: w.name }))} />
-            {/* ── Company Pulse ───────────────────────────────────── */}
+            {/* ── Company Pulse (headline numbers first) ──────────── */}
             <section>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-5 xl:col-span-1">
@@ -239,6 +237,9 @@ export default function DashboardPage() {
             </div>
 
             <UpcomingWidget />
+
+            {/* ── Manager: report + act, across every business ── */}
+            <OrgAiInsights workspaces={ov.workspaces.map((w) => ({ id: w.id, name: w.name }))} />
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               {/* ── Pinned Notes & Tasks ──────────────────────────── */}
