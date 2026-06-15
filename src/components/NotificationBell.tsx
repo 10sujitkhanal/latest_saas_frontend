@@ -38,8 +38,11 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const seenMax = useRef(0);
-  const firstLoad = useRef(true);
+  // Baseline of the newest notification id we've "seen". null until the FIRST
+  // populated fetch — so opening the page adopts the current max and never
+  // replays history as toasts (the store starts empty + isn't persisted, which
+  // used to re-toast every old/read notification on each mount).
+  const seenMax = useRef<number | null>(null);
 
   // Poll the store (Authorization header via apiClient — no token in URL, no
   // held server worker). Refreshes badge + list every 25s and on tab focus.
@@ -51,18 +54,28 @@ export default function NotificationBell() {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, [fetch]);
 
-  // Toast genuinely-new notifications as the store updates (skip first load).
+  // Toast ONLY genuinely-new, still-UNREAD notifications that arrive while the
+  // user is on the page. The red badge (below) carries the unread count; toasts
+  // are reserved for live arrivals, not a burst on open.
   useEffect(() => {
+    if (!items.length) return;                      // wait for the first real data
     const maxId = items.reduce((m, n) => Math.max(m, n.id), 0);
-    if (firstLoad.current) { seenMax.current = maxId; firstLoad.current = false; return; }
-    items.filter((n) => n.id > seenMax.current).sort((a, b) => a.id - b.id).forEach((n) => {
-      const fn = n.type === 'SUCCESS' ? toast.success : (n.type === 'WARNING' || n.type === 'PLAN_EXPIRED') ? toast.warning : toast;
-      (fn as any)(n.title, {
-        description: n.message,
-        action: n.link ? { label: 'View', onClick: () => router.push(n.link!) } : undefined,
+    if (seenMax.current === null) {                 // first populated load → adopt, no toast
+      seenMax.current = maxId;
+      return;
+    }
+    const base = seenMax.current;
+    items
+      .filter((n) => n.id > base && !n.is_read)
+      .sort((a, b) => a.id - b.id)
+      .forEach((n) => {
+        const fn = n.type === 'SUCCESS' ? toast.success : (n.type === 'WARNING' || n.type === 'PLAN_EXPIRED') ? toast.warning : toast;
+        (fn as any)(n.title, {
+          description: n.message,
+          action: n.link ? { label: 'View', onClick: () => router.push(n.link!) } : undefined,
+        });
       });
-    });
-    if (maxId > seenMax.current) seenMax.current = maxId;
+    if (maxId > base) seenMax.current = maxId;
   }, [items, router]);
 
   useEffect(() => {
