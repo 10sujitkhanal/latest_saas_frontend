@@ -143,8 +143,8 @@ export default function DashboardPage() {
           <PageError message={error} onRetry={() => loadOverview(period)} />
         ) : ov && (
           <div className="space-y-8">
-            {/* ── AI Staff insights (the Manager's report up to the owner) ── */}
-            <OrgAiInsights />
+            {/* ── Manager: report + act, across every business ── */}
+            <OrgAiInsights workspaces={ov.workspaces.map((w) => ({ id: w.id, name: w.name }))} />
             {/* ── Company Pulse ───────────────────────────────────── */}
             <section>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

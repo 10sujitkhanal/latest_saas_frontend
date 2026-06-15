@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Bot, Clock, ArrowRight, Sparkles, HelpCircle, AlertTriangle, ShieldCheck, CheckCircle2, Activity } from 'lucide-react';
+import { Bot, Clock, ArrowRight, Sparkles, HelpCircle, AlertTriangle, ShieldCheck, CheckCircle2, Activity, MessageSquare } from 'lucide-react';
 import { AgentsService, type OrgManagerOverview } from '@/services/agents.service';
+import AgentChat from '@/components/agents/AgentChat';
 
 /**
- * Owner-dashboard "AI Staff" card — answers ONE question: what needs the owner?
- * Approvals + risks + book/data health + open questions, merged & prioritised
- * into a single actionable list. Browsing the full activity log is a click away
- * ("Check AI activity"), not clutter on the glance view. Hides itself when the
- * user can't see agents.
+ * Owner-dashboard "AI Staff" card = your Manager. It REPORTS what needs you
+ * across every business (approvals/risks/health/questions, merged + prioritised)
+ * and lets you ACT right here: pick the business you're "acting in" and tell the
+ * Manager what to do (invoice, assign, draft, find leads…) — confirm-gated,
+ * reusing the same agent engine as each business's AI Staff page. Activity log is
+ * a click away. Hides itself when the user can't see agents.
  */
 function ago(iso: string): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -27,19 +29,27 @@ type Need = {
   title: string; meta: string; at: string; link: string;
 };
 
-export default function OrgAiInsights() {
+const MANAGER_EXAMPLES = ['What needs my attention?', 'Invoice Acme $500', 'Find beauty leads in Stockholm', 'Draft a post for the weekend'];
+
+export default function OrgAiInsights({ workspaces = [] }: { workspaces?: { id: number; name: string }[] }) {
   const [data, setData] = useState<OrgManagerOverview | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [wsId, setWsId] = useState<number | null>(null);
 
-  useEffect(() => {
-    let off = false;
+  const load = useCallback(() => {
     AgentsService.orgOverview()
-      .then((r) => { if (!off) { if (r?.success) setData(r.data); else setHidden(true); } })
-      .catch(() => { if (!off) setHidden(true); });
-    return () => { off = true; };
+      .then((r) => { if (r?.success) setData(r.data); else setHidden(true); })
+      .catch(() => setHidden(true));
   }, []);
+  useEffect(() => { load(); }, [load]);
 
-  // Everything that wants the owner's attention, merged into ONE prioritised list.
+  // Default the Manager's "acting in" business — prefer one that has work pending.
+  useEffect(() => {
+    if (wsId !== null) return;
+    const def = data?.businesses?.[0]?.workspace_id ?? workspaces[0]?.id ?? null;
+    if (def !== null) setWsId(def);
+  }, [data, workspaces, wsId]);
+
   const needs = useMemo<Need[]>(() => {
     if (!data) return [];
     const out: Need[] = [];
@@ -77,6 +87,7 @@ export default function OrgAiInsights() {
   if (hidden || !data) return null;
 
   const shown = needs.slice(0, 7);
+  const selName = workspaces.find((w) => w.id === wsId)?.name;
 
   return (
     <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4 sm:p-5">
@@ -87,7 +98,7 @@ export default function OrgAiInsights() {
             <Bot className="h-5 w-5 text-emerald-400" />
           </span>
           <div>
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-white">AI Staff <Sparkles className="h-3.5 w-3.5 text-emerald-400" /></p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-white">Manager <Sparkles className="h-3.5 w-3.5 text-emerald-400" /></p>
             <p className="text-xs text-slate-400">{data.headline}</p>
           </div>
         </div>
@@ -96,7 +107,7 @@ export default function OrgAiInsights() {
         </Link>
       </div>
 
-      {/* NEEDS YOU — the only thing on the card */}
+      {/* NEEDS YOU — the report */}
       <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Needs you</p>
       {shown.length === 0 ? (
         <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-3 text-[13px] text-slate-300">
@@ -120,12 +131,40 @@ export default function OrgAiInsights() {
           ))}
         </ul>
       )}
+      {needs.length > shown.length && (
+        <Link href="/ai-staff" className="mt-1.5 inline-block text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">
+          +{needs.length - shown.length} more →
+        </Link>
+      )}
 
-      {/* footer — activity is a click away, not clutter on the glance view */}
-      <div className="mt-3 flex items-center justify-between gap-3">
-        {needs.length > shown.length
-          ? <Link href="/ai-staff" className="text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">+{needs.length - shown.length} more →</Link>
-          : <span />}
+      {/* MANAGER CHAT — act right here, scoped to the chosen business */}
+      {workspaces.length > 0 && wsId !== null && (
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <MessageSquare className="h-3.5 w-3.5" /> Tell your manager what to do
+            </p>
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              Acting in
+              <select value={wsId} onChange={(e) => setWsId(Number(e.target.value))}
+                className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-white outline-none focus:border-emerald-500/40">
+                {workspaces.map((w) => <option key={w.id} value={w.id} className="bg-[#0a1120]">{w.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <AgentChat
+            key={wsId}
+            workspaceId={wsId}
+            title={`Manager · ${selName || 'your business'}`}
+            placeholder="e.g. invoice Acme $500 · assign the new leads to Sara · find beauty leads in Stockholm"
+            examples={MANAGER_EXAMPLES}
+            onActed={load}
+          />
+        </div>
+      )}
+
+      {/* activity is a click away, not clutter on the glance view */}
+      <div className="mt-3 text-right">
         <Link href="/ai-staff" className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-emerald-300">
           <Activity className="h-3.5 w-3.5" /> Check AI activity
         </Link>
