@@ -4,10 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Wand2, Loader2, Flame, Sun, Snowflake, ArrowRight, Lightbulb,
-  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply, Search, MapPin, Plus, Globe,
+  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply, Search, MapPin, Plus, Globe, UserSearch,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CrmAgent, type LeadAnalysis, type OutreachChannel, type FoundBusiness } from '@/services/agents.service';
+import { OrganizationService } from '@/services/organization.service';
+
+type PickedLead = { id: number; name: string; email?: string; phone?: string; temperature?: string };
 
 const FIND_CATEGORIES = [
   'gym', 'restaurant', 'cafe', 'hotel', 'salon', 'spa', 'pharmacy', 'clinic',
@@ -66,6 +69,30 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
   const [found, setFound] = useState<FoundBusiness[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [imported, setImported] = useState<PickedLead[] | null>(null);
+  // Reach ANY lead (search the whole pipeline, not just the newest 5)
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickQuery, setPickQuery] = useState('');
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<PickedLead[] | null>(null);
+
+  const searchLeads = async () => {
+    if (picking) return;
+    setPicking(true);
+    try {
+      const res = await OrganizationService.listLeads({ workspace: Number(workspaceId), search: pickQuery.trim() });
+      const arr = ((res?.data || []) as Array<{ id: number; first_name?: string; last_name?: string; company?: string; email?: string; phone?: string; temperature?: string }>);
+      setPicked(arr.slice(0, 15).map((l) => ({
+        id: l.id,
+        name: `${l.first_name || ''} ${l.last_name || ''}`.trim() || l.company || l.email || `Lead #${l.id}`,
+        email: l.email, phone: l.phone, temperature: l.temperature,
+      })));
+    } catch (e) {
+      toast.error(errMsg(e) || 'Could not search leads.');
+    } finally {
+      setPicking(false);
+    }
+  };
 
   const findLeads = async () => {
     if (finding || !findCity.trim()) return;
@@ -107,6 +134,9 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
       const res = await CrmAgent.importLeads(workspaceId, found, pipeline);
       if (res.success) {
         toast.success(res.message || 'Added to pipeline.');
+        // Found → outreach: surface the just-created leads so you can draft to
+        // them immediately, without hunting in "newest leads".
+        setImported(((res.data as unknown as { leads?: PickedLead[] } | undefined)?.leads) || []);
         setFound(null);
         setFindOpen(false);
       } else toast.error(res.message || 'Could not add.');
@@ -202,6 +232,80 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
     }
   };
 
+  // The draft composer body — shared by the inline (analysed results) view and
+  // the global modal used for any picked / freshly-imported lead.
+  const composerCard = () => {
+    if (!compose) return null;
+    return (
+      <>
+        {replyAnalysis?.leadId === compose.leadId && (
+          <div className="mb-2 rounded-lg bg-white/70 p-2 ring-1 ring-white/10">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reply read</span>
+              {(() => { const m = INTEREST[replyAnalysis.a.interest] || INTEREST.neutral;
+                return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${m.cls}`}>{m.label}</span>; })()}
+              {replyAnalysis.a.intent && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-500">{replyAnalysis.a.intent.replace(/_/g, ' ')}</span>}
+            </div>
+            {replyAnalysis.a.summary && <p className="mt-1 text-[11px] text-slate-500">{replyAnalysis.a.summary}</p>}
+            <p className="mt-1 text-[10px] text-slate-400">Suggested reply below — edit + approve to send.</p>
+          </div>
+        )}
+        {compose.channels.length === 0 ? (
+          <div className="flex items-start gap-2 text-xs text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              No channel connected yet. <Link href={`/w/${workspaceId}/leads/credentials`} className="font-semibold underline">Connect email, SMS or WhatsApp</Link> to let the agent send. (Draft below — you can copy it.)
+            </span>
+          </div>
+        ) : (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Send via</span>
+            <select
+              value={compose.channelId ?? ''}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                const ch = compose.channels.find((c) => c.id === id);
+                setCompose({ ...compose, channelId: id, channelKind: ch?.kind || compose.channelKind });
+              }}
+              className="rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-sm text-white outline-none focus:border-emerald-500/40">
+              {compose.channels.map((c) => (
+                <option key={c.id} value={c.id}>{CHANNEL[c.kind]?.label || c.kind}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <textarea
+          value={compose.body}
+          onChange={(e) => setCompose({ ...compose, body: e.target.value })}
+          rows={6}
+          className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/40"
+        />
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <button type="button" onClick={() => setCompose(null)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/[0.02]">
+            <X className="h-3.5 w-3.5" /> Cancel
+          </button>
+          <button type="button" onClick={send} disabled={sending || !compose.channelId || !compose.body.trim()}
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            {sending ? 'Sending…' : 'Approve & send'}
+          </button>
+        </div>
+      </>
+    );
+  };
+
+  // A compact "Draft outreach" button for any lead (picker / imported lists).
+  const OutreachBtn = ({ lead }: { lead: PickedLead }) => (
+    <button type="button" onClick={() => openCompose(lead.id)} disabled={draftingId === lead.id}
+      className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-50">
+      {draftingId === lead.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+      {draftingId === lead.id ? 'Drafting…' : 'Draft outreach'}
+    </button>
+  );
+
+  const composeInResults = !!(results && compose && results.some((r) => r.lead_id === compose.leadId));
+
   return (
     <div className={embed ? '' : 'mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-sm'}>
       {!embed && (
@@ -229,8 +333,70 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
           className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-emerald-500/40 hover:text-emerald-300">
           <Search className="h-4 w-4" /> Find new leads
         </button>
+        <button type="button" onClick={() => setPickOpen((o) => !o)}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-emerald-500/40 hover:text-emerald-300">
+          <UserSearch className="h-4 w-4" /> Reach a lead
+        </button>
         <Link href={`/w/${workspaceId}/leads`} className="text-sm font-semibold text-slate-500 hover:text-emerald-300">Open CRM</Link>
       </div>
+
+      {/* Reach ANY lead — search the whole pipeline, draft + send outreach */}
+      {pickOpen && (
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <p className="mb-2 text-xs text-slate-500">Search any lead in your pipeline and draft outreach — not just the newest few.</p>
+          <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-2.5">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input value={pickQuery} onChange={(e) => setPickQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchLeads(); } }}
+              placeholder="Name, email, phone or company…"
+              className="flex-1 bg-transparent py-2 text-sm text-white placeholder:text-slate-400 outline-none" />
+            <button type="button" onClick={searchLeads} disabled={picking}
+              className="my-1 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+              {picking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {picking ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+          {picked && (
+            <div className="mt-2 max-h-60 space-y-1.5 overflow-y-auto">
+              {picked.length === 0 && <p className="text-xs text-slate-400">No leads match that. Try a different name or email.</p>}
+              {picked.map((l) => (
+                <div key={l.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs">
+                  <span className="truncate font-semibold text-white">{l.name}</span>
+                  <span className="ml-auto inline-flex items-center gap-2 text-slate-400">
+                    {l.email && <span className="hidden items-center gap-1 sm:inline-flex"><Mail className="h-3 w-3" />{l.email}</span>}
+                    <OutreachBtn lead={l} />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Just imported (found → outreach) — draft to them right away */}
+      {imported && imported.length > 0 && (
+        <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-300">
+              <Check className="h-3.5 w-3.5" /> Added {imported.length} — draft outreach now
+            </span>
+            <button type="button" onClick={() => setImported(null)} className="text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+          </div>
+          <div className="max-h-60 space-y-1.5 overflow-y-auto">
+            {imported.map((l) => (
+              <div key={l.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs">
+                <span className="truncate font-semibold text-white">{l.name}</span>
+                <span className="ml-auto inline-flex items-center gap-2 text-slate-400">
+                  {l.email
+                    ? <span className="hidden items-center gap-1 text-emerald-600 sm:inline-flex"><Mail className="h-3 w-3" />{l.email}</span>
+                    : <span className="text-amber-300">no email</span>}
+                  <OutreachBtn lead={l} />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Find leads (OpenStreetMap) */}
       {findOpen && (
@@ -391,62 +557,10 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
                     </div>
                   )}
 
-                  {/* Composer */}
+                  {/* Composer (inline for analysed results) */}
                   {composing && compose && (
                     <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
-                      {replyAnalysis?.leadId === r.lead_id && (
-                        <div className="mb-2 rounded-lg bg-white/70 p-2 ring-1 ring-white/10">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reply read</span>
-                            {(() => { const m = INTEREST[replyAnalysis.a.interest] || INTEREST.neutral;
-                              return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${m.cls}`}>{m.label}</span>; })()}
-                            {replyAnalysis.a.intent && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-500">{replyAnalysis.a.intent.replace(/_/g, ' ')}</span>}
-                          </div>
-                          {replyAnalysis.a.summary && <p className="mt-1 text-[11px] text-slate-500">{replyAnalysis.a.summary}</p>}
-                          <p className="mt-1 text-[10px] text-slate-400">Suggested reply below — edit + approve to send.</p>
-                        </div>
-                      )}
-                      {compose.channels.length === 0 ? (
-                        <div className="flex items-start gap-2 text-xs text-amber-300">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                          <span>
-                            No channel connected yet. <Link href={`/w/${workspaceId}/leads/credentials`} className="font-semibold underline">Connect email, SMS or WhatsApp</Link> to let the agent send. (Draft below — you can copy it.)
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="mb-2 flex items-center gap-2">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Send via</span>
-                          <select
-                            value={compose.channelId ?? ''}
-                            onChange={(e) => {
-                              const id = Number(e.target.value);
-                              const ch = compose.channels.find((c) => c.id === id);
-                              setCompose({ ...compose, channelId: id, channelKind: ch?.kind || compose.channelKind });
-                            }}
-                            className="rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-sm text-white outline-none focus:border-emerald-500/40">
-                            {compose.channels.map((c) => (
-                              <option key={c.id} value={c.id}>{CHANNEL[c.kind]?.label || c.kind}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                      <textarea
-                        value={compose.body}
-                        onChange={(e) => setCompose({ ...compose, body: e.target.value })}
-                        rows={6}
-                        className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/40"
-                      />
-                      <div className="mt-2 flex items-center justify-end gap-2">
-                        <button type="button" onClick={() => setCompose(null)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/[0.02]">
-                          <X className="h-3.5 w-3.5" /> Cancel
-                        </button>
-                        <button type="button" onClick={send} disabled={sending || !compose.channelId || !compose.body.trim()}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50">
-                          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                          {sending ? 'Sending…' : 'Approve & send'}
-                        </button>
-                      </div>
+                      {composerCard()}
                     </div>
                   )}
                 </li>
@@ -458,6 +572,22 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
             </Link>
           </li>
         </ul>
+      )}
+
+      {/* Global composer modal — for a picked / freshly-imported lead (not in the
+          analysed-results list, which renders its composer inline above). */}
+      {compose && !composeInResults && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => { if (!sending) setCompose(null); }}>
+          <div className="w-full max-w-lg rounded-2xl border border-emerald-500/30 bg-[#0b1220] p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center gap-2">
+              <Send className="h-4 w-4 text-emerald-400" />
+              <span className="text-sm font-semibold text-white">Draft outreach</span>
+            </div>
+            {composerCard()}
+          </div>
+        </div>
       )}
     </div>
   );
