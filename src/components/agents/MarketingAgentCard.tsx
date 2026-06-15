@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Megaphone, Wand2, Loader2, Copy, Check } from 'lucide-react';
+import { Megaphone, Wand2, Loader2, Copy, Check, Image as ImageIcon, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { MarketingAgent } from '@/services/agents.service';
+import { MarketingAgent, AgentsService } from '@/services/agents.service';
 
 const IDEAS = [
   'A weekend promo on our best sellers',
@@ -21,6 +21,9 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
   const [drafting, setDrafting] = useState(false);
   const [post, setPost] = useState('');
   const [copied, setCopied] = useState(false);
+  const [imgPrompt, setImgPrompt] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
 
   const draft = async (g?: string) => {
     const theGoal = (g ?? goal).trim();
@@ -40,6 +43,25 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(post); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard */ }
+  };
+
+  // Generate a matching marketing image for the post (reuses the AI Staff image
+  // capability). Prompt comes from the image box, else the post goal.
+  const generateImage = async () => {
+    const subject = (imgPrompt || goal).trim();
+    if (!subject) { toast.error('Describe the image, or draft a post first.'); return; }
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const prompt = `Professional, eye-catching marketing image for a social post about: ${subject}. Clean, vibrant, on-brand. No watermark.`;
+      const r = await AgentsService.createImage(workspaceId, { prompt });
+      if (r.success && r.data?.image_url) setImageUrl(r.data.image_url);
+      else toast.error(r.message || 'Could not generate the image.');
+    } catch (e) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not generate the image right now.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -77,6 +99,41 @@ export default function MarketingAgentCard({ workspaceId, embed }: { workspaceId
           <p className="whitespace-pre-line text-[13px] text-slate-200">{post}</p>
         </div>
       )}
+
+      {/* Matching image — the Social agent's image capability, first-class here. */}
+      <div className="mt-5 border-t border-white/10 pt-4">
+        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <ImageIcon className="h-3.5 w-3.5" /> Matching image
+        </span>
+        <p className="mt-1 text-xs text-slate-500">Generate an on-brand image for this post with your connected AI model. Needs a connected OpenAI key with image access.</p>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)}
+            placeholder={goal ? `Defaults to: ${goal}` : 'e.g. winter wellness bundles, cozy spa vibe'}
+            className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:border-rose-300" />
+          <button type="button" onClick={generateImage} disabled={generating}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-rose-500/15 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-50">
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+            {generating ? 'Generating…' : imageUrl ? 'Regenerate' : 'Generate image'}
+          </button>
+        </div>
+        {generating && !imageUrl && <p className="mt-2 text-xs text-slate-500">This can take ~10–25s…</p>}
+        {imageUrl && (
+          <div className="mt-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl} alt="Generated marketing visual" className="max-h-80 w-auto max-w-full rounded-xl ring-1 ring-white/10" />
+            <div className="mt-2 flex items-center gap-2">
+              <a href={imageUrl} download target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-white/[0.06]">
+                <Download className="h-3.5 w-3.5" /> Download
+              </a>
+              <button type="button" onClick={generateImage} disabled={generating}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-white/[0.06] disabled:opacity-50">
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
