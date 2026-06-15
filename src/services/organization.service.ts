@@ -804,6 +804,11 @@ export const OrganizationService = {
     const { data } = await apiClient.delete(`/organization/leads/workflows/${id}/`);
     return data;
   },
+  // AI-write on-brand copy for every send step that doesn't have any yet.
+  aiWriteWorkflowCopy: async (id: number) => {
+    const { data } = await apiClient.post(`/organization/leads/workflows/${id}/ai-copy/`, {});
+    return data;
+  },
   runWorkflow: async (id: number, leadId: number) => {
     const { data } = await apiClient.post(`/organization/leads/workflows/${id}/run/`, { lead: leadId });
     return data;

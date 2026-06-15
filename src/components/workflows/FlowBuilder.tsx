@@ -587,6 +587,31 @@ export function FlowBuilder({ workflowId, wsId, initial }: FlowBuilderProps) {
     } finally { setSaving(false); }
   }, [validationError, name, isActive, nodes, edges, workflowId, router, wsId]);
 
+  // AI-write the copy for every send step that's empty, then re-hydrate the
+  // canvas. Saves the current flow first so no edits are lost.
+  const [writingCopy, setWritingCopy] = useState(false);
+  const aiWriteCopy = useCallback(async () => {
+    if (!workflowId || writingCopy || saving) return;
+    setWritingCopy(true);
+    try {
+      await save();  // persist the current canvas first
+      const res = await OrganizationService.aiWriteWorkflowCopy(workflowId);
+      if (res?.success) {
+        const g = res.data?.graph as { nodes?: Node<NodeData>[]; edges?: Edge[] } | undefined;
+        if (g?.nodes) {
+          setNodes(g.nodes.map(_normalize));
+          setEdges((g.edges || []).map((e) => ({ ...e, markerEnd: { type: MarkerType.ArrowClosed } })));
+        }
+        toast.success(res.message || 'AI wrote the copy.');
+      } else {
+        toast.error(res?.message || 'Could not write the copy.');
+      }
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Could not write the copy.');
+    } finally { setWritingCopy(false); }
+  }, [workflowId, writingCopy, saving, save, setNodes, setEdges]);
+
   return (
     <ReactFlowProvider>
       <div className="fixed inset-0 z-30 bg-[#070d1b] text-white flex flex-col">
@@ -680,6 +705,17 @@ export function FlowBuilder({ workflowId, wsId, initial }: FlowBuilderProps) {
               {validation.nodeId && (
                 <span className="text-[9px] uppercase tracking-wider opacity-70 shrink-0">Fix</span>
               )}
+            </button>
+          )}
+          {workflowId && (
+            <button
+              onClick={aiWriteCopy}
+              disabled={writingCopy || saving || !!validationError}
+              title="Let AI write on-brand copy for every send step that's empty"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/15 text-white/90 hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="w-4 h-4" />
+              {writingCopy ? 'Writing…' : 'Write copy with AI'}
             </button>
           )}
           <button
