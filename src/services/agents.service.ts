@@ -100,6 +100,19 @@ export interface LeadAnalysis {
 }
 
 export interface OutreachChannel { id: number; kind: string }
+
+export interface NeedsAttentionLead {
+  lead_id: number;
+  name: string;
+  email: string;
+  phone: string;
+  days_idle: number | null;
+  temperature: string;
+  score: number;
+  stage: string;
+  reason: string;
+  suggestion: string;
+}
 export interface OutreachDraftResponse {
   draft: { channel_kind: string; body: string };
   available_channels: OutreachChannel[];
@@ -310,6 +323,15 @@ export const CrmAgent = {
       .post<ApiEnvelope<{ analysis: LeadAnalysis }>>(`${base(workspaceId)}/crm/advise-lead/`, {
         lead_id: leadId,
       })
+      .then((r) => r.data),
+
+  /** The "nothing slips" sweep — open, reachable leads gone quiet. Read-only. */
+  needsAttention: (workspaceId: Id, idleDays?: number) =>
+    apiClient
+      .get<ApiEnvelope<{ leads: NeedsAttentionLead[]; count: number; idle_days: number }>>(
+        `${base(workspaceId)}/crm/needs-attention/`,
+        { params: idleDays ? { idle_days: idleDays } : undefined },
+      )
       .then((r) => r.data),
 
   /** Draft a first-touch message + list the connected channels (no send). */

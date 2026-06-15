@@ -4,10 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Wand2, Loader2, Flame, Sun, Snowflake, ArrowRight, Lightbulb,
-  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply, Search, MapPin, Plus, Globe, UserSearch,
+  Send, Check, X, Mail, MessageSquare, Phone, AlertTriangle, Reply, Search, MapPin, Plus, Globe, UserSearch, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CrmAgent, type LeadAnalysis, type OutreachChannel, type FoundBusiness } from '@/services/agents.service';
+import { CrmAgent, type LeadAnalysis, type OutreachChannel, type FoundBusiness, type NeedsAttentionLead } from '@/services/agents.service';
 import { OrganizationService } from '@/services/organization.service';
 
 type PickedLead = { id: number; name: string; email?: string; phone?: string; temperature?: string };
@@ -75,6 +75,25 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
   const [pickQuery, setPickQuery] = useState('');
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<PickedLead[] | null>(null);
+  // "Nothing slips" sweep — leads gone quiet
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+  const [nudging, setNudging] = useState(false);
+  const [nudge, setNudge] = useState<NeedsAttentionLead[] | null>(null);
+
+  const loadNudges = async () => {
+    if (nudging) return;
+    setNudgeOpen(true);
+    setNudging(true);
+    try {
+      const res = await CrmAgent.needsAttention(workspaceId);
+      if (res.success) setNudge(res.data?.leads || []);
+      else toast.error(res.message || 'Could not load the sweep.');
+    } catch (e) {
+      toast.error(errMsg(e) || 'Could not load the sweep right now.');
+    } finally {
+      setNudging(false);
+    }
+  };
 
   const searchLeads = async () => {
     if (picking) return;
@@ -337,8 +356,49 @@ export default function CrmAgentCard({ workspaceId, embed, pipeline }: { workspa
           className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-emerald-500/40 hover:text-emerald-300">
           <UserSearch className="h-4 w-4" /> Reach a lead
         </button>
+        <button type="button" onClick={() => { if (nudgeOpen) { setNudgeOpen(false); } else { loadNudges(); } }}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/40 hover:text-amber-300">
+          <Clock className="h-4 w-4" /> Needs a nudge
+        </button>
         <Link href={`/w/${workspaceId}/leads`} className="text-sm font-semibold text-slate-500 hover:text-emerald-300">Open CRM</Link>
       </div>
+
+      {/* "Nothing slips" sweep — open, reachable leads gone quiet */}
+      {nudgeOpen && (
+        <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/[0.04] p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-300">
+              <Clock className="h-3.5 w-3.5" /> Leads gone quiet{nudge ? ` (${nudge.length})` : ''}
+            </span>
+            <button type="button" onClick={loadNudges} disabled={nudging}
+              className="ml-auto inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:bg-white/[0.03] disabled:opacity-50">
+              {nudging ? <Loader2 className="h-3 w-3 animate-spin" /> : <Reply className="h-3 w-3" />} Refresh
+            </button>
+            <button type="button" onClick={() => setNudgeOpen(false)} className="text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+          </div>
+          {nudging && !nudge && <p className="text-xs text-slate-400">Scanning your pipeline…</p>}
+          {nudge && nudge.length === 0 && (
+            <p className="text-xs text-emerald-300">Nothing slipping — every open lead has had recent activity. 🎉</p>
+          )}
+          {nudge && nudge.length > 0 && (
+            <div className="max-h-72 space-y-1.5 overflow-y-auto">
+              {nudge.map((l) => (
+                <div key={l.lead_id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="truncate font-semibold text-white">{l.name}</span>
+                    {l.stage && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400">{l.stage}</span>}
+                    <span className="ml-auto inline-flex items-center gap-1 text-amber-300"><Clock className="h-3 w-3" />{l.reason}</span>
+                  </div>
+                  {l.suggestion && <p className="mt-1 text-[11px] text-slate-500">{l.suggestion}</p>}
+                  <div className="mt-1.5">
+                    <OutreachBtn lead={{ id: l.lead_id, name: l.name, email: l.email, phone: l.phone }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reach ANY lead — search the whole pipeline, draft + send outreach */}
       {pickOpen && (
