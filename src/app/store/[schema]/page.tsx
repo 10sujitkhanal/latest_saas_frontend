@@ -20,6 +20,30 @@ import {
 import { UniversalStorefrontClient } from '@/components/storefront/UniversalStorefrontClient';
 import StorefrontAssistant from '@/components/storefront/StorefrontAssistant';
 import { setFavicon } from '@/lib/branding';
+import { resolveApexApiBase } from '@/lib/apiBase';
+
+/**
+ * A subdomain that isn't a tenant store might be an AGENCY (e.g.
+ * ``moretechglobal.morefungi.com``). If so, route the visitor to that agency's
+ * branded landing instead of showing "store coming soon". Returns true when it
+ * redirected. Skipped on localhost (the agency app is a separate dev host).
+ */
+async function redirectIfAgency(slug: string): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost')) return false;
+  try {
+    const res = await fetch(`${resolveApexApiBase()}/api/v1/public/agency/storefront/${encodeURIComponent(slug)}/`);
+    if (!res.ok) return false;
+    const d = await res.json();
+    if (!(d?.data?.agency || d?.agency)) return false;
+    const apex = (process.env.NEXT_PUBLIC_FRONTEND_APEX || host.split('.').slice(-2).join('.')).toLowerCase();
+    window.location.replace(`https://agency.${apex}/landing?a=${encodeURIComponent(slug)}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Subtle, non-invasive sign-in pill shown over every storefront. Routes to the
  *  org login, which then sends the user where they belong (owner→dashboard,
@@ -67,10 +91,15 @@ export default function StorefrontPage({ params }: { params: Promise<{ schema: s
         getPublicAvailability(schema),
       ]);
       if (!alive) return;
-      if (!storefront) { setState('notfound'); return; }
+      if (!storefront) {
+        // Not a tenant store — maybe an agency subdomain → its landing.
+        if (await redirectIfAgency(schema)) return;
+        setState('notfound');
+        return;
+      }
       setData({ storefront, items, offers, availability });
       setState('ok');
-    })().catch(() => { if (alive) setState('notfound'); });
+    })().catch(async () => { if (alive && !(await redirectIfAgency(schema))) setState('notfound'); });
     return () => { alive = false; };
   }, [schema]);
 
