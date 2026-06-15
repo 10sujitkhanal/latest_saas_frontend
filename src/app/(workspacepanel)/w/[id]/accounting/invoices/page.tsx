@@ -7,6 +7,7 @@ import { Trash2, Plus, Settings } from 'lucide-react';
 import PermissionGuard from '@/components/workspace/PermissionGuard';
 import { PageSkeleton } from '@/components/workspace/Skeleton';
 import { AccountingService, type InvoiceRow, type CustomerRow, type InvoiceSettings } from '@/services/accounting.service';
+import { InventoryService, type ItemRow } from '@/services/inventory.service';
 
 /** Live preview of the next invoice number from a numbering config. */
 function previewNumber(s: { invoice_prefix: string; invoice_number_format: string; invoice_number_pad: number }) {
@@ -23,8 +24,8 @@ import {
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
 } from '@/components/accounting/kit';
 
-type LineDraft = { description: string; quantity: string; unit_price: string; discount_amount: string; tax_amount: string };
-const blankLine = (): LineDraft => ({ description: '', quantity: '1', unit_price: '', discount_amount: '', tax_amount: '' });
+type LineDraft = { line_kind: 'service' | 'product'; item: string; description: string; quantity: string; unit_price: string; discount_amount: string; tax_amount: string };
+const blankLine = (): LineDraft => ({ line_kind: 'service', item: '', description: '', quantity: '1', unit_price: '', discount_amount: '', tax_amount: '' });
 const today = () => new Date().toISOString().slice(0, 10);
 const plus = (d: number) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
 
@@ -42,6 +43,8 @@ function Inner({ wsId }: { wsId: string }) {
   const { rows, loading, error, reload } = useList<InvoiceRow>(fetcher);
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   useEffect(() => { AccountingService.customers.list(wsId).then((r) => setCustomers((r.data ?? []).filter((c) => c.is_active))).catch(() => {}); }, [wsId]);
+  const [items, setItems] = useState<ItemRow[]>([]);
+  useEffect(() => { InventoryService.items.list(wsId).then((r) => setItems(r.data ?? [])).catch(() => {}); }, [wsId]);
 
   const [open, setOpen] = useState(false);
   const [head, setHead] = useState({ invoice_no: '', customer: '', issue_date: today(), due_date: plus(30), currency: businessCurrency(), notes: '' });
@@ -54,11 +57,18 @@ function Inner({ wsId }: { wsId: string }) {
   const [setOpen2, setSetOpen2] = useState(false);
   const [settings, setSettings] = useState<InvoiceSettings | null>(null);
   const [savingSet, setSavingSet] = useState(false);
+  const [settingsErr, setSettingsErr] = useState<string | null>(null);
   const openSettings = async () => {
     setSetOpen2(true);
+    setSettingsErr(null);
     if (!settings) {
-      const r = await AccountingService.invoiceSettings.get(wsId);
-      if (r.success && r.data) setSettings(r.data);
+      try {
+        const r = await AccountingService.invoiceSettings.get(wsId);
+        if (r.success && r.data) setSettings(r.data);
+        else setSettingsErr(r.message || 'Could not load invoice settings.');
+      } catch (err) {
+        setSettingsErr(apiError(err, 'Could not load invoice settings. If this persists, the latest update may still be deploying.'));
+      }
     }
   };
   const saveSettings = async () => {
@@ -88,6 +98,8 @@ function Inner({ wsId }: { wsId: string }) {
     setSaving(true); setFormError(null);
     try {
       const payloadLines = lines.filter((l) => l.description && numberValue(l.unit_price) >= 0).map((l) => ({
+        line_kind: l.line_kind,
+        item: l.line_kind === 'product' && l.item ? Number(l.item) : null,
         description: l.description, quantity: numberValue(l.quantity) || 1, unit_price: numberValue(l.unit_price),
         discount_amount: numberValue(l.discount_amount), tax_amount: numberValue(l.tax_amount),
       }));
@@ -150,11 +162,26 @@ function Inner({ wsId }: { wsId: string }) {
 
           <div className="rounded-xl border border-white/10">
             <table className="w-full text-left text-xs">
-              <thead className="bg-white/[0.03] uppercase tracking-wide text-slate-500"><tr><th className="px-2 py-2">Description</th><th className="px-2 py-2 text-right">Qty</th><th className="px-2 py-2 text-right">Price</th><th className="px-2 py-2 text-right">Disc.</th><th className="px-2 py-2 text-right">Tax</th><th className="px-2 py-2"></th></tr></thead>
+              <thead className="bg-white/[0.03] uppercase tracking-wide text-slate-500"><tr><th className="px-2 py-2">Type</th><th className="px-2 py-2">Description / Item</th><th className="px-2 py-2 text-right">Qty</th><th className="px-2 py-2 text-right">Price</th><th className="px-2 py-2 text-right">Disc.</th><th className="px-2 py-2 text-right">Tax</th><th className="px-2 py-2"></th></tr></thead>
               <tbody className="divide-y divide-white/5">
                 {lines.map((l, i) => (
                   <tr key={i}>
-                    <td className="px-2 py-1.5"><TextInput value={l.description} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} /></td>
+                    <td className="px-2 py-1.5">
+                      <SelectInput value={l.line_kind} onChange={(e) => { const kind = e.target.value as 'service' | 'product'; setLines(lines.map((x, j) => j === i ? { ...x, line_kind: kind, ...(kind === 'service' ? { item: '' } : {}) } : x)); }}>
+                        <option value="service">Service</option>
+                        <option value="product">Product</option>
+                      </SelectInput>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {l.line_kind === 'product' ? (
+                        <SelectInput value={l.item} onChange={(e) => { const it = items.find((x) => String(x.id) === e.target.value); setLines(lines.map((x, j) => j === i ? { ...x, item: e.target.value, description: it ? it.name : x.description, unit_price: it ? String(it.selling_price) : x.unit_price } : x)); }}>
+                          <option value="">Select item…</option>
+                          {items.map((it) => <option key={it.id} value={it.id}>{it.name} ({it.sku}) · {it.qty_on_hand} in stock</option>)}
+                        </SelectInput>
+                      ) : (
+                        <TextInput value={l.description} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} />
+                      )}
+                    </td>
                     <td className="px-2 py-1.5"><TextInput type="number" step="0.01" value={l.quantity} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, quantity: e.target.value } : x))} /></td>
                     <td className="px-2 py-1.5"><TextInput type="number" step="0.01" value={l.unit_price} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unit_price: e.target.value } : x))} /></td>
                     <td className="px-2 py-1.5"><TextInput type="number" step="0.01" value={l.discount_amount} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, discount_amount: e.target.value } : x))} /></td>
@@ -179,7 +206,12 @@ function Inner({ wsId }: { wsId: string }) {
       </Modal>
 
       <Modal open={setOpen2} onClose={() => setSetOpen2(false)} title="Invoice numbering & branding">
-        {!settings ? <div className="py-6 text-center text-sm text-slate-400">Loading…</div> : (
+        {settingsErr ? (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-3 text-sm text-rose-200">{settingsErr}</div>
+            <div className="flex justify-end"><button type="button" onClick={openSettings} className="rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.03]">Retry</button></div>
+          </div>
+        ) : !settings ? <div className="py-6 text-center text-sm text-slate-400">Loading…</div> : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Prefix">
