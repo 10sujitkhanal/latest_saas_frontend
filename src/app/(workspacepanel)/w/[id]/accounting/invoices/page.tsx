@@ -19,6 +19,59 @@ function previewNumber(s: { invoice_prefix: string; invoice_number_format: strin
     .replaceAll('{month}', String(now.getMonth() + 1).padStart(2, '0'));
   return head + '1'.padStart(Math.max(1, Math.min(s.invoice_number_pad || 4, 10)), '0');
 }
+
+/** A paper-style mock of the invoice that reflects the branding settings live. */
+function InvoicePreview({ s }: { s: InvoiceSettings }) {
+  const accent = s.invoice_template === 'modern' ? (s.brand_color || '#0f172a') : '#0f172a';
+  const lines = [{ d: 'Consulting service', q: 1, p: 200 }, { d: 'Widget', q: 2, p: 20 }];
+  const total = lines.reduce((x, l) => x + l.q * l.p, 0);
+  return (
+    <div className="overflow-hidden rounded-xl bg-white p-4 text-[11px] text-slate-800 shadow-lg ring-1 ring-black/10">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {s.logo_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={s.logo_url} alt="" className="h-8 w-auto max-w-[120px] object-contain" />
+            : <div className="text-sm font-bold">{s.business_name || 'Your business'}</div>}
+          {s.logo_url && s.business_name && <div className="mt-1 truncate text-slate-500">{s.business_name}</div>}
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold" style={{ color: accent }}>INVOICE</div>
+          <div className="font-mono text-slate-500">#{previewNumber(s)}</div>
+        </div>
+      </div>
+      {s.invoice_template === 'modern' && <div className="my-2 h-1 rounded" style={{ background: accent }} />}
+      <div className="mt-3 text-[9px] uppercase tracking-wide text-slate-400">Billed to</div>
+      <div className="font-medium">Sample Customer</div>
+      <table className="mt-3 w-full border-collapse">
+        <thead>
+          <tr style={{ background: accent, color: '#fff' }}>
+            <th className="px-2 py-1 text-left font-semibold">Description</th>
+            <th className="px-2 py-1 text-right font-semibold">Qty</th>
+            <th className="px-2 py-1 text-right font-semibold">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i} className={i % 2 ? 'bg-slate-50' : ''}>
+              <td className="px-2 py-1">{l.d}</td>
+              <td className="px-2 py-1 text-right">{l.q}</td>
+              <td className="px-2 py-1 text-right">{(l.q * l.p).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-2 flex justify-end">
+        <div className="w-36">
+          <div className="flex justify-between border-t pt-1 font-bold" style={{ borderColor: accent, color: accent }}>
+            <span>Amount due</span><span>{total.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+      {s.invoice_footer && <div className="mt-3 whitespace-pre-line text-slate-500">{s.invoice_footer}</div>}
+    </div>
+  );
+}
 import {
   AccountingTabs, PageHeader, AddButton, ErrorBox, Card, TableShell, EmptyRow,
   Modal, Field, TextInput, SelectInput, PrimaryButton, Pill, money, numberValue, useList, apiError,
@@ -213,36 +266,43 @@ function Inner({ wsId }: { wsId: string }) {
           </div>
         ) : !settings ? <div className="py-6 text-center text-sm text-slate-400">Loading…</div> : (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Prefix">
-                <TextInput value={settings.invoice_prefix} onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value })} placeholder="INV" />
-              </Field>
-              <Field label="Number padding">
-                <TextInput type="number" value={String(settings.invoice_number_pad)} onChange={(e) => setSettings({ ...settings, invoice_number_pad: Math.max(1, Math.min(Number(e.target.value) || 4, 10)) })} />
-              </Field>
+            <div className="grid gap-5 lg:grid-cols-2">
+              {/* ── Settings ── */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Prefix">
+                    <TextInput value={settings.invoice_prefix} onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value })} placeholder="INV" />
+                  </Field>
+                  <Field label="Number padding">
+                    <TextInput type="number" value={String(settings.invoice_number_pad)} onChange={(e) => setSettings({ ...settings, invoice_number_pad: Math.max(1, Math.min(Number(e.target.value) || 4, 10)) })} />
+                  </Field>
+                </div>
+                <Field label="Format">
+                  <TextInput value={settings.invoice_number_format} onChange={(e) => setSettings({ ...settings, invoice_number_format: e.target.value })} placeholder="{prefix}-{year}-{seq}" />
+                </Field>
+                <p className="text-[11px] text-slate-500">
+                  Tokens: <code className="text-slate-300">{'{prefix}'}</code> <code className="text-slate-300">{'{year}'}</code> <code className="text-slate-300">{'{yy}'}</code> <code className="text-slate-300">{'{month}'}</code> <code className="text-slate-300">{'{seq}'}</code>. Must include <code className="text-slate-300">{'{seq}'}</code>.
+                </p>
+                <Field label="Template">
+                  <SelectInput value={settings.invoice_template} onChange={(e) => setSettings({ ...settings, invoice_template: e.target.value })}>
+                    <option value="classic">Classic</option>
+                    <option value="modern">Modern (brand colour)</option>
+                  </SelectInput>
+                </Field>
+                <Field label="Invoice footer (terms / thank-you note)">
+                  <textarea value={settings.invoice_footer} onChange={(e) => setSettings({ ...settings, invoice_footer: e.target.value })} rows={3}
+                    className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-emerald-500/40"
+                    placeholder="e.g. Payment due within 30 days. Thank you for your business." />
+                </Field>
+                <p className="text-[11px] text-slate-500">Numbering applies to the next invoice; existing numbers are unchanged. The logo + brand colour come from your business branding (Settings → Branding).</p>
+              </div>
+              {/* ── Live preview ── */}
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Live preview</p>
+                <InvoicePreview s={settings} />
+              </div>
             </div>
-            <Field label="Format">
-              <TextInput value={settings.invoice_number_format} onChange={(e) => setSettings({ ...settings, invoice_number_format: e.target.value })} placeholder="{prefix}-{year}-{seq}" />
-            </Field>
-            <p className="text-[11px] text-slate-500">
-              Tokens: <code className="text-slate-300">{'{prefix}'}</code> <code className="text-slate-300">{'{year}'}</code> <code className="text-slate-300">{'{yy}'}</code> <code className="text-slate-300">{'{month}'}</code> <code className="text-slate-300">{'{seq}'}</code> (the running number). Must include <code className="text-slate-300">{'{seq}'}</code>.
-            </p>
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2 text-sm">
-              Next invoice will be: <span className="font-mono font-semibold text-emerald-300">{previewNumber(settings)}</span>
-            </div>
-            <Field label="Template">
-              <SelectInput value={settings.invoice_template} onChange={(e) => setSettings({ ...settings, invoice_template: e.target.value })}>
-                <option value="classic">Classic</option>
-                <option value="modern">Modern</option>
-              </SelectInput>
-            </Field>
-            <Field label="Invoice footer (terms / thank-you note)">
-              <textarea value={settings.invoice_footer} onChange={(e) => setSettings({ ...settings, invoice_footer: e.target.value })} rows={3}
-                className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-emerald-500/40"
-                placeholder="e.g. Payment due within 30 days. Thank you for your business." />
-            </Field>
-            <p className="text-[11px] text-slate-500">Numbering changes apply to the next invoice; existing numbers are unchanged. The logo on the PDF comes from your business branding (or the agency’s, for agency-issued documents).</p>
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
               <button type="button" onClick={() => setSetOpen2(false)} className="rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.03]">Cancel</button>
               <PrimaryButton onClick={saveSettings} disabled={savingSet}>{savingSet ? 'Saving…' : 'Save settings'}</PrimaryButton>
             </div>

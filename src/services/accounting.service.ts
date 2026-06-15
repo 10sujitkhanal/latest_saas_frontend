@@ -438,6 +438,9 @@ export interface InvoiceSettings {
   invoice_footer: string;
   invoice_template: string;
   preview: string;
+  business_name: string;
+  brand_color: string;
+  logo_url: string;
 }
 const invoiceSettings = {
   get: (workspaceId: Id) => httpGet<InvoiceSettings>(`${base(workspaceId)}/invoice-settings/`),
