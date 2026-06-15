@@ -6,18 +6,12 @@ import { Bot, Clock, ArrowRight, Sparkles, HelpCircle, AlertTriangle, ShieldChec
 import { AgentsService, type OrgManagerOverview } from '@/services/agents.service';
 
 /**
- * Owner-dashboard "AI Staff" card — a calm command center, not a wall of logs.
- * Two lists only: what NEEDS the owner (approvals + risks + health + questions,
- * merged & prioritised) and a short RECENT ACTIVITY feed. Hides itself silently
- * when the user can't see agents.
+ * Owner-dashboard "AI Staff" card — answers ONE question: what needs the owner?
+ * Approvals + risks + book/data health + open questions, merged & prioritised
+ * into a single actionable list. Browsing the full activity log is a click away
+ * ("Check AI activity"), not clutter on the glance view. Hides itself when the
+ * user can't see agents.
  */
-const STATUS_DOT: Record<string, string> = {
-  done: 'bg-emerald-400', success: 'bg-emerald-400',
-  pending: 'bg-amber-400', needs_approval: 'bg-amber-400', running: 'bg-sky-400',
-  waiting_for_clarification: 'bg-sky-400', partial_success: 'bg-amber-400',
-  failed: 'bg-rose-400', cancelled: 'bg-slate-500',
-};
-
 function ago(iso: string): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return 'just now';
@@ -45,7 +39,7 @@ export default function OrgAiInsights() {
     return () => { off = true; };
   }, []);
 
-  // Merge everything that wants the owner's attention into ONE prioritised list.
+  // Everything that wants the owner's attention, merged into ONE prioritised list.
   const needs = useMemo<Need[]>(() => {
     if (!data) return [];
     const out: Need[] = [];
@@ -82,8 +76,7 @@ export default function OrgAiInsights() {
 
   if (hidden || !data) return null;
 
-  const shownNeeds = needs.slice(0, 6);
-  const feed = (data.feed || []).slice(0, 5);
+  const shown = needs.slice(0, 7);
 
   return (
     <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4 sm:p-5">
@@ -103,62 +96,39 @@ export default function OrgAiInsights() {
         </Link>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* NEEDS YOU */}
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Needs you</p>
-          {shownNeeds.length === 0 ? (
-            <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-3 text-[13px] text-slate-300">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" /> All clear — nothing needs your approval. 🎉
-            </div>
-          ) : (
-            <ul className="mt-2 space-y-1.5">
-              {shownNeeds.map((n, i) => (
-                <li key={i}>
-                  <Link href={n.link}
-                    className="group flex items-center gap-2.5 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 hover:border-emerald-500/25 hover:bg-white/[0.04] transition-colors">
-                    <n.Icon className={`h-4 w-4 shrink-0 ${n.tone}`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-slate-200">{n.title}</span>
-                      <span className="block truncate text-[11px] text-slate-500">{n.meta}</span>
-                    </span>
-                    {n.at && <span className="shrink-0 text-[11px] text-slate-600">{ago(n.at)}</span>}
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-600 group-hover:text-emerald-300" />
-                  </Link>
-                </li>
-              ))}
-              {needs.length > shownNeeds.length && (
-                <li>
-                  <Link href="/ai-staff" className="block px-3 py-1 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">
-                    +{needs.length - shownNeeds.length} more →
-                  </Link>
-                </li>
-              )}
-            </ul>
-          )}
+      {/* NEEDS YOU — the only thing on the card */}
+      <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Needs you</p>
+      {shown.length === 0 ? (
+        <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-3 text-[13px] text-slate-300">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" /> All clear — your AI staff has nothing waiting on you. 🎉
         </div>
+      ) : (
+        <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {shown.map((n, i) => (
+            <li key={i}>
+              <Link href={n.link}
+                className="group flex items-center gap-2.5 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 hover:border-emerald-500/25 hover:bg-white/[0.04] transition-colors">
+                <n.Icon className={`h-4 w-4 shrink-0 ${n.tone}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium text-slate-200">{n.title}</span>
+                  <span className="block truncate text-[11px] text-slate-500">{n.meta}</span>
+                </span>
+                {n.at && <span className="shrink-0 text-[11px] text-slate-600">{ago(n.at)}</span>}
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-600 group-hover:text-emerald-300" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
-        {/* RECENT ACTIVITY */}
-        <div>
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            <Activity className="h-3.5 w-3.5" /> Recent activity
-          </p>
-          {feed.length === 0 ? (
-            <div className="mt-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-3 text-[13px] text-slate-500">Nothing yet today.</div>
-          ) : (
-            <ul className="mt-2 space-y-1.5">
-              {feed.map((f, i) => (
-                <li key={i} className="flex items-center gap-2.5 px-1 text-[13px]">
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[f.status] || 'bg-slate-500'}`} />
-                  <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">{f.agent}</span>
-                  <span className="min-w-0 flex-1 truncate text-slate-300">{f.title}</span>
-                  {f.business && <span className="hidden shrink-0 text-[11px] text-slate-500 sm:inline">{f.business}</span>}
-                  <span className="shrink-0 text-[11px] text-slate-600">{ago(f.at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {/* footer — activity is a click away, not clutter on the glance view */}
+      <div className="mt-3 flex items-center justify-between gap-3">
+        {needs.length > shown.length
+          ? <Link href="/ai-staff" className="text-[11px] font-semibold text-emerald-300 hover:text-emerald-200">+{needs.length - shown.length} more →</Link>
+          : <span />}
+        <Link href="/ai-staff" className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-emerald-300">
+          <Activity className="h-3.5 w-3.5" /> Check AI activity
+        </Link>
       </div>
     </div>
   );
